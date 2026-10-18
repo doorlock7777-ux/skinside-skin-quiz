@@ -16,10 +16,10 @@ function ls(k, v){ try{ if(v === undefined) return JSON.parse(localStorage.getIt
 function getH(){ return DEMO ? HM : location.hash; }
 function setH(v){ if(DEMO){ HS.push(HM); HM = v; route(); } else location.hash = v; }
 /* 카테고리 칩 이동: 칩끼리 옮겨 다녀도 기록을 쌓지 않아서, 뒤로가기 한 번이면 칩을 누르기 전 화면(전체)으로 간다 */
-var CHIPBASE = false;
+var CHIPBASE = false; /* 칩을 처음 누른 화면이 전체(#/)였는지 */
 function chipGo(v){
   var onCat = /^#\/c\//.test(getH() || "");
-  if(!onCat){ CHIPBASE = true; return setH(v); }
+  if(!onCat){ CHIPBASE = (getH() || "#/") === "#/"; return setH(v); }
   if(v === "#/" && CHIPBASE){ CHIPBASE = false; if(DEMO){ HM = HS.pop() || "#/"; return route(); } return history.back(); }
   if(DEMO){ HM = v; route(); } else location.replace(v);
 }
