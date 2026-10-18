@@ -46,6 +46,33 @@ ul{padding-left:18px;margin:8px 0}li{margin:5px 0}
 .btn{display:block;width:100%;font:inherit;font-weight:700;color:var(--on-accent);background:var(--accent);border:0;border-radius:12px;padding:16px;margin-top:10px;cursor:pointer;text-align:center;text-decoration:none;box-shadow:var(--btn-shadow)}
 .btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent);box-shadow:none}
 .btn.small{font-size:14px;padding:12px}
+
+/* 카카오톡 채널 추가 */
+.kk{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;font:inherit;font-weight:700;font-size:16px;color:#191919;background:#FEE500;border:0;border-radius:12px;padding:16px;margin-top:14px;text-decoration:none;cursor:pointer}
+.kk:active{background:#F5DC00}
+.kk svg{flex:none}
+.kc{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:18px 0 0}
+.kc .kav{width:60px;height:60px;border-radius:34%;object-fit:cover;flex:none}
+.kc .kn{display:flex;align-items:center;gap:6px;font-size:19px;font-weight:800;line-height:1.3}
+.kc .kf{color:var(--muted);font-size:14px;margin-top:2px;font-variant-numeric:tabular-nums}
+.kd{color:var(--muted);font-size:14px;margin:10px 2px 0}
+/* 분석 중 */
+.an{text-align:center;padding:34px 0 10px}
+.an .ring{width:76px;height:76px;margin:0 auto 22px;border-radius:50%;background:conic-gradient(var(--accent) 0 28%,var(--line) 28% 100%);-webkit-mask:radial-gradient(circle,transparent 55%,#000 57%);mask:radial-gradient(circle,transparent 55%,#000 57%);animation:anspin 1s linear infinite}
+@keyframes anspin{to{transform:rotate(360deg)}}
+.an h2{margin:0 0 6px;font-size:22px}
+.ans{list-style:none;padding:0;margin:26px auto 22px;max-width:300px;text-align:left}
+.ans li{display:flex;align-items:center;gap:10px;padding:7px 0;color:var(--muted);font-size:15px;transition:color .3s}
+.ans li i{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--line);box-sizing:border-box;transition:all .3s}
+.ans li.on{color:var(--text);font-weight:700}
+.ans li.on i{border-color:var(--accent);border-top-color:transparent;animation:anspin .8s linear infinite}
+.ans li.ok{color:var(--text)}
+.ans li.ok i{background:var(--accent);border-color:var(--accent);animation:none;position:relative}
+.ans li.ok i::after{content:"";position:absolute;left:5px;top:2px;width:5px;height:9px;border:solid var(--on-accent);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.anb{height:6px;border-radius:99px;background:var(--line);overflow:hidden;max-width:300px;margin:0 auto}
+.anb i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;animation:anfill 4s linear forwards}
+@keyframes anfill{to{width:100%}}
+@media (prefers-reduced-motion:reduce){.an .ring,.ans li.on i{animation-duration:3s}}
 button:disabled{opacity:.45;cursor:not-allowed}
 button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .link{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;display:block;margin:16px auto 0}
@@ -212,6 +239,8 @@ function track(n, d){
   try{ window.dataLayer = window.dataLayer || []; window.dataLayer.push(p); }catch(e){}
   try{ if(window.gtag) window.gtag("event", n, d); }catch(e){}
   try{ if(window.fbq) window.fbq("trackCustom", n, d); }catch(e){}
+  var EV = {quiz_start:"quiz_start", quiz_complete:"quiz_done", kakao_click:"kakao_click", kakao_unlock:"kakao_unlock"};
+  if(EV[n]){ try{ fetch("/api/event", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({e:EV[n]}), keepalive:true}).catch(function(){}); }catch(e){} }
   if(ANALYTICS_ENDPOINT){ try{ navigator.sendBeacon(ANALYTICS_ENDPOINT, JSON.stringify(p)); }catch(e){} }
 }
 function utmUrl(u, key){
@@ -283,15 +312,33 @@ function calc(withC){
 }
 
 function isUnlocked(){ try{ return localStorage.getItem("skinside_unlocked") === "1"; }catch(e){ return !!S.unlocked; } }
+var KAKAO_FRIENDS = 8144;
+var KK_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#191919" d="M12 3C6.48 3 2 6.58 2 11c0 2.83 1.88 5.32 4.7 6.73l-.95 3.5c-.08.3.26.54.52.37l4.1-2.72c.54.07 1.06.12 1.63.12 5.52 0 10-3.58 10-8S17.52 3 12 3z"/></svg>';
+var KK_BADGE = '<svg width="18" height="18" viewBox="0 0 24 24" aria-label="인증된 채널"><circle cx="12" cy="12" r="11" fill="#2F80ED"/><path d="M7 12.5l3.2 3.2L17 9" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function gate(){
   pg(100);
   $('<h2>결과가 준비됐어요.</h2><p>피부타입 결과는 문장군 카카오톡 채널을 친구로 추가하면 바로 볼 수 있어요.</p>'
-   +'<div class="box muted">채널 친구가 되면 문장군 마켓 알림을 가장 먼저 보내드려요. 족보템을 제일 저렴하게 구매할 수 있어요.</div>'
-   +'<a class="btn" id="kk" href="' + (KAKAO_URL || "https://pf.kakao.com/") + '" target="_blank" rel="noopener" data-ev="kakao_click">카카오톡 채널 친구추가</a>'
-   +'<button class="btn ghost" id="ok" disabled>친구추가 했어요, 결과 보기</button>'
-   +'<p class="note" style="margin-top:8px">친구추가 후 이 화면으로 돌아와 버튼을 눌러주세요.</p>');
+   +'<div class="kc"><img class="kav" alt="" src="data:image/webp;base64,UklGRgILAABXRUJQVlA4IPYKAADQOQCdASqMAIwAPkkei0QioaEbeYaYKASEoAxFf3EeSfLk3TGzPOAHX2/vmi81jzc9++9CXpo7S8bb/7Xlny7cOeWJJt/Agy3HL//sxmXN39oH8zmm2ysMXzY5WS1fS1T4gAcN9Xmf82yfun8WjU96DX508g5Wj53AygAcqqDhzpmV8n3NvVEVwkfQtx+UDDVTSvaxU+9sz2sfkXUBmgl2PG4kUZyNKaupoqykrMkX9ikqPFiJrvz9y7NTrdhww2DSIeLDYTUyr8KXUuSWhfRQ7kFTyzB8E+FoRV1fwkY9Jepw3+IsIHBn+8IK3C0bfAZpGTZnpJ/STaR1bdUXmS3fSktVMBNgy3tHSUzKRIPcPBBhPQTVE8mCVDHz888zm/Odl6wucRPezbPLTv7H7RCWTFi4AgPSfFswNEJ6qddExBpQq78bQJAbFROI+oiM2sxc1W4hoxnRTcZyl5/lJRNrazLlqXiKJJ+3usx/ycbmWGOqaH9mo6XNoezAauBHlyffVMxPEgNaxqbkBbBhf+BtytNF7K/0/7p5SNiBqEO52Ns1aM8UdR46VDdgMaI3wbpoZOcdnkt75wJPy1O4v340hzr/kyHnSdlCkqql9WkrQFmhrJZI9zAA/v/b4Enviaj8xRGsRY21LmtIgIibqw/VMw3yD3zSPUuNTG2U4aLEFdEIjAhb9+FKy9m/dbTNddw5lV5rnGnpcBAbSz+AD/XfD58fQ55pEdjgfwTV6KgeIdYC/PxWT45Cne/YEjUVAfnOsdspzXacyNnAKeXPSCaM3Q0zeEJjpbhqoEHnpGnP7UYaLLGv3NjpAF+wR9GSXVxqyt7KA+0BxUsqjHWC3FskNdu31P4OEyE6wY40aQSoWDSUmwY4Jo2ygpVNnuSymXdZd0b6MhqvA1xo23MsECVm1uo6MZzrF8wmN6CNybiDY1XPiAIoC0xpcgAuoajQzSC6QzdiWmLjwFPiFpe7uHKRtVrvtgKa8k2JOiTlJ+QDsYJ43e6IOmgX3EXerl4u4Dx6R33HWaBUhh+fHffhzEaSk1siYE4o8LvZSUp0n3M2b+oWh7dJgo7RdTjp+w9Olok43ulxEHQsAXQABQrO8k7/fixZX1S1xrDv1UwBO8DQD0U652oev+XizFmRYe6rSSsbJhqU2OEOIISsWXP1z3767Xu+hOK4UmNsVZQ5mGQGgvkx26ZUKvWRdJuIOjaaxC7hbZR8RF7jSYzzIPHKdKsYvvtBbtc/ar9dXgXZxz1dBoMjTZkfI5YWNTZHnvI+MuM7dg/JLiw/Mv/U6+uKVUYpYn+EgoYPzM4vy9LE70yvsX3bpGB8L4XCuvXXiIDBGcCMhhJ5eW3Ny9mZDjdRDDQp/kM0deJ6+3k2SaitsEErB5wSCQFwGKFLsTtmZvjjzh/gjicL4rajIODMhVWL8aJM+n1wi8R6RYOM3j3b91t/J1rN9Pedm0f9tGe460nl0PtXYFw5cnFQrtNgjshFn+Qivu5hs6ryl9YBXxEq2n1lBtaWuJxOqFaqn52urhLWgy9WsKIuNcptUs83bm8xyOd1jWoH6InU+CeHsk5+umnPCaa2uimbtHy2+6zKVIhWbU/BXnY2eMb1IaVbM5qkbzRmLDYPhW6p7PDEeW1EOAwm16Sk9FscTncfthzIUK2AIda9lgcB6DAsvQlyQJQYh9jiAe3u2ofzpCINW2jZduU+FBNXAqC9h+DK8O6AdMT4u5d7ssSDmlsGnYdSxxlxUXvvnYwXdzL48CpQPuCH3wyBnhMfPoxc85hAJdPM4htfpY0qMfUr5P4Pg4IsrAEPfDLS8dZJmOFpXPsZR+Mlho5gAc5F2azFJE+yq8KaiOnuxHsZhpn5a8fuhBvfbdjcUGiejKwJSEisW1MNBa5+xS6iYLUEnlReFpN29tcEXndPW5HtvksPc69Bw2avf4Q5Fj1tYPPMk2lq0juaZwuBXI9PJu/O9OytSWdac6RRFnezRZVQ0/Kde4TunR74zcjMzo4x/8Y/VaxHXGYm0o4z6TfxxP+bHJKKlwiqtmGdUJ5KECh/TqZdWPJAc2VMmrmf3O+sm0hoVWNx9z4J4HUo8CdAcbeh4YuTGAWPS2n/2oMUtXGMjDCBHQzTWVWMYR+aKo1Jufn6Y3888eEvjQHC0sGoRg2zhNkf1xW4Fjv6gw7T+YP2qUlkS5zQAbz73mXMYZOmyzLXFEXIZcI9Y87Ifd9XimOLZZJ+HJklROrXF2fbDjKnvtE0kjszRknQXyBWoDITk8EE6tM6DaJs+w6Euq9qJtYTI8ckPvCu/SXX01C5gD2o45qh52ezggbuae+Si2b8CKsdfFkPMP71L74JmK0qrjfOo2xtrVk/bQCXtdp9jWRXUcLG9rQqswUAmCR6cEQBoI+RITgaGS2soec8TQZAQ137tacLqgix2H9KCFWRWJUycUsLwhFcPnuLkynIUkkroFLnQMwamzO/Q7GxbcanttvjFLGq3TYRavKJU1nmaoont7HJsYSwooSpeckr/L/VKHNXFK7CBbK48hovUfvH3WxH1c623W6nbRqr0UX+RKWRTIFZUubvCD+6cScDCJXW/ZDTsqDv2kIcf/bLlz31t4NFJWKCkBrdwZ2bZVFXjvaMFJR2zbtDkzAQQFZLuBxhBedViLcQCwEfeRC3wkrBZY6B7+ioATeRoRzbJ7J+UY0ETNYrXMHDGqt291itDia8KO03KmSPqKq+8gidopWyIcFrOCHErrK1JIb0Y4R7D29YLvN1aaisHiUcGZDpMgOFRecacVbPf8pjqZOQ/ISslv12eJJfoe4cUZJt/a4MdUw4oHPEA+hFStt2nFafHs9HLFegZG0anGcc+Su2rL1iM/mO7PS7yb1wGopbpDqQUxiLsgF3KeLaynqGs4x1JBN9fQO4svA03sZszXOU6ZDHXeXcB2IPwFIYNje2AyLuuS6ws49R3qZG38r98Ne35d7b21NM0I7yLwmkYluygiHdLuYEwgk4c5AAF1OuTZnzCJ5SXvb7zptqpCbLPD2Fm4T4Nd7qavx4RY+Kzp1ai1zHFqZUUEuWFmj3QIWBC68SaCjS+n7k4vMJNakq71mVowhkD+e/ffPIt0OYMfjpOC+cNAi6siuRNXhsj7VcExrOL0bCJ5xqoPQATnIiPq+EHI8hclztD3NZP8ygJNydOlKEG2ydCnX8Sgfe1j7nv/IF0FfXAGsr7mLOZxBXW1DbnvVVdPaet2gqRPZkvCqbICj6AuB2T957Ha0jiUYZb1zDSoijSahh/RGkE7nHz3OIY1bK3hsTNEtWk67gKZRgCZwhPpmjg3EX8T9vinzJ+Jr12W6/MJWwncZnuyXsTD1xWjhhXd0iiNzfjydc0TDi2JeK0WPbFdbeuEgiFCLDwSWVPb58DfdQ7nx+0H7wj+ky5vlV2pDNyt1WMALY+XbuvGLtKUsFYVtZZ74/pjXp/N5XQgzHgmzBc+89g/FzL4BmkBgk8/kodJ0jWbRkBUiQp6aP3Xck03l1WxVz++ioahbp+T3eyLfV5Sh6yNhtnXfdBpb89J/AQNmq/6OhdgMn4w5WYS/U/5W0DvdRzT4KhJKVqm8CS+dqYp4t6HuKD3kd9Gfky948t6Wye0j+K3bwBNhZLQ+90xR4GNGbShFRQbLunXAcH9oWXY06Xdkqmm7AGKKjxVO7VHdLKdVeaoFv8/iEkc3ZiHkiBrXWSglnFe7fkeGYENcb+Q0O6rsvbmABKm6FIAAAAAAA"><div><div class="kn"><b>문장군</b>' + KK_BADGE + '</div><div class="kf">친구 <span id="kfn">' + KAKAO_FRIENDS.toLocaleString("ko-KR") + '</span></div></div></div>'
+   +'<p class="kd">문장군 마켓 알림받고 남들보다 빨리사자</p>'
+   +'<a class="kk" id="kk" href="' + (KAKAO_URL || "https://pf.kakao.com/") + '" target="_blank" rel="noopener" data-ev="kakao_click">' + KK_ICON + '카카오톡 채널 추가하기</a>'
+   +'<button class="btn ghost" id="ok" disabled>추가했어요, 결과 보기</button>'
+   +'<p class="note" style="margin-top:8px">채널 추가 후 이 화면으로 돌아와 버튼을 눌러주세요.</p>');
+  try{ fetch("/api/kakao").then(function(r){ return r.ok ? r.json() : null; }).then(function(j){ var e = document.getElementById("kfn"); if(j && j.friends > 0 && e) e.textContent = j.friends.toLocaleString("ko-KR"); }).catch(function(){}); }catch(e){}
   document.getElementById("kk").onclick = function(){ setTimeout(function(){ var b = document.getElementById("ok"); if(b) b.disabled = false; }, 2500); };
   document.getElementById("ok").onclick = function(){ try{ localStorage.setItem("skinside_unlocked", "1"); }catch(e){ S.unlocked = true; } track("kakao_unlock"); render(); };
+}
+/* 결과 직전 분석 화면 (4초) */
+var AN_STEPS = ["응답 데이터 확인", "피지·수분 균형 분석", "민감도·색소 지표 계산", "피부타입 코드 생성"];
+function analyze(){
+  pg(100);
+  $('<div class="an"><div class="ring" role="img" aria-label="분석 중"></div><h2>피부타입 분석 중...</h2><p class="muted">응답을 바탕으로 4가지 축을 계산하고 있어요.</p>'
+   +'<ul class="ans">' + AN_STEPS.map(function(t){ return '<li><i></i>' + t + '</li>'; }).join("") + '</ul><div class="anb"><i></i></div></div>');
+  var lis = document.querySelectorAll(".ans li"), t0 = Date.now();
+  tick = setInterval(function(){
+    var el = Date.now() - t0;
+    for(var k = 0; k < lis.length; k++) lis[k].className = el >= (k + 1) * 1000 ? "ok" : (el >= k * 1000 ? "on" : "");
+    if(el >= 4000){ clearInterval(tick); S.analyzed = true; save(); render(); }
+  }, 100);
 }
 function render(){
   clearInterval(tick);
@@ -300,6 +347,7 @@ function render(){
   if(S.screen === "intro") return intro();
   if(S.screen === "timer") return timer();
   if(S.screen === "check") return check();
+  if(S.screen === "result" && !S.analyzed) return analyze();
   if(GATE && !isUnlocked()) return gate();
   result();
 }
@@ -530,7 +578,7 @@ render();
     DB = r[0]; DL = r[2];
     var u = r[1] ? r[1].id() : Promise.resolve(null);
     return Promise.resolve(u).then(function(id){ UID = id; });
-  }).then(function(){ loadStats(); if(S.screen === "result") render(); }).catch(function(){});
+  }).then(function(){ loadStats(); if(S.screen === "result" && S.analyzed) render(); }).catch(function(){});
 })();
 </script>
 </body>

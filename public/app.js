@@ -282,6 +282,12 @@ if(DEMO) document.addEventListener("click", function(e){
 });
 
 fetch("data/products.json").then(function(r){ return r.json(); }).then(function(j){
+  /* 관리자 페이지에서 추가한 제품을 합친다 (실패해도 기본 제품은 그대로) */
+  return fetch("/api/extra").then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(x){
+    ((x && x.products) || []).forEach(function(p){ if(p && p.id && j.categories[p.cat] && !j.products.some(function(q){ return q.id === p.id; })) j.products.push(p); });
+    return j;
+  });
+}).then(function(j){
   D = j; j.products.forEach(function(p){ P[p.id] = p; });
   var go0 = function(){ route(); };
   var go = function(){ fetch("/api/popular").then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(pp){ POP = (pp && pp.stats) || {}; rank(); go0(); }); };

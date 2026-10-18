@@ -41,9 +41,19 @@ export function isAdmin(req) {
   return t.length >= 12 && a.length === b.length && timingSafeEqual(a, b);
 }
 
+/* 관리자 페이지에서 추가한 제품(blob "extra")과 설정(blob "settings"), 이벤트 집계(blob "events") */
+export const extraStore = () => getStore({ name: "extra", consistency: "strong" });
+export const extraImg = () => getStore({ name: "extraimg", consistency: "strong" });
+export const settings = () => getStore({ name: "settings", consistency: "strong" });
+export const events = () => getStore({ name: "events", consistency: "strong" });
+export async function loadExtra() {
+  try { return (await extraStore().get("list", { type: "json" })) || []; } catch { return []; }
+}
 export async function loadProducts(req) {
   const r = await fetch(new URL("/data/products.json", req.url));
   const d = await r.json();
+  const extra = await loadExtra();
+  d.products = d.products.concat(extra);
   const map = {};
   d.products.forEach((p) => (map[p.id] = p));
   return { data: d, map };
@@ -75,5 +85,12 @@ export async function addStat(list) {
   const st = stats(), k = kday();
   const o = (await st.get(k, { type: "json" })) || {};
   list.forEach(([id, e, n]) => { const s = (o[id] = o[id] || { v: 0, c: 0, b: 0, d: 0 }); s[e] = (s[e] || 0) + n; });
+  await st.setJSON(k, o);
+}
+
+export async function addEvent(name, n = 1) {
+  const st = events(), k = kday();
+  const o = (await st.get(k, { type: "json" })) || {};
+  o[name] = (o[name] || 0) + n;
   await st.setJSON(k, o);
 }

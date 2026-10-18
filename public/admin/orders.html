@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>스킨인사이드 주문 관리</title>
+<style>
+body{margin:0;font-family:"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;background:#f2f4f6;color:#191f28;font-size:14px}
+header{background:#4E57A2;color:#fff;padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header b{font-size:17px;flex:1}
+main{max-width:980px;margin:0 auto;padding:16px}
+input,select,button{font:inherit;padding:8px 10px;border:1px solid #d1d6db;border-radius:8px;background:#fff}
+button{cursor:pointer;background:#4E57A2;color:#fff;border-color:#4E57A2;font-weight:700}
+button.g{background:#fff;color:#4E57A2}button.r{background:#fff;color:#f04452;border-color:#f04452}
+.o{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px}
+.h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:700;margin-bottom:8px}
+.st{font-size:12px;padding:3px 10px;border-radius:999px;background:#eceef8;color:#4E57A2}
+.br{border-top:1px solid #e5e8eb;padding:10px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.br>div:first-child{flex:1;min-width:240px}
+.s{color:#6b7684;font-size:13px}
+#lg{padding:40px 16px;text-align:center}
+</style></head>
+<body>
+<header><b>스킨인사이드 주문 관리</b><a href="/admin/" style="color:#fff;font-weight:700">관리자 홈</a><input id="mo" type="month" aria-label="정산 월"><button class="g" id="st">정산 CSV</button><button class="g" id="rf">새로고침</button></header>
+<main id="m"></main>
+<script>
+var T = sessionStorage.getItem("adm") || "", M = document.getElementById("m");
+var CAR = {cj:"CJ대한통운", lotte:"롯데택배", hanjin:"한진택배", post:"우체국", logen:"로젠택배"};
+var STL = {paid:"결제 완료", partial:"일부 발송", shipped:"발송 완료", canceled:"취소됨", failed:"결제 실패"};
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function api(p, o){ o = o || {}; o.headers = Object.assign({authorization:"Bearer " + T}, o.headers || {}); return fetch(p, o); }
+function post(p, b){ return api(p, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(b)}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "오류"); return j; }); }); }
+document.getElementById("mo").value = new Date().toISOString().slice(0, 7);
+function login(){ M.innerHTML = '<div id="lg"><p>관리자 토큰을 입력하세요</p><input id="tk" type="password" style="width:260px"> <button id="ok">확인</button></div>'; document.getElementById("ok").onclick = function(){ T = document.getElementById("tk").value.trim(); sessionStorage.setItem("adm", T); load(); }; }
+function load(){
+  api("/api/admin/orders").then(function(r){ if(r.status === 401){ sessionStorage.removeItem("adm"); login(); throw 0; } return r.json(); }).then(function(j){
+    if(!j.orders.length){ M.innerHTML = '<div id="lg">아직 주문이 없어요.</div>'; return; }
+    M.innerHTML = j.orders.map(function(o){
+      var a = o.ship || {}, by = {};
+      o.items.forEach(function(l){ (by[l.brand] = by[l.brand] || []).push(l); });
+      var h = '<div class="o"><div class="h"><span>' + esc(o.id) + ' · ' + new Date(o.createdAt).toLocaleString("ko-KR") + '</span><span class="st">' + (STL[o.status] || esc(o.status)) + ' · ' + o.total.toLocaleString() + '원</span></div>'
+        + '<div class="s">' + esc(a.name) + ' / ' + esc(a.phone) + ' / (' + esc(a.zip) + ') ' + esc(a.addr1) + ' ' + esc(a.addr2) + (a.memo ? ' / 메모: ' + esc(a.memo) : '') + '</div>';
+      Object.keys(by).forEach(function(k){
+        var sh = (o.shipments || {})[k] || {}, nm = (j.brands[k] && j.brands[k].name) || k;
+        h += '<div class="br"><div><b>' + esc(nm) + '</b><div class="s">' + by[k].map(function(l){ return esc(l.name) + (l.optName ? ' (' + esc(l.optName) + ')' : '') + ' x' + l.q; }).join('<br>') + '</div></div>'
+          + '<select data-c="' + esc(o.id + '|' + k) + '">' + Object.keys(CAR).map(function(c){ return '<option value="' + c + '"' + (sh.carrier === c ? ' selected' : '') + '>' + CAR[c] + '</option>'; }).join("") + '</select>'
+          + '<input data-t="' + esc(o.id + '|' + k) + '" placeholder="송장번호" value="' + esc(sh.tracking || "") + '"><button data-s="' + esc(o.id + '|' + k) + '">저장</button></div>';
+      });
+      if(["paid", "partial", "shipped"].indexOf(o.status) >= 0) h += '<div style="margin-top:8px"><button class="r" data-x="' + esc(o.id) + '">결제 취소·환불</button></div>';
+      return h + '</div>';
+    }).join("");
+    [].forEach.call(M.querySelectorAll("[data-s]"), function(b){ b.onclick = function(){
+      var k = b.dataset.s, p = k.split("|");
+      post("/api/admin/ship", {orderId:p[0], brand:p[1], carrier:M.querySelector('[data-c="' + k + '"]').value, tracking:M.querySelector('[data-t="' + k + '"]').value}).then(load).catch(function(e){ alert(e.message); });
+    }; });
+    [].forEach.call(M.querySelectorAll("[data-x]"), function(b){ b.onclick = function(){
+      if(!confirm("이 주문을 전액 취소하고 환불할까요?")) return;
+      post("/api/admin/cancel", {orderId:b.dataset.x}).then(load).catch(function(e){ alert(e.message); });
+    }; });
+  }).catch(function(e){ if(e !== 0) M.innerHTML = '<div id="lg">불러오지 못했어요.</div>'; });
+}
+document.getElementById("rf").onclick = function(){ T ? load() : login(); };
+document.getElementById("st").onclick = function(){
+  api("/api/admin/settlement?month=" + document.getElementById("mo").value).then(function(r){ return r.blob(); }).then(function(b){ var a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "settlement-" + document.getElementById("mo").value + ".csv"; a.click(); });
+};
+T ? load() : login();
+</script></body></html>
