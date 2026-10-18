@@ -15,9 +15,10 @@ button.g{background:#fff;color:#4E57A2}button.r{background:#fff;color:#f04452;bo
 .br>div:first-child{flex:1;min-width:240px}
 .s{color:#6b7684;font-size:13px}
 #lg{padding:40px 16px;text-align:center}
+.pn{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px}.pn h3{margin:0 0 6px;font-size:15px}.pn table{width:100%;border-collapse:collapse;font-size:13px}.pn td,.pn th{padding:7px 6px;border-top:1px solid #e5e8eb;text-align:left}.hp{background:#fff8e6;color:#8a5a00;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px}.ok{color:#12b886;font-weight:700}.wn{color:#f04452;font-weight:700}
 </style></head>
 <body>
-<header><b>스킨인사이드 주문 관리</b><a href="/admin/" style="color:#fff;font-weight:700">관리자 홈</a><input id="mo" type="month" aria-label="정산 월"><button class="g" id="st">정산 CSV</button><button class="g" id="rf">새로고침</button></header>
+<header><b>스킨인사이드 주문 관리</b><a href="/admin/" style="color:#fff;font-weight:700">관리자 홈</a><input id="mo" type="month" aria-label="정산 월"><button class="g" id="st">정산 CSV</button><button class="g" id="rf">새로고침</button><button class="g" id="bm">브랜드 메일·링크</button></header>
 <main id="m"></main>
 <script>
 var T = sessionStorage.getItem("adm") || "", M = document.getElementById("m");
@@ -31,14 +32,14 @@ function login(){ M.innerHTML = '<div id="lg"><p>관리자 토큰을 입력하�
 function load(){
   api("/api/admin/orders").then(function(r){ if(r.status === 401){ sessionStorage.removeItem("adm"); login(); throw 0; } return r.json(); }).then(function(j){
     if(!j.orders.length){ M.innerHTML = '<div id="lg">아직 주문이 없어요.</div>'; return; }
-    M.innerHTML = j.orders.map(function(o){
+    M.innerHTML = '<div class="hp">송장번호는 브랜드가 메일의 링크에서 직접 입력하면 자동으로 여기에 반영돼요. 아래 입력칸은 브랜드가 대신 알려줄 때만 쓰세요.</div>' + j.orders.map(function(o){
       var a = o.ship || {}, by = {};
       o.items.forEach(function(l){ (by[l.brand] = by[l.brand] || []).push(l); });
       var h = '<div class="o"><div class="h"><span>' + esc(o.id) + ' · ' + new Date(o.createdAt).toLocaleString("ko-KR") + '</span><span class="st">' + (STL[o.status] || esc(o.status)) + ' · ' + o.total.toLocaleString() + '원</span></div>'
         + '<div class="s">' + esc(a.name) + ' / ' + esc(a.phone) + ' / (' + esc(a.zip) + ') ' + esc(a.addr1) + ' ' + esc(a.addr2) + (a.memo ? ' / 메모: ' + esc(a.memo) : '') + '</div>';
       Object.keys(by).forEach(function(k){
         var sh = (o.shipments || {})[k] || {}, nm = (j.brands[k] && j.brands[k].name) || k;
-        h += '<div class="br"><div><b>' + esc(nm) + '</b><div class="s">' + by[k].map(function(l){ return esc(l.name) + (l.optName ? ' (' + esc(l.optName) + ')' : '') + ' x' + l.q; }).join('<br>') + '</div></div>'
+        var sd = (o.sent || {})[k]; h += '<div class="br"><div><b>' + esc(nm) + '</b> <span class="' + (sd ? 'ok' : 's') + '">' + (sd ? '브랜드 전달 완료 ' + new Date(sd).toLocaleString("ko-KR") : '다음 날 아침 9시에 전달') + '</span><div class="s">' + by[k].map(function(l){ return esc(l.name) + (l.optName ? ' (' + esc(l.optName) + ')' : '') + ' x' + l.q; }).join('<br>') + '</div></div>'
           + '<select data-c="' + esc(o.id + '|' + k) + '">' + Object.keys(CAR).map(function(c){ return '<option value="' + c + '"' + (sh.carrier === c ? ' selected' : '') + '>' + CAR[c] + '</option>'; }).join("") + '</select>'
           + '<input data-t="' + esc(o.id + '|' + k) + '" placeholder="송장번호" value="' + esc(sh.tracking || "") + '"><button data-s="' + esc(o.id + '|' + k) + '">저장</button></div>';
       });
@@ -55,6 +56,17 @@ function load(){
     }; });
   }).catch(function(e){ if(e !== 0) M.innerHTML = '<div id="lg">불러오지 못했어요.</div>'; });
 }
+document.getElementById("bm").onclick = function(){
+  Promise.all([post("/api/manage/brand-mail", {dry:true}), api("/api/manage/brand-links").then(function(r){ return r.json(); })]).then(function(r){
+    var res = r[0].results || [], ls = r[1].links || [];
+    var h = '<div class="pn"><h3>오늘 아침 9시에 나갈 브랜드 메일</h3>' + (res.length ? '<table><tr><th>브랜드</th><th>신규 주문</th><th>취소</th><th>이메일</th></tr>' + res.map(function(x){ return '<tr><td>' + esc(x.name) + '</td><td>' + x.orders + '건</td><td>' + x.cancels + '건</td><td>' + (x.email ? esc(x.email) : '<span class="wn">미등록</span>') + '</td></tr>'; }).join("") + '</table><button id="snd" style="margin-top:10px">지금 바로 보내기</button> <span id="sm" class="s"></span>' : '<div class="s">지금 보낼 주문이 없어요.</div>') + '</div>'
+      + '<div class="pn"><h3>브랜드별 송장 입력 링크</h3><div class="s" style="margin-bottom:6px">매일 메일에 자동으로 들어가요. 직접 알려줄 때 복사해서 쓰세요.</div><table>' + ls.map(function(l){ return '<tr><td>' + esc(l.name) + '</td><td>' + (l.email ? esc(l.email) : '<span class="wn">이메일 미등록</span>') + '</td><td><button class="g" data-cp="' + esc(l.link) + '">링크 복사</button></td></tr>'; }).join("") + '</table></div>';
+    M.innerHTML = h + '<div style="text-align:center"><button class="g" id="bk">주문 목록으로</button></div>';
+    document.getElementById("bk").onclick = load;
+    var sb = document.getElementById("snd"); if(sb) sb.onclick = function(){ sb.disabled = true; post("/api/manage/brand-mail", {dry:false}).then(function(q){ document.getElementById("sm").textContent = (q.results || []).filter(function(x){ return x.sent; }).length + "곳 전달했어요"; }).catch(function(e){ document.getElementById("sm").textContent = e.message; }); };
+    [].forEach.call(M.querySelectorAll("[data-cp]"), function(b){ b.onclick = function(){ try{ navigator.clipboard.writeText(b.dataset.cp); b.textContent = "복사됨"; }catch(e){ prompt("링크", b.dataset.cp); } }; });
+  }).catch(function(e){ if(e.message) M.innerHTML = '<div id="lg">' + esc(e.message) + '</div>'; });
+};
 document.getElementById("rf").onclick = function(){ T ? load() : login(); };
 document.getElementById("st").onclick = function(){
   api("/api/admin/settlement?month=" + document.getElementById("mo").value).then(function(r){ return r.blob(); }).then(function(b){ var a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "settlement-" + document.getElementById("mo").value + ".csv"; a.click(); });

@@ -1,4 +1,4 @@
-import { json, isAdmin, orders, BRANDS, tossAuth } from "./_lib.mjs";
+import { json, isAdmin, orders, BRANDS, tossAuth, setShipment } from "./_lib.mjs";
 
 async function all() {
   const st = orders();
@@ -21,11 +21,7 @@ export default async (req) => {
   if (p === "/api/admin/ship" && req.method === "POST") {
     const o = await st.get(String(b.orderId || ""), { type: "json" });
     if (!o || !o.items.some((l) => l.brand === b.brand)) return json({ error: "주문 없음" }, 404);
-    o.shipments = o.shipments || {};
-    o.shipments[b.brand] = { carrier: String(b.carrier || ""), tracking: String(b.tracking || "").replace(/[^0-9A-Za-z\-]/g, ""), at: new Date().toISOString() };
-    const brands = [...new Set(o.items.map((l) => l.brand))];
-    const n = brands.filter((x) => o.shipments[x] && o.shipments[x].tracking).length;
-    o.status = n === brands.length ? "shipped" : n ? "partial" : "paid";
+    setShipment(o, b.brand, b.carrier, b.tracking);
     await st.setJSON(o.id, o);
     return json({ ok: true, status: o.status });
   }

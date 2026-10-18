@@ -14,6 +14,8 @@
     if(auth !== "Bearer demo") return res({error:"unauthorized"}, 401);
     if(u.indexOf("/api/manage/dashboard") >= 0){ var d = +(u.split("days=")[1] || 7), f = d === 1 ? 0.16 : d === 30 ? 3.6 : 1; return res({days:d, top:TOP.map(function(x, i){ return {id:"p" + i, name:x[0], brand:x[1], clicks:Math.round(x[2] * f), views:Math.round(x[3] * f)}; }), events:{quiz_start:Math.round(1520 * f), quiz_done:Math.round(1204 * f), kakao_click:Math.round(980 * f), kakao_unlock:Math.round(871 * f)}, kakao:kakao}); }
     if(u.indexOf("/api/manage/kakao") >= 0){ kakao = {friends:Math.round(+b.friends || 0), name:b.name || "문장군", updated:new Date().toISOString()}; return res({ok:true, kakao:kakao}); }
+    if(u.indexOf("/api/manage/brand-mail") >= 0) return res({results:[{brand:"minic", name:"MINIC", email:"order@minic.example", orders:1, cancels:0, sent:false}, {brand:"grafen", name:"GRAFEN", email:"", orders:1, cancels:0, sent:false}, {brand:"bonkorea", name:"본코리아", email:"cs@bonkorea.example", orders:0, cancels:1, sent:false}]});
+    if(u.indexOf("/api/manage/brand-links") >= 0) return res({links:[["minic","MINIC","order@minic.example"],["grafen","GRAFEN",""],["bonkorea","본코리아","cs@bonkorea.example"]].map(function(x){ return {key:x[0], name:x[1], email:x[2], link:"https://skinside.co.kr/brand/#k=" + x[0] + ".(브랜드별 비밀 코드)"}; })});
     if(u.indexOf("/api/manage/products") >= 0) return res({products:extra});
     if(u.indexOf("/api/manage/product-delete") >= 0){ extra = extra.filter(function(x){ return x.id !== b.id; }); return res({ok:true}); }
     if(u.indexOf("/api/manage/product") >= 0){
@@ -33,7 +35,7 @@
 (function(){
   if(!window.__ORDERS_MOCK) return;
   var now = Date.now(), O = [
-    {id:"SK2610180003", createdAt:new Date(now - 3600e3).toISOString(), status:"paid", total:51500, items:[{brand:"minic", name:"퍼펙트 콜라드그린 진정 올인원", optName:"1개", q:1}, {brand:"grafen", name:"포어 올킬 원스텝 코팩", q:2}], ship:{name:"김민수", phone:"010-1234-5678", zip:"06236", addr1:"서울 강남구 테헤란로 123", addr2:"456호", memo:"문 앞에 놓아주세요"}},
+    {id:"SK2610180003", createdAt:new Date(now - 3600e3).toISOString(), status:"paid", total:51500, sent:{minic:new Date(now - 1800e3).toISOString()}, items:[{brand:"minic", name:"퍼펙트 콜라드그린 진정 올인원", optName:"1개", q:1}, {brand:"grafen", name:"포어 올킬 원스텝 코팩", q:2}], ship:{name:"김민수", phone:"010-1234-5678", zip:"06236", addr1:"서울 강남구 테헤란로 123", addr2:"456호", memo:"문 앞에 놓아주세요"}},
     {id:"SK2610180002", createdAt:new Date(now - 5 * 3600e3).toISOString(), status:"shipped", total:29900, items:[{brand:"bonkorea", name:"엔젤 탄산 효소 세안제", q:1}], ship:{name:"이준호", phone:"010-9876-5432", zip:"13529", addr1:"경기 성남시 분당구 판교로 1", addr2:"", memo:""}, shipments:{bonkorea:{carrier:"cj", tracking:"123456789012"}}},
     {id:"SK2610170007", createdAt:new Date(now - 30 * 3600e3).toISOString(), status:"canceled", total:21400, items:[{brand:"grafen", name:"팁 스케치 멀티 커버 파운데이션", q:1}], ship:{name:"박서준", phone:"010-5555-0000", zip:"04524", addr1:"서울 중구 세종대로 110", addr2:"", memo:""}}];
   var BR = {minic:{name:"MINIC"}, grafen:{name:"GRAFEN"}, bonkorea:{name:"본코리아"}};

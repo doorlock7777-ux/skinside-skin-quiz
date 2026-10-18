@@ -17,9 +17,12 @@ h = h.replace("<script>\nvar COUNTER_API", mock + "<script>\nvar COUNTER_API", 1
 # 주문 관리 화면: 같은 화면 안에서 열리는 iframe (가짜 주문 데이터)
 od = rd("public/admin/orders.html").replace("<script>\nvar T =", "<script>window.__ORDERS_MOCK=1;</script><script>" + rd("scripts/admin_mock.js") + "</script><script>\nvar T =", 1)
 assert "__ORDERS_MOCK" in od
-h = h.replace('<a href="/admin/orders.html">주문 관리</a><a href="/store">스토어 보기</a>', '<a href="#orders" id="ordl">주문 관리</a>')
+h = h.replace('<a href="/admin/orders.html">주문 관리</a><a href="/store">스토어 보기</a>', '<a href="#orders" id="ordl">주문 관리</a><a href="#brand" id="brl">브랜드 화면 보기</a>')
+bd = rd("public/brand/index.html").replace("<script>\nvar T =", "<script>" + rd("scripts/brand_mock.js") + "</script><script>\nvar T =", 1)
+assert "brand_mock" in bd or "/api/brand/orders" in bd
 ov = '<iframe id="ordf" title="주문 관리" style="display:none;position:fixed;inset:0;width:100%;height:100%;border:0;background:#f2f4f6;z-index:50"></iframe>'
+bjs = '<iframe id="brdf" title="브랜드 화면" style="display:none;position:fixed;inset:0;width:100%;height:100%;border:0;background:#f2f4f6;z-index:50"></iframe><button id="brx" style="display:none;position:fixed;right:12px;bottom:12px;z-index:60;font:inherit;font-weight:700;background:#191f28;color:#fff;border:0;border-radius:999px;padding:11px 18px;cursor:pointer">관리자 화면으로 돌아가기</button><script>var brdf=document.getElementById("brdf"),brx=document.getElementById("brx");document.getElementById("brl").onclick=function(e){e.preventDefault();if(!brdf.srcdoc)brdf.srcdoc=' + json.dumps(bd, ensure_ascii=False).replace("</", "<\\/") + ';brdf.style.display="block";brx.style.display="block"};brx.onclick=function(){brdf.style.display="none";brx.style.display="none"};</script>'
 js = '<script>var ordf=document.getElementById("ordf");document.getElementById("ordl").onclick=function(e){e.preventDefault();if(!ordf.srcdoc)ordf.srcdoc=' + json.dumps(od, ensure_ascii=False).replace("</", "<\\/") + ';ordf.style.display="block"};addEventListener("message",function(e){if(e.data&&e.data.skadm)ordf.style.display="none"});</script>'
-h = h.replace("</body>", ov + js + "</body>", 1)
+h = h.replace("</body>", ov + js + bjs + "</body>", 1)
 assert "__CATS" in h
 open(sys.argv[1], "w", encoding="utf-8").write(frag(h)); print(len(h))

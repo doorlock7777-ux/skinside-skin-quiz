@@ -17,17 +17,18 @@ for i, p in enumerate(d["products"]):
     if p["cat"] in RV and (p.get("hot") or i % 3 == 0): p["reviews"] = RV[p["cat"]]
 css = rd("public/style.css")
 CHK = os.environ.get("DEMO_MODE") == "checkout"
+BANNER = "미리보기 화면이에요. 장바구니와 결제 화면을 시험할 수 있고, 실제 결제는 이루어지지 않아요." if CHK else "미리보기 화면이에요. 제품을 누르면 족보템 스토어로 이동하고, 누른 만큼 인기순이 바뀌어요. 새로고침하면 처음 배치로 돌아와요."
 cfg = {"MODE": "checkout" if CHK else "link", "STORE_OPEN": True, "LOGIN": CHK, "DEMO": True, "TOSS_CLIENT_KEY": "demo" if CHK else "", "STORE_URL": "", "KAKAO_URL": "https://pf.kakao.com/_ZujbG/friend"}
 html = """<title>스킨인사이드 스토어 미리보기</title>
 <style>%s
 .demo{background:#fff8e6;color:#8a5a00;font-size:12.5px;text-align:center;padding:8px 16px;line-height:1.5}
 :root{color-scheme:light}</style>
-<div class="demo" id="dm">미리보기 화면이에요. 제품을 누르면 족보템 스토어로 이동하고, 누른 만큼 인기순이 바뀌어요. 새로고침하면 처음 배치로 돌아와요.</div>
+<div class="demo" id="dm">%s</div>
 <header id="top"><button class="back" id="bk" hidden aria-label="뒤로">&#8249;</button><a href="#/"><img src="%s" alt="Skinside.co.kr"></a></header>
 <main id="app"></main>
 <nav class="tabs"><div class="in" id="nv"></div></nav>
 <script>window.SK=%s;window.__PRODUCTS=%s;%s</script>
 <script>%s</script>
 <script>%s</script>
-""" % (css, uri("images/logo.webp"), json.dumps(cfg), json.dumps(d, ensure_ascii=False), "" if os.environ.get("DEMO_SEED") else "window.__NOSEED=1;", rd("scripts/demo.js"), rd("public/app.js"))
+""" % (css, BANNER, uri("images/logo.webp"), json.dumps(cfg), json.dumps(d, ensure_ascii=False), "" if os.environ.get("DEMO_SEED") else "window.__NOSEED=1;", rd("scripts/demo.js"), rd("public/app.js"))
 open(sys.argv[1], "w", encoding="utf-8").write(html); print(len(html))

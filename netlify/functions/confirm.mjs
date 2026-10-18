@@ -1,19 +1,10 @@
-import { json, getUser, orders, BRANDS, mail, esc, tossAuth, addStat } from "./_lib.mjs";
+import { json, getUser, orders, mail, esc, tossAuth, addStat } from "./_lib.mjs";
 
+/* 주문이 들어오면 운영자에게만 바로 알리고, 브랜드에는 매일 아침 9시(KST)에 일괄 전달한다 (brandmail.mjs) */
 async function notify(o) {
-  const by = {};
-  o.items.forEach((l) => (by[l.brand] = by[l.brand] || []).push(l));
-  const a = o.ship;
-  const addr = `(${esc(a.zip)}) ${esc(a.addr1)} ${esc(a.addr2)}`;
-  const rows = (ls) => ls.map((l) => `<li>${esc(l.name)} ${l.optName ? "(" + esc(l.optName) + ")" : ""} x ${l.q}</li>`).join("");
-  const body = (ls) => `<p>주문번호 <b>${esc(o.id)}</b></p><ul>${rows(ls)}</ul><p>받는 분 ${esc(a.name)}<br>연락처 ${esc(a.phone)}<br>주소 ${addr}<br>메모 ${esc(a.memo)}</p>`;
-  const sent = {};
-  for (const b of Object.keys(by)) {
-    const br = BRANDS[b];
-    sent[b] = br && br.email ? await mail(br.email, `[스킨인사이드] 신규 주문 ${o.id}`, body(by[b])) : false;
-  }
-  if (process.env.NOTIFY_EMAIL) await mail(process.env.NOTIFY_EMAIL, `[주문] ${o.id} ${o.total}원`, body(o.items) + `<p>브랜드 메일 발송: ${esc(JSON.stringify(sent))}</p>`);
-  return sent;
+  const rows = o.items.map((l) => `<li>${esc(l.name)} ${l.optName ? "(" + esc(l.optName) + ")" : ""} x ${l.q}</li>`).join("");
+  if (process.env.NOTIFY_EMAIL) await mail(process.env.NOTIFY_EMAIL, `[주문] ${o.id} ${o.total}원`, `<p>주문번호 <b>${esc(o.id)}</b></p><ul>${rows}</ul><p>브랜드에는 다음 날 아침 9시에 전달돼요.</p>`);
+  return {};
 }
 
 export default async (req) => {

@@ -171,7 +171,7 @@ function checkout(direct){
   if(!user){ $app.innerHTML = loginBox(getH()); return; }
   var items = direct ? (ls("sk_direct") || []) : cart(), ls_ = lines(items);
   if(!ls_.length){ setH("#/cart"); return; }
-  var t = totals(ls_), sv = ls("sk_ship") || {}, method = "CARD";
+  var t = totals(ls_), sv = ls("sk_ship") || {}, method = "NAVERPAY";
   var h = '<div class="sec"><h1>주문서</h1><h2 style="margin-top:20px;font-size:17px">주문 제품</h2>';
   ls_.forEach(function(l){ h += '<div class="row"><div class="im">' + img(l.p) + '</div><div class="t"><div class="nm">' + esc(l.p.name) + (l.p.options ? ' (' + esc(l.p.options[l.opt].n) + ')' : '') + '</div><div class="s">' + l.q + '개 · ' + won(l.unit * l.q) + '</div></div></div>'; });
   h += '<h2 style="margin-top:24px;font-size:17px">배송지</h2>'
@@ -180,7 +180,7 @@ function checkout(direct){
     + '<label class="f">주소</label><div style="display:flex;gap:8px"><input class="in2" id="zp" value="' + esc(sv.zip || "") + '" placeholder="우편번호" readonly style="max-width:130px"><button class="btn sub2" id="sa" style="flex:none;padding:12px 16px">주소 찾기</button></div>'
     + '<input class="in2" id="a1" style="margin-top:8px" value="' + esc(sv.addr1 || "") + '" placeholder="기본 주소" autocomplete="address-line1"><input class="in2" id="a2" style="margin-top:8px" value="' + esc(sv.addr2 || "") + '" placeholder="상세 주소 (동·호수)" autocomplete="address-line2">'
     + '<label class="f">배송 메모 (선택)</label><input class="in2" id="mm" value="' + esc(sv.memo || "") + '" placeholder="문 앞에 놔주세요">'
-    + '<h2 style="margin-top:24px;font-size:17px">결제 수단</h2><div class="pay2"><button data-m="CARD" class="on">카드·간편결제</button><button data-m="TRANSFER">계좌이체</button></div>'
+    + '<h2 style="margin-top:24px;font-size:17px">결제 수단</h2><div class="pay2"><button data-m="NAVERPAY" class="on npay"><i>N</i>네이버페이</button><button data-m="CARD">카드·간편결제</button><button data-m="TRANSFER">계좌이체</button></div>'
     + sumBox(t) + '<label class="ck"><input type="checkbox" id="ag"><span>주문 내용을 확인했으며, 배송을 위해 이름·연락처·주소를 해당 브랜드에 제공하는 것에 동의합니다.</span></label>'
     + (CFG.TOSS_CLIENT_KEY ? '' : '<div class="ntc" style="margin-top:14px">결제 기능은 준비 중이에요.</div>')
     + '</div><div class="cta"><div class="in"><button class="btn' + (CFG.TOSS_CLIENT_KEY ? '' : ' off') + '" id="pay">' + won(t.total) + ' 결제하기</button></div></div>';
@@ -208,7 +208,9 @@ function checkout(direct){
 function startToss(o, method){
   function go(){
     var tp = TossPayments(CFG.TOSS_CLIENT_KEY), payment = tp.payment({customerKey: "u_" + user.id.replace(/[^A-Za-z0-9_\-=.@]/g, "").slice(0, 40)});
-    return payment.requestPayment({method:method, amount:{currency:"KRW", value:o.amount}, orderId:o.orderId, orderName:o.orderName,
+    /* 네이버페이는 토스페이먼츠 결제창에서 네이버페이 자체창을 바로 연다 (토스 상점 설정에서 네이버페이 연동 필요) */
+    var pm = method === "NAVERPAY" ? {method:"CARD", card:{flowMode:"DIRECT", easyPay:"NAVERPAY"}} : {method:method};
+    return payment.requestPayment({method:pm.method, card:pm.card, amount:{currency:"KRW", value:o.amount}, orderId:o.orderId, orderName:o.orderName,
       successUrl:location.origin + "/pay/success/", failUrl:location.origin + "/pay/fail/", customerName:user.name || undefined, customerEmail:user.email || undefined});
   }
   if(window.TossPayments) return go();

@@ -1,4 +1,5 @@
-import { json, isAdmin, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
+import { runBrandBatch, brandLink } from "./_batch.mjs";
+import { BRANDS, json, isAdmin, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
 
 const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done"];
 
@@ -53,6 +54,8 @@ export default async (req) => {
     await settings().setJSON("kakao", k);
     return json({ ok: true, kakao: k });
   }
+  if (p === "/api/manage/brand-mail" && req.method === "POST") return json({ results: await runBrandBatch({ dry: !!b.dry }) });
+  if (p === "/api/manage/brand-links") return json({ links: Object.keys(BRANDS).map((k) => ({ key: k, name: BRANDS[k].name, email: BRANDS[k].email || "", link: brandLink(k) })) });
   if (p === "/api/manage/products") return json({ products: await loadExtra() });
   if (p === "/api/manage/product" && req.method === "POST") {
     const { data } = await loadProducts(req);

@@ -59,7 +59,7 @@ window.TossPayments = function(){
       d.style.cssText = "position:fixed;inset:0;background:rgba(25,31,40,.55);z-index:90;display:flex;align-items:flex-end;justify-content:center";
       d.innerHTML = '<div style="background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px))">'
         + '<div style="font-size:12px;font-weight:800;color:#4E57A2;letter-spacing:.06em">TOSS PAYMENTS 데모 결제창</div>'
-        + '<div style="font-size:20px;font-weight:800;margin:8px 0 4px">' + won(opt.amount.value) + '</div><div style="color:#6b7684;font-size:14px;margin-bottom:18px">' + esc(opt.orderName) + ' · ' + (opt.method === "CARD" ? "카드·간편결제" : "계좌이체") + '</div>'
+        + '<div style="font-size:20px;font-weight:800;margin:8px 0 4px">' + won(opt.amount.value) + '</div><div style="color:#6b7684;font-size:14px;margin-bottom:18px">' + esc(opt.orderName) + ' · ' + (opt.card && opt.card.easyPay === "NAVERPAY" ? "네이버페이" : opt.method === "CARD" ? "카드·간편결제" : "계좌이체") + '</div>'
         + '<div style="background:#f2f4f6;border-radius:12px;padding:12px 14px;font-size:13px;color:#4e5968;margin-bottom:16px">미리보기라서 실제 결제는 이루어지지 않아요.</div>'
         + '<div style="display:flex;gap:10px"><button id="dx" style="flex:1;padding:15px;border-radius:14px;background:#eceef8;color:#4E57A2;font-weight:700">취소</button><button id="dp" style="flex:2;padding:15px;border-radius:14px;background:#4E57A2;color:#fff;font-weight:700">결제하기</button></div></div>';
       document.body.appendChild(d);

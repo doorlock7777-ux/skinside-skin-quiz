@@ -63,15 +63,13 @@ export function shipFee(shipping, sub) {
   return sub >= (shipping.freeOver || 0) || !sub ? 0 : shipping.fee || 0;
 }
 
-export async function mail(to, subject, html) {
+export async function mail(to, subject, html, attachments) {
   const key = process.env.RESEND_API_KEY;
   if (!key || !to) return false;
   try {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { authorization: "Bearer " + key, "content-type": "application/json" },
-      body: JSON.stringify({ from: process.env.MAIL_FROM || "스킨인사이드 <onboarding@resend.dev>", to: [].concat(to), subject, html }),
-    });
+    const body = { from: process.env.MAIL_FROM || "스킨인사이드 <onboarding@resend.dev>", to: [].concat(to), subject, html };
+    if (attachments && attachments.length) body.attachments = attachments;
+    const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: "Bearer " + key, "content-type": "application/json" }, body: JSON.stringify(body) });
     return r.ok;
   } catch { return false; }
 }
@@ -93,4 +91,29 @@ export async function addEvent(name, n = 1) {
   const o = (await st.get(k, { type: "json" })) || {};
   o[name] = (o[name] || 0) + n;
   await st.setJSON(k, o);
+}
+
+/* 브랜드 전용 링크 토큰: 브랜드키.서명 (저장 없이 서버 비밀키로 검증) */
+export function brandToken(key) {
+  const k = process.env.SESSION_SECRET;
+  if (!k || k.length < 16) throw new Error("SESSION_SECRET 환경변수가 필요합니다");
+  return key + "." + createHmac("sha256", k).update("brand:" + key).digest("base64url").slice(0, 32);
+}
+export function brandFromReq(req) {
+  const t = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const key = t.split(".")[0];
+  if (!key || !BRANDS[key]) return null;
+  try {
+    const a = Buffer.from(brandToken(key)), b = Buffer.from(t);
+    return a.length === b.length && timingSafeEqual(a, b) ? key : null;
+  } catch { return null; }
+}
+/* 송장 저장 + 주문 상태 갱신 (관리자, 브랜드 화면 공통) */
+export function setShipment(o, brand, carrier, tracking) {
+  o.shipments = o.shipments || {};
+  o.shipments[brand] = { carrier: String(carrier || ""), tracking: String(tracking || "").replace(/[^0-9A-Za-z\-]/g, ""), at: new Date().toISOString() };
+  const brands = [...new Set(o.items.map((l) => l.brand))];
+  const n = brands.filter((x) => o.shipments[x] && o.shipments[x].tracking).length;
+  o.status = n === brands.length ? "shipped" : n ? "partial" : "paid";
+  return o;
 }
