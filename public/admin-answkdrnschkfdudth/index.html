@@ -481,7 +481,7 @@ function dash(){
   M.innerHTML = '<div class="chips" id="pd"></div><div id="dv"><div class="empty">불러오는 중...</div></div>';
   var pd = document.getElementById("pd");
   [[1, "오늘"], [7, "7일"], [30, "30일"]].forEach(function(x){ var b = document.createElement("button"); b.textContent = x[1]; b.className = days === x[0] ? "on" : ""; b.onclick = function(){ days = x[0]; dash(); }; pd.appendChild(b); });
-  Promise.all([api("/api/manage/dashboard?days=" + days), fetch(COUNTER_API).then(function(r){ return r.json(); }).catch(function(){ return null; })]).then(function(r){ paint(r[0], r[1]); }).catch(function(e){ if(e.message !== "auth") document.getElementById("dv").innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  api("/api/manage/dashboard?days=" + days).then(function(d){ var tt = d.types || {}, tot = 0; Object.keys(tt).forEach(function(k){ tot += tt[k]; }); paint(d, {total:tot, types:tt}); }).catch(function(e){ if(e.message !== "auth") document.getElementById("dv").innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 }
 function paint(d, st){
   var ev = d.events || {}, top = d.top || [], mx = top.length ? top[0].clicks : 1, k = d.kakao || {};
@@ -501,7 +501,8 @@ function paint(d, st){
 var AXES = [["피지", [["지성", "O"], ["복합성", "C"], ["건성", "D"]]], ["민감도", [["민감성", "S"], ["저항성", "R"]]], ["색소", [["색소성", "P"], ["비색소", "N"]]], ["주름", [["주름", "W"], ["탄력", "T"]]]];
 function types(st){
   if(!st || !st.types) return '<div class="empty">통계를 불러오지 못했어요.</div>';
-  return '<p class="sub">지금까지 진단한 ' + n(st.total) + '명의 분포예요.</p><div id="tpl"></div><button class="more" id="tpm">전체 타입 보기</button><div id="axs"></div>';
+  if(!st.total) return '<div class="empty">이 기간에 수집된 진단 결과가 없어요.<br><small>결과가 나올 때마다 이 사이트에 자동으로 쌓여요.</small></div>';
+  return '<p class="sub">최근 ' + (days === 1 ? '오늘' : days + '일') + ' 동안 진단을 마친 ' + n(st.total) + '명의 분포예요. (간이 진단은 제외)</p><div id="tpl"></div><button class="more" id="tpm">전체 타입 보기</button><div id="axs"></div>';
 }
 function fillTypes(){
   var st = window.__ST, el = document.getElementById("tpl"); if(!el || !st || !st.types) return;

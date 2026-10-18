@@ -12,6 +12,8 @@ export default async (req) => { await loadBrands();
     const b = await req.json().catch(() => ({}));
     if (!EVENTS.includes(b.e)) return json({ error: "bad event" }, 400);
     await addEvent(b.e);
+    /* 진단 완료에는 피부타입(예: CRNT-O)을 함께 모은다. 형식이 맞는 것만 받는다 (간이 진단은 타입을 보내지 않는다) */
+    if (b.e === "quiz_done" && /^[DOC][SR][PN][WT](-[OD])?$/.test(String(b.t || ""))) await addEvent("type:" + b.t);
     return json({ ok: true });
   }
   if (p === "/api/stock") {
@@ -51,7 +53,9 @@ export default async (req) => { await loadBrands();
       .map((id) => ({ id, name: map[id].name, brand: map[id].brandName, clicks: sum[id].c, views: sum[id].v }));
     const evs = {};
     EVENTS.forEach((e) => (evs[e] = ed.reduce((a, o) => a + ((o && o[e]) || 0), 0)));
-    return json({ days, top, events: evs, kakao: kk || { friends: 0, name: "", updated: null } });
+    const types = {};
+    ed.forEach((o) => o && Object.keys(o).forEach((k) => { if (k.startsWith("type:")) types[k.slice(5)] = (types[k.slice(5)] || 0) + o[k]; }));
+    return json({ days, top, events: evs, types, kakao: kk || { friends: 0, name: "", updated: null } });
   }
   if (p === "/api/manage/kakao" && req.method === "POST") {
     const friends = Math.max(0, Math.min(100000000, parseInt(b.friends, 10) || 0));

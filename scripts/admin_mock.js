@@ -74,7 +74,7 @@
     if(u.indexOf("/api/admin/") >= 0) return admin(u, b);
     if(u.indexOf("/api/manage/") < 0) return real.apply(this, arguments);
     if(!LOGGED) return res({error:"unauthorized"}, 401);
-    if(u.indexOf("/api/manage/dashboard") >= 0){ var d = +(u.split("days=")[1] || 7), f = d === 1 ? 0.16 : d === 30 ? 3.6 : 1; return res({days:d, top:TOP.map(function(x, i){ return {id:"p" + i, name:x[0], brand:x[1], clicks:Math.round(x[2] * f), views:Math.round(x[3] * f)}; }), events:{quiz_start:Math.round(1520 * f), quiz_done:Math.round(1204 * f), kakao_click:Math.round(980 * f), kakao_unlock:Math.round(871 * f)}, kakao:kakao}); }
+    if(u.indexOf("/api/manage/dashboard") >= 0){ var d = +(u.split("days=")[1] || 7), f = d === 1 ? 0.16 : d === 30 ? 3.6 : 1; return res({days:d, types:(function(){ var o = {}; Object.keys(TYPES).forEach(function(k){ o[k] = Math.max(1, Math.round(TYPES[k] * f / 4)); }); return o; })(), top:TOP.map(function(x, i){ return {id:"p" + i, name:x[0], brand:x[1], clicks:Math.round(x[2] * f), views:Math.round(x[3] * f)}; }), events:{quiz_start:Math.round(1520 * f), quiz_done:Math.round(1204 * f), kakao_click:Math.round(980 * f), kakao_unlock:Math.round(871 * f)}, kakao:kakao}); }
     if(u.indexOf("/api/manage/kakao") >= 0){ kakao = {friends:Math.round(+b.friends || 0), name:b.name || "문장군", updated:new Date().toISOString()}; return res({ok:true, kakao:kakao}); }
     if(u.indexOf("/api/manage/brand-mail") >= 0) return res({results:[{brand:"minic", name:"MINIC", email:"order@minic.example", orders:2, late:1, cancels:0, sent:false}, {brand:"grafen", name:"GRAFEN", email:"", orders:1, late:0, cancels:0, sent:false}]});
     if(u.indexOf("/api/manage/products") >= 0) return res({products:extra});

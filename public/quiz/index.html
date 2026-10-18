@@ -241,7 +241,7 @@ function track(n, d){
   try{ if(window.gtag) window.gtag("event", n, d); }catch(e){}
   try{ if(window.fbq) window.fbq("trackCustom", n, d); }catch(e){}
   var EV = {quiz_start:"quiz_start", quiz_complete:"quiz_done", kakao_click:"kakao_click", kakao_unlock:"kakao_unlock"};
-  if(EV[n]){ try{ fetch("/api/event", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({e:EV[n]}), keepalive:true}).catch(function(){}); }catch(e){} }
+  if(EV[n]){ try{ fetch("/api/event", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(n === "quiz_complete" && !d.simple && d.type ? {e:EV[n], t:String(d.type)} : {e:EV[n]}), keepalive:true}).catch(function(){}); }catch(e){} }
   if(ANALYTICS_ENDPOINT){ try{ navigator.sendBeacon(ANALYTICS_ENDPOINT, JSON.stringify(p)); }catch(e){} }
 }
 function utmUrl(u, key){

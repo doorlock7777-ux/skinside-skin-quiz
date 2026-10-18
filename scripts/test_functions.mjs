@@ -60,6 +60,12 @@ await call(stats, "/api/track", "POST", { id: "bonkorea-cl", e: "v" });
 await call(stats, "/api/track", "POST", { id: "minic-allinone", e: "c" });
 [s, j] = await call(site, "/api/event", "POST", { e: "kakao_click" }); ok(s === 200, "이벤트 저장 실패");
 [s, j] = await call(site, "/api/event", "POST", { e: "hack" }); ok(s === 400, "잘못된 이벤트가 통과해요");
+// 진단 결과 타입 수집
+for (const t of ["CRNT-O", "DRNT", "ORNT", "CRNT-O"]) await call(site, "/api/event", "POST", { e: "quiz_done", t });
+for (const t of ["HACK", "crnt", "CRNT-X", "<b>", "X".repeat(50), ""]) await call(site, "/api/event", "POST", { e: "quiz_done", t });
+[s, j] = await call(site, "/api/manage/dashboard?days=7", "GET", null, A);
+ok(j.types && j.types["CRNT-O"] === 2 && j.types.DRNT === 1 && j.types.ORNT === 1 && Object.keys(j.types).length === 3, "진단 타입 집계가 달라요 " + JSON.stringify(j.types));
+ok(j.events.quiz_done >= 10, "진단 완료 횟수는 타입이 이상해도 센다 " + j.events.quiz_done);
 [s, j] = await call(site, "/api/manage/dashboard?days=7", "GET", null, A);
 ok(s === 200 && j.top[0].id === "bonkorea-cl" && j.top[0].clicks === 3 && j.top[0].views === 1 && j.top.length === 2, "TOP 집계가 달라요 " + JSON.stringify(j.top));
 ok(j.events.kakao_click === 1, "이벤트 집계가 달라요");
