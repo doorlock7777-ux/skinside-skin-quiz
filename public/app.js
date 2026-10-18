@@ -122,6 +122,15 @@ function list(title, ps, cur, q){ ps = sorted(ps);
 }
 
 /* 상세 */
+function stars(n){ var s = ""; for(var i = 1; i <= 5; i++) s += i <= n ? "★" : '<span style="color:var(--line)">★</span>'; return '<span style="color:#ffb400;letter-spacing:1px">' + s + '</span>'; }
+function loadReviews(id){
+  var box = document.getElementById("rvbox"); if(!box) return;
+  fetch("/api/review?product=" + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(j){
+    if(!document.getElementById("rvbox")) return;
+    box.innerHTML = '<b>구매 후기 ' + (j.count ? stars(Math.round(j.avg)) + ' ' + j.avg + ' (' + j.count + '개)' : '') + '</b>' + (j.reviews.length ? j.reviews.slice(0, 20).map(function(r){
+      return '<div style="padding:10px 0;border-top:1px solid var(--line)"><div>' + stars(r.rating) + (r.best ? ' <span style="font-size:12px;font-weight:800;color:var(--pri)">베스트</span>' : '') + ' <span class="s" style="margin-left:6px">' + esc(r.userName) + ' · ' + new Date(r.createdAt).toLocaleDateString("ko-KR") + '</span></div><p style="margin:6px 0 0;white-space:pre-wrap">' + esc(r.text) + '</p></div>'; }).join("") : '<p class="sub">아직 후기가 없어요. 첫 후기를 남겨주세요.</p>');
+  }).catch(function(){ box.innerHTML = '<b>구매 후기</b><p class="sub">후기를 불러오지 못했어요.</p>'; });
+}
 function detail(id){
   var p = P[id]; if(!p){ $app.innerHTML = '<div class="empty">없는 제품이에요.</div>'; return; }
   var oi = 0;
@@ -135,12 +144,14 @@ function detail(id){
     h += '<div class="note"><b>리뷰 3줄 요약' + (DEMO && p.reviews && p.reviews.length ? ' <span class="sub" style="font-weight:600">(미리보기 예시)</span>' : '') + '</b>' + (p.reviews && p.reviews.length ? '<ul class="rv">' + p.reviews.slice(0, 3).map(function(r){ return '<li>' + esc(r) + '</li>'; }).join("") + '</ul>' : '<p class="sub">아직 구매 후기가 없어요. 후기가 모이면 세 줄로 요약해 보여드려요.</p>') + '</div>';
     var s = D.shipping || {};
     if(CHECKOUT) h += '<div class="note"><b>배송</b><p>브랜드에서 직접 발송해요. 배송비 ' + won(s.fee) + ', ' + won(s.freeOver) + ' 이상 무료.</p></div>';
+    if(CHECKOUT) h += '<div class="note" id="rvbox"><b>구매 후기</b><p class="sub">불러오는 중</p></div>';
     h += '</div></div><div class="cta"><div class="in">';
     if(p.soldOut) h += '<span class="btn off">품절</span>';
     else if(CHECKOUT) h += '<button class="btn sub2" id="ad">장바구니 담기</button><button class="btn" id="by">바로 구매</button>';
     else h += '<a class="btn" id="go" target="_blank" rel="noopener" href="' + esc(p.url || CFG.STORE_URL) + '">구매하기</a>';
     h += '</div></div>';
     $app.innerHTML = h;
+    if(CHECKOUT) loadReviews(p.id);
     [].forEach.call($app.querySelectorAll("[data-o]"), function(b){ b.onclick = function(){ oi = +b.dataset.o; draw(); }; });
     var ad = document.getElementById("ad"), by = document.getElementById("by");
     var gl = document.getElementById("go"); if(gl) gl.onclick = function(){ track(p.id, "c"); };
@@ -231,8 +242,8 @@ var CARR = {cj:["CJ대한통운", "kr.cjlogistics"], lotte:["롯데택배", "kr.
 function orders(){
   if(!user){ $app.innerHTML = loginBox("#/orders"); return; }
   $app.innerHTML = '<div class="empty">불러오는 중</div>';
-  Promise.all([fetch("/api/order").then(function(r){ return r.json(); }), fetch("/api/cs/mine").then(function(r){ return r.ok ? r.json() : {tickets:[]}; }).catch(function(){ return {tickets:[]}; })]).then(function(rr){
-    var j = rr[0], TK = rr[1].tickets || [];
+  Promise.all([fetch("/api/order").then(function(r){ return r.json(); }), fetch("/api/review/mine").then(function(r){ return r.ok ? r.json() : {done:[]}; }).catch(function(){ return {done:[]}; }), fetch("/api/cs/mine").then(function(r){ return r.ok ? r.json() : {tickets:[]}; }).catch(function(){ return {tickets:[]}; })]).then(function(rr){
+    var j = rr[0], DONE = (rr[1] && rr[1].done) || [], TK = rr[2].tickets || [];
     var os = (j.orders || []).filter(function(o){ return o.status !== "pending" && o.status !== "failed"; });
     if(!os.length){ $app.innerHTML = '<div class="sec"><h1>주문 내역</h1></div><div class="empty">아직 주문이 없어요.</div>'; return; }
     var h = '<div class="sec"><h1>주문 내역</h1><div style="height:12px"></div>';
@@ -242,7 +253,7 @@ function orders(){
       o.items.forEach(function(l){
         var sh = (o.shipments || {})[l.brand], tr = "";
         if(sh && sh.tracking){ var c = CARR[sh.carrier] || [sh.carrier, ""]; tr = '<div class="s"><a style="color:var(--pri);font-weight:700" target="_blank" rel="noopener" href="https://tracker.delivery/#/' + esc(c[1]) + '/' + encodeURIComponent(sh.tracking) + '">배송 조회</a> · ' + esc(c[0]) + ' ' + esc(sh.tracking) + '</div>'; }
-        h += '<div class="row" style="padding:8px 0"><div class="t"><div class="nm">' + esc(l.name) + (l.optName ? ' (' + esc(l.optName) + ')' : '') + '</div><div class="s">' + l.q + '개 · ' + won(l.unit * l.q) + '</div>' + tr + '</div></div>';
+        h += '<div class="row" style="padding:8px 0"><div class="t"><div class="nm">' + esc(l.name) + (l.optName ? ' (' + esc(l.optName) + ')' : '') + '</div><div class="s">' + l.q + '개 · ' + won(l.unit * l.q) + '</div>' + tr + (sh && sh.tracking ? (DONE.indexOf(o.id + "|" + l.id) >= 0 ? '<div class="s">후기를 남겼어요</div>' : '<button type="button" data-rv="open" data-k="' + esc(o.id + "|" + l.id) + '" style="font:inherit;font-weight:700;border:0;background:none;color:var(--pri);padding:4px 0">후기 쓰기</button><div data-rvform="' + esc(o.id + "|" + l.id) + '"></div>') : '') + '</div></div>';
       });
       var seen = {};
       o.items.forEach(function(l){ if(seen[l.brand]) return; seen[l.brand] = 1; h += csBox(o, l, TK.filter(function(t){ return t.orderId === o.id && t.brand === l.brand; })); });
@@ -266,6 +277,17 @@ function csBox(o, l, tks){
 }
 function brandLabel(l){ var p = P[l.id]; return (p && p.brandName) || (p && p.brand) || ""; }
 document.addEventListener("click", function(e){
+  var rb = e.target.closest && e.target.closest("[data-rv]");
+  if(rb){
+    var rpost = function(u, body){ return fetch(u, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "오류"); return j; }); }); };
+    if(rb.dataset.rv === "open"){ var f = document.querySelector('[data-rvform="' + rb.dataset.k + '"]'); if(f.innerHTML){ f.innerHTML = ""; return; }
+      f.innerHTML = '<div style="margin-top:6px"><div data-stars="5" style="font-size:26px;cursor:pointer;color:#ffb400">' + [1,2,3,4,5].map(function(i){ return '<span data-s="' + i + '">★</span>'; }).join("") + '</div><textarea placeholder="사용해보신 느낌을 5자 이상 적어주세요" style="display:block;width:100%;min-height:80px;margin-top:6px;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px"></textarea><button type="button" data-rv="send" data-k="' + rb.dataset.k + '" style="font:inherit;font-weight:700;border:0;background:var(--pri);color:#fff;border-radius:10px;padding:10px 16px;margin-top:8px">후기 등록</button> <span class="s" data-rerr></span></div>'; return; }
+    if(rb.dataset.rv === "send"){ var w = rb.parentNode, k = rb.dataset.k.split("|"), n = +w.querySelector("[data-stars]").dataset.stars; rb.disabled = true;
+      rpost("/api/review/new", {orderId:k[0], productId:k[1], rating:n, text:w.querySelector("textarea").value}).then(function(){ orders(); }).catch(function(x){ rb.disabled = false; w.querySelector("[data-rerr]").textContent = x.message; }); }
+    return;
+  }
+  var st = e.target.closest && e.target.closest("[data-stars] [data-s]");
+  if(st){ var bx = st.parentNode, v = +st.dataset.s; bx.dataset.stars = v; [].forEach.call(bx.querySelectorAll("[data-s]"), function(x){ x.style.opacity = +x.dataset.s <= v ? 1 : .25; }); return; }
   var b = e.target.closest && e.target.closest("[data-cs]"); if(!b) return;
   var a = b.dataset.cs, post = function(u, body){ return fetch(u, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "오류"); return j; }); }); };
   if(a === "open"){

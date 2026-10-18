@@ -128,6 +128,21 @@ main .tabs{display:flex;gap:6px;flex-wrap:wrap}
 main .tabs button{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important;padding:8px 14px}
 main .tabs button:hover{border-color:var(--neon)!important}
 main .tabs button.on{background:var(--pri-soft)!important;color:var(--neon)!important;border-color:var(--neon)!important}
+/* 표와 공통 부품 (파트너 페이지에서도 사용) */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}.tbl th,.tbl td{padding:9px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap}.tbl td.r,.tbl th.r{text-align:right}.tw{overflow-x:auto}
+.tbl tr.tot td{font-weight:800;background:var(--card2)}
+.tbl a.ml{color:var(--neon);cursor:pointer;text-decoration:underline;font-weight:700}
+.stars{color:#ffc447;letter-spacing:1px;font-size:14px}.stars i{font-style:normal;color:var(--line)}
+.cnt{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.cnt button{font:inherit;text-align:left;background:var(--card)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:10px!important;padding:14px 16px;cursor:pointer}
+.cnt button small{display:block;color:var(--mute);font-size:12px}.cnt button b{font-family:var(--mono);font-size:26px}
+.cnt button.on{border-color:var(--neon)!important;box-shadow:0 0 0 1px var(--neon)}
+.rv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px}.rv.low{border-color:var(--red)}
+.rv .rh{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}.rv p{margin:8px 0;white-space:pre-wrap;word-break:break-word}
+.bd{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:6px;border:1px solid var(--line);margin-right:4px;font-family:var(--mono)}
+.bd.n{color:var(--neon);border-color:var(--neon)}.bd.l{color:var(--red);border-color:var(--red)}.bd.b{color:var(--warn);border-color:var(--warn)}
+.cnt a.cb{display:block;text-decoration:none;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.cnt a.cb small{display:block;color:var(--mute);font-size:12px}.cnt a.cb b{font-family:var(--mono);font-size:26px}
 </style></head>
 <body>
 <header id="hd"></header>
@@ -152,13 +167,14 @@ function login(bad){
   document.getElementById("go").onclick = go; document.getElementById("cd").onkeydown = function(e){ if(e.key === "Enter") go(); };
 }
 function shell(){
+  if(window.STKT){ clearInterval(window.STKT); window.STKT = null; }
   HD.innerHTML = '<div><b>' + esc(BN) + '</b><span>SKININSIDE PARTNER</span></div><button id="lo">로그아웃</button>'; document.getElementById("lo").onclick = function(){ fetch("/api/partner/logout", {method:"POST", credentials:"same-origin"}).then(function(){ login(false); }); };
-  document.getElementById("tb").innerHTML = '<div class="tabs" style="max-width:760px;margin:12px auto 0;padding:0 16px">' + [["home", "홈"], ["orders", "발송"], ["stock", "재고"], ["cs", "CS"], ["settle", "정산"]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
+  document.getElementById("tb").innerHTML = '<div class="tabs" style="max-width:760px;margin:12px auto 0;padding:0 16px">' + [["home", "홈"], ["orders", "발송"], ["stock", "재고"], ["review", "리뷰"], ["cs", "CS"], ["settle", "정산"]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
   [].forEach.call(document.querySelectorAll("#tb button"), function(b){ b.onclick = function(){ go(b.dataset.t); }; });
-  ({home:home, orders:orders, stock:stock, cs:cs, settle:settle}[TAB] || home)();
+  ({home:home, orders:orders, stock:stock, review:review, cs:cs, settle:settle}[TAB] || home)();
 }
 function go(t){ TAB = t; try{ history.replaceState(null, "", "#" + t); }catch(e){} shell(); window.scrollTo(0, 0); }
-function links(){ [].forEach.call(M.querySelectorAll("[data-go]"), function(a){ a.onclick = function(e){ e.preventDefault(); go(a.dataset.go); }; }); }
+function links(){ [].forEach.call(M.querySelectorAll("[data-go]"), function(a){ a.onclick = function(e){ e.preventDefault(); if(a.dataset.rf) RF = a.dataset.rf; go(a.dataset.go); }; }); }
 
 /* ---------- 홈: 읽기 전용 요약 ---------- */
 function home(){
@@ -169,6 +185,8 @@ function home(){
       : '<div class="big zero"><small>오늘 발송할 주문</small><b>없어요</b><small>들어온 주문을 모두 발송했어요.</small></div>';
     h += '<div class="kpi"><div><small>발송 대기</small><b>' + c.todo + '</b></div><div><small>오늘 발송 완료</small><b>' + c.doneToday + '</b></div><div><small>누적 발송 완료</small><b>' + c.done + '</b></div><div><small>취소</small><b>' + c.canceled + '</b></div></div>';
     if(d.cs && (d.cs.open || d.cs.waitingReturn)) h += '<div class="card"><a class="go" data-go="cs">CS 보기 →</a><h2>답변·처리할 CS</h2><p class="sub">답변 대기 ' + d.cs.open + '건 · 반품 입고 대기 ' + d.cs.waitingReturn + '건</p></div>';
+    if(d.reviews) h += '<div class="card"><a class="go" data-go="review">리뷰 보기 →</a><h2>리뷰</h2><div class="cnt" style="margin:8px 0 0"><a class="cb" data-go="review" data-rf="new"><small>새 리뷰</small><b>' + d.reviews.new + '</b></a><a class="cb" data-go="review" data-rf="low"><small>낮은 평점</small><b>' + d.reviews.low + '</b></a><a class="cb" data-go="review" data-rf="del"><small>삭제 요청 중</small><b>' + d.reviews.delReq + '</b></a></div></div>';
+    if(d.stock) h += '<div class="kpi"><div><small>판매 중 상품</small><b>' + d.stock.selling + '</b></div><div><small>품절 상품</small><b>' + d.stock.soldOut + '</b></div></div>';
     if(d.stock && d.stock.alerts.length) h += '<div class="card"><a class="go" data-go="stock">재고 관리 →</a><h2>재고 확인이 필요해요</h2><p class="sub">' + d.stock.alerts.map(function(a){ return '<span class="al">' + esc(a.name) + ' · ' + (a.soldOut ? "품절" : a.qty + "개 남음") + '</span>'; }).join("") + '</p></div>';
     h += '<div class="card"><h2>최근 7일 주문</h2><div class="wk">' + d.week.map(function(x){ return '<div><b>' + x.n + '</b><i style="height:' + Math.round(x.n / mx * 70) + 'px"></i>' + x.d.replace("-", "/") + '</div>'; }).join("") + '</div></div>';
     h += '<div class="card"><h2>이번 달 베스트 제품</h2>' + (d.top.length ? d.top.map(function(x, i){ return '<div class="rw"><span>' + (i + 1) + '. ' + esc(x.name) + '</span><b>' + x.q + '개</b></div>'; }).join("") : '<div class="s" style="padding:8px 0">아직 판매가 없어요.</div>') + '</div>';
@@ -307,12 +325,42 @@ function csvInit(){
 function stock(){
   M.innerHTML = '<div class="empty">불러오는 중...</div>';
   api("/api/partner/stock").then(function(j){
-    M.innerHTML = '<div class="help">수량을 입력하면 주문될 때마다 자동으로 줄고, 0이 되면 스토어에서 자동으로 품절 표시돼요. 수량을 비워두면 수량 관리 없이 판매돼요.</div>' + j.products.map(function(p){
-      return '<div class="o"><div class="h"><span>' + esc(p.name) + '</span><span class="st ' + (p.soldOut ? "c" : "d") + '">' + (p.soldOut ? "품절" : "판매 중") + '</span></div><div class="f"><input data-q="' + esc(p.id) + '" inputmode="numeric" placeholder="재고 수량 (비우면 관리 안 함)" value="' + (p.qty === null ? "" : p.qty) + '"><button class="sv" data-sq="' + esc(p.id) + '">수량 저장</button><button class="bt2' + (p.manual ? "" : " red") + '" data-so="' + esc(p.id) + '" data-v="' + (p.manual ? 0 : 1) + '">' + (p.manual ? "품절 해제" : "품절로 표시") + '</button></div><div class="msg" data-sm="' + esc(p.id) + '"></div></div>';
+    M.innerHTML = '<div class="kpi" id="skc"><div><small>판매 중 상품</small><b id="sk-s">' + j.selling + '</b></div><div><small>품절 상품</small><b id="sk-o">' + j.soldOut + '</b></div><div><small>실시간 · 15초마다 갱신</small><b id="sk-t" style="font-size:16px">' + esc(kst(j.at).slice(11)) + '</b></div></div><div class="help">수량을 입력하면 주문될 때마다 자동으로 줄고, 0이 되면 스토어에서 자동으로 품절 표시돼요. 수량을 비워두면 수량 관리 없이 판매돼요.</div>' + j.products.map(function(p){
+      return '<div class="o"><div class="h"><span>' + esc(p.name) + '</span><span data-st="' + esc(p.id) + '" class="st ' + (p.soldOut ? "c" : "d") + '">' + (p.soldOut ? "품절" : "판매 중") + '</span></div><div class="f"><input data-q="' + esc(p.id) + '" inputmode="numeric" placeholder="재고 수량 (비우면 관리 안 함)" value="' + (p.qty === null ? "" : p.qty) + '"><button class="sv" data-sq="' + esc(p.id) + '">수량 저장</button><button class="bt2' + (p.manual ? "" : " red") + '" data-so="' + esc(p.id) + '" data-v="' + (p.manual ? 0 : 1) + '">' + (p.manual ? "품절 해제" : "품절로 표시") + '</button></div><div class="msg" data-sm="' + esc(p.id) + '"></div></div>';
     }).join("");
+    if(window.STKT) clearInterval(window.STKT);
+    window.STKT = setInterval(function(){ if(TAB !== "stock"){ clearInterval(window.STKT); return; } api("/api/partner/stock").then(function(x){ var a = document.getElementById("sk-s"); if(!a) return; a.textContent = x.selling; document.getElementById("sk-o").textContent = x.soldOut; document.getElementById("sk-t").textContent = kst(x.at).slice(11); x.products.forEach(function(p){ var e = document.querySelector('[data-st="' + p.id + '"]'); if(e){ e.className = "st " + (p.soldOut ? "c" : "d"); e.textContent = p.soldOut ? "품절" : "판매 중"; } }); }).catch(function(){}); }, 15000);
     var post = function(id, body){ api("/api/partner/stock", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(Object.assign({id:id}, body))}).then(stock).catch(function(e){ if(e.message !== "auth"){ var m = M.querySelector('[data-sm="' + id + '"]'); m.className = "msg e"; m.textContent = e.message; } }); };
     [].forEach.call(M.querySelectorAll("[data-sq]"), function(b){ b.onclick = function(){ var v = M.querySelector('[data-q="' + b.dataset.sq + '"]').value.trim(); post(b.dataset.sq, {qty:v === "" ? null : Number(v)}); }; });
     [].forEach.call(M.querySelectorAll("[data-so]"), function(b){ b.onclick = function(){ post(b.dataset.so, {soldOut:b.dataset.v === "1"}); }; });
+  }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+
+/* ---------- 리뷰: 직접 삭제는 못 하고 삭제 요청만 가능 ---------- */
+var RF = "new";
+function stars(n){ var s = ""; for(var i = 1; i <= 5; i++) s += i <= n ? "★" : "<i>★</i>"; return '<span class="stars">' + s + '</span>'; }
+function review(){
+  M.innerHTML = '<div class="empty">불러오는 중...</div>';
+  api("/api/partner/reviews").then(function(j){
+    var c = j.counts, L = j.reviews, bestCnt = {};
+    L.forEach(function(r){ if(r.best) bestCnt[r.productId] = (bestCnt[r.productId] || 0) + 1; });
+    var list = L.filter(function(r){ return RF === "new" ? r.isNew : RF === "low" ? r.low : RF === "del" ? (r.delReq && r.delReq.status === "pending") : true; });
+    var h = '<div class="cnt"><button data-rf="new" class="' + (RF === "new" ? "on" : "") + '"><small>새 리뷰</small><b>' + c.new + '</b></button><button data-rf="low" class="' + (RF === "low" ? "on" : "") + '"><small>낮은 평점 (2점 이하)</small><b>' + c.low + '</b></button><button data-rf="del" class="' + (RF === "del" ? "on" : "") + '"><small>삭제 요청 중</small><b>' + c.delReq + '</b></button></div>';
+    h += '<div class="help">리뷰는 직접 삭제할 수 없어요. 악의적인 리뷰는 삭제 요청을 보내면 스킨인사이드가 확인해서 승인하면 삭제돼요. 낮은 평점 리뷰도 마찬가지예요. 베스트 리뷰는 제품마다 3개까지, 별점 4점 이상 리뷰로 골라요. 소비자 화면 맨 위에 보여요.</div>';
+    h += (RF !== "all" ? '<div class="f" style="margin:0 0 10px"><button class="sv" data-rf="all">전체 리뷰 보기 (' + c.total + ')</button>' + (RF === "new" && c.new ? '<button class="bt2" id="rall">모두 확인했어요</button>' : '') + '</div>' : '<div class="s" style="margin-bottom:8px">전체 리뷰 · 최신순 ' + c.total + '건</div>');
+    h += list.length ? list.map(function(r){
+      var d = r.delReq, dl = d ? (d.status === "pending" ? '<span class="bd b">삭제 요청 중</span>' : d.status === "rejected" ? '<span class="bd">삭제 요청 거부됨</span>' : "") : "";
+      return '<div class="rv' + (r.low ? " low" : "") + '"><div class="rh"><span>' + stars(r.rating) + ' ' + (r.isNew ? '<span class="bd n">NEW</span>' : '') + (r.low ? '<span class="bd l">낮은 평점</span>' : '') + (r.best ? '<span class="bd b">베스트</span>' : '') + dl + '</span><span class="s">' + esc(kst(r.createdAt)) + '</span></div><div class="s">' + esc(r.productName) + ' · ' + esc(r.userName) + ' · ' + esc(r.orderId) + '</div><p>' + esc(r.text) + '</p>'
+        + '<div class="f" style="margin:0">' + (r.rating >= 4 ? '<button class="bt2" data-b="' + esc(r.id) + '" data-on="' + (r.best ? 0 : 1) + '">' + (r.best ? "베스트 해제" : "베스트로 선정 (" + (bestCnt[r.productId] || 0) + "/3)") + '</button>' : '') + (!d ? '<button class="bt2 red" data-q="' + esc(r.id) + '">삭제 요청</button>' : '') + '</div><div data-rq="' + esc(r.id) + '"></div><div class="msg" data-rm="' + esc(r.id) + '"></div></div>';
+    }).join("") : '<div class="empty">' + (RF === "new" ? "새 리뷰가 없어요." : RF === "low" ? "낮은 평점 리뷰가 없어요." : RF === "del" ? "삭제 요청 중인 리뷰가 없어요." : "리뷰가 없어요.") + '</div>';
+    M.innerHTML = h;
+    var say = function(id, t){ var m = M.querySelector('[data-rm="' + id + '"]'); if(m){ m.className = "msg e"; m.textContent = t; } };
+    [].forEach.call(M.querySelectorAll("[data-rf]"), function(b){ b.onclick = function(){ RF = b.dataset.rf; review(); }; });
+    var ra = document.getElementById("rall"); if(ra) ra.onclick = function(){ api("/api/partner/reviews/read", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ids:"all"})}).then(review); };
+    [].forEach.call(M.querySelectorAll("[data-b]"), function(b){ b.onclick = function(){ api("/api/partner/reviews/best", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({id:b.dataset.b, on:b.dataset.on === "1"})}).then(review).catch(function(e){ if(e.message !== "auth") say(b.dataset.b, e.message); }); }; });
+    [].forEach.call(M.querySelectorAll("[data-q]"), function(b){ b.onclick = function(){ var id = b.dataset.q, box = M.querySelector('[data-rq="' + id + '"]'); if(box.innerHTML){ box.innerHTML = ""; return; }
+      box.innerHTML = '<textarea placeholder="삭제를 요청하는 사유를 적어주세요 (예: 허위 사실, 욕설, 광고)" style="margin-top:8px"></textarea><div class="f"><button class="sv">삭제 요청 보내기</button></div>';
+      box.querySelector("button").onclick = function(){ api("/api/partner/reviews/delete-request", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({id:id, reason:box.querySelector("textarea").value})}).then(review).catch(function(e){ if(e.message !== "auth") say(id, e.message); }); }; }; });
   }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 }
 
@@ -342,14 +390,56 @@ function cs(){
 }
 
 /* ---------- 정산 ---------- */
+/* ---------- 부가세 신고용 매출 자료 ---------- */
+function ym(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+function csvTsv(t){ return String(t).replace(/^\ufeff/, "").split(/\r?\n/).filter(function(l){ return l.trim(); }).map(function(l){ var o = [], c = "", q = false, i; for(i = 0; i < l.length; i++){ var ch = l[i]; if(q){ if(ch === '"'){ if(l[i + 1] === '"'){ c += '"'; i++; } else q = false; } else c += ch; } else if(ch === '"') q = true; else if(ch === ","){ o.push(c); c = ""; } else c += ch; } o.push(c); return o.join("\t"); }).join("\n"); }
+function csvBtns(id, url, name, label){
+  return '<span class="f" style="margin:0;display:inline-flex"><button class="sv" data-dl="' + id + '">' + label + ' 엑셀 받기</button><button class="bt2" data-cp="' + id + '">복사</button></span><span class="msg" data-dm="' + id + '"></span>';
+}
+function csvBind(root, map){
+  var say = function(id, t, bad){ var m = root.querySelector('[data-dm="' + id + '"]'); if(m){ m.className = "msg " + (bad ? "e" : "o"); m.textContent = t; } };
+  var get = function(u){ return fetch(u, {credentials:"same-origin"}).then(function(r){ if(r.status === 401){ login(true); throw new Error("auth"); } if(!r.ok) throw new Error("자료를 만들지 못했어요"); return r.text(); }); };
+  [].forEach.call(root.querySelectorAll("[data-dl]"), function(b){ b.onclick = function(){ var m = map[b.dataset.dl]; get(m.url).then(function(t){ var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + t.replace(/^\ufeff/, "")], {type:"text/csv;charset=utf-8"})); a.download = m.name; document.body.appendChild(a); a.click(); a.remove(); say(b.dataset.dl, "내려받았어요. 받아지지 않으면 복사 버튼을 써주세요."); }).catch(function(e){ if(e.message !== "auth") say(b.dataset.dl, e.message, 1); }); }; });
+  [].forEach.call(root.querySelectorAll("[data-cp]"), function(b){ b.onclick = function(){ var m = map[b.dataset.cp]; get(m.url).then(function(t){ var tsv = csvTsv(t); try{ navigator.clipboard.writeText(tsv).then(function(){ say(b.dataset.cp, "복사했어요. 엑셀에 붙여넣기 하세요."); }, function(){ say(b.dataset.cp, "복사가 막혀 있어요. 엑셀 받기를 써주세요.", 1); }); }catch(x){ say(b.dataset.cp, "복사가 막혀 있어요. 엑셀 받기를 써주세요.", 1); } }).catch(function(e){ if(e.message !== "auth") say(b.dataset.cp, e.message, 1); }); }; });
+}
+var VF = "", VT = "", VM = "";
+function vatCard(){
+  var now = new Date(), a = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  VF = VF || ym(a); VT = VT || ym(now);
+  return '<div class="card" id="vat"><h2>부가세 신고용 매출 자료</h2><p class="sub">예정 신고 때 세무사님께 드릴 자료예요. 기간을 고르고 조회해서 화면을 캡처하고, 월별 내역 엑셀을 함께 보내세요. 결제 완료일 기준이고 환불은 환불한 달에서 빠져요. 금액은 부가세 포함이에요.</p>'
+    + '<div class="f" style="margin:0 0 10px"><input type="month" id="vf" value="' + VF + '" style="flex:none;min-width:150px"><span style="align-self:center">~</span><input type="month" id="vt" value="' + VT + '" style="flex:none;min-width:150px"><button class="sv" id="vs">조회</button><button class="bt2" id="vr">초기화</button></div><div class="s">최대 12개월까지 조회할 수 있어요.</div><div id="vres"></div></div>';
+}
+function vatBind(){
+  var q = function(i){ return document.getElementById(i); }, res = q("vres");
+  q("vr").onclick = function(){ VF = VT = VM = ""; settle(); };
+  q("vs").onclick = function(){ VF = q("vf").value; VT = q("vt").value; VM = ""; run(); };
+  function run(){
+    res.innerHTML = '<div class="s" style="margin-top:12px">조회 중...</div>';
+    api("/api/partner/vat?from=" + VF + "&to=" + VT).then(function(j){
+      var row = function(r, t){ return '<tr' + (t ? ' class="tot"' : '') + '><td>' + (t ? "합계" : '<a class="ml" data-m="' + r.month + '">' + r.month.replace("-", ".") + '</a>') + '</td><td class="r">' + n(r.orders) + '</td><td class="r">' + n(r.net) + '</td><td class="r">' + n(r.exempt) + '</td><td class="r">' + n(r.card) + '</td><td class="r">' + n(r.other) + '</td><td class="r">' + n(r.supply) + '</td><td class="r">' + n(r.vat) + '</td><td class="r">' + n(r.refund) + '</td></tr>'; };
+      res.innerHTML = '<div class="s" style="margin:12px 0 6px"><b>' + VF.replace("-", ".") + ' ~ ' + VT.replace("-", ".") + '</b> 조회 결과 · ' + esc(j.basis) + '</div><div class="h" style="margin:8px 0"><b>월별 내역</b>' + csvBtns("m", "", "", "월별내역") + '</div><div class="tw"><table class="tbl"><tr><th>부가세 신고기간</th><th class="r">주문</th><th class="r">과세매출액</th><th class="r">면세매출액</th><th class="r">카드·간편결제</th><th class="r">기타(계좌이체 등)</th><th class="r">공급가액</th><th class="r">부가세</th><th class="r">환불(차감됨)</th></tr>' + row(j.total, 1) + j.rows.map(function(r){ return row(r); }).join("") + '</table></div><p class="s" style="margin:6px 0 0">신고기간을 누르면 아래에 월간 상세 내역이 나와요.</p><div id="vdet"></div>';
+      csvBind(res, {m:{url:"/api/partner/vat.csv?from=" + VF + "&to=" + VT, name:"vat-monthly-" + VF + "_" + VT + ".csv"}});
+      [].forEach.call(res.querySelectorAll("[data-m]"), function(a){ a.onclick = function(){ VM = a.dataset.m; detail(); }; });
+      if(VM) detail();
+    }).catch(function(e){ if(e.message !== "auth") res.innerHTML = '<div class="msg e">' + esc(e.message) + '</div>'; });
+  }
+  function detail(){
+    var d = q("vdet"); d.innerHTML = '<div class="s" style="margin-top:12px">불러오는 중...</div>';
+    api("/api/partner/vat-days?month=" + VM).then(function(j){
+      d.innerHTML = '<div class="h" style="margin:14px 0 8px"><b>월간 상세 내역 · ' + VM.replace("-", ".") + '</b><span>' + csvBtns("d", "", "", "일별내역") + ' ' + csvBtns("o", "", "", "건별내역") + '</span></div>' + (j.days.length ? '<div class="tw"><table class="tbl"><tr><th>일자</th><th class="r">주문</th><th class="r">과세매출액</th><th class="r">카드·간편결제</th><th class="r">기타</th><th class="r">공급가액</th><th class="r">부가세</th><th class="r">환불</th></tr>' + j.days.map(function(r){ return '<tr><td>' + r.day + '</td><td class="r">' + n(r.orders) + '</td><td class="r">' + n(r.net) + '</td><td class="r">' + n(r.card) + '</td><td class="r">' + n(r.other) + '</td><td class="r">' + n(r.supply) + '</td><td class="r">' + n(r.vat) + '</td><td class="r">' + n(r.refund) + '</td></tr>'; }).join("") + '</table></div>' : '<div class="empty">이 달 매출 내역이 없어요.</div>');
+      csvBind(d, {d:{url:"/api/partner/vat-days.csv?month=" + VM, name:"vat-daily-" + VM + ".csv"}, o:{url:"/api/partner/vat-orders.csv?month=" + VM, name:"vat-orders-" + VM + ".csv"}});
+    }).catch(function(e){ if(e.message !== "auth") d.innerHTML = '<div class="msg e">' + esc(e.message) + '</div>'; });
+  }
+  run();
+}
 function settle(){
   M.innerHTML = '<div class="empty">불러오는 중...</div>';
   api("/api/partner/settlements").then(function(j){
-    M.innerHTML = '<div class="help">매월 정산이 확정되면 이메일로 정산서가 가고, 여기에서도 확인할 수 있어요. 환불된 금액은 정산에서 빠져요.</div>' + (j.settlements.length ? j.settlements.map(function(x){
+    M.innerHTML = vatCard() + '<div class="help">매월 정산이 확정되면 이메일로 정산서가 가고, 여기에서도 확인할 수 있어요. 환불된 금액은 정산에서 빠져요.</div>' + (j.settlements.length ? j.settlements.map(function(x){
       return '<div class="card"><div class="h"><h2>' + esc(x.month) + ' 정산</h2><span class="st ' + (x.paidAt ? "d" : "") + '">' + (x.paidAt ? "송금 완료 " + esc(kst(x.paidAt).slice(0, 10)) : "송금 예정") + '</span></div><div class="rw"><span>판매 금액 (' + x.n + '건)</span><b>' + n(x.sales) + '원</b></div>' + (x.refund ? '<div class="rw"><span>환불</span><b>-' + n(x.refund) + '원</b></div>' : '') + '<div class="rw"><span>수수료 (' + x.feeRate + '%)</span><b>-' + n(x.fee) + '원</b></div><div class="rw"><span><b>지급액</b></span><b>' + n(x.payout) + '원</b></div></div>';
-    }).join("") : '<div class="empty">아직 확정된 정산이 없어요.</div>');
+    }).join("") : '<div class="empty">아직 확정된 정산이 없어요.</div>'); vatBind();
   }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 }
-if(/^#(home|orders|stock|cs|settle)$/.test(location.hash)) TAB = location.hash.slice(1);
+if(/^#(home|orders|stock|review|cs|settle)$/.test(location.hash)) TAB = location.hash.slice(1);
 boot();
 </script></body></html>

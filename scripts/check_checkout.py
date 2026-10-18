@@ -27,6 +27,18 @@ with sync_playwright() as p:
     if "추가 문의" not in pg2.inner_text("body"): err.append("고객 추가 메시지가 보이지 않아요")
     pg2.click("[data-cs=escalate]"); pg2.wait_for_timeout(800)
     if "확인을 요청했어요" not in pg2.inner_text("body"): err.append("운영자 확인 요청 표시가 없어요")
+    # 후기: 발송된 주문에서 후기 쓰기(별점+내용), 발송 전 주문에는 버튼 없음
+    if pg2.locator("[data-rv=open]").count() != 1: err.append("발송된 주문에만 후기 쓰기 버튼이 있어야 해요 (%d)" % pg2.locator("[data-rv=open]").count())
+    else:
+        pg2.click("[data-rv=open]"); pg2.click("[data-stars] [data-s]:nth-child(4)"); pg2.fill("[data-rvform] textarea", "짧"); pg2.click("[data-rv=send]"); pg2.wait_for_timeout(500)
+        if "5자" not in pg2.inner_text("body"): err.append("짧은 후기가 통과해요")
+        pg2.fill("[data-rvform] textarea", "거품이 부드럽고 좋아요 추천해요"); pg2.click("[data-rv=send]"); pg2.wait_for_timeout(800)
+        if "후기를 남겼어요" not in pg2.inner_text("body"): err.append("후기 등록 뒤 표시가 없어요")
+    # 제품 상세: 베스트 후기가 맨 위, 평균 별점
+    pg2.click("text=스토어"); pg2.wait_for_timeout(500); pg2.locator(".pc").first.click(); pg2.wait_for_timeout(900)
+    rb = pg2.inner_text("#rvbox") if pg2.locator("#rvbox").count() else ""
+    if "구매 후기" not in rb or "베스트" not in rb or "(3개)" not in rb: err.append("제품 상세에 후기(평균/개수)가 안 보여요: " + rb[:80])
+    if rb.find("베스트") > rb.find("무난하게"): err.append("베스트 후기가 맨 위에 오지 않아요")
     if errs: err.append("페이지 오류: %s" % errs)
     b.close()
 print("\n".join(err) if err else "OK: 네이버페이 결제 흐름 정상"); sys.exit(1 if err else 0)

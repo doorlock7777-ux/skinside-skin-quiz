@@ -83,3 +83,18 @@ main .tabs{display:flex;gap:6px;flex-wrap:wrap}
 main .tabs button{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important;padding:8px 14px}
 main .tabs button:hover{border-color:var(--neon)!important}
 main .tabs button.on{background:var(--pri-soft)!important;color:var(--neon)!important;border-color:var(--neon)!important}
+/* 표와 공통 부품 (파트너 페이지에서도 사용) */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}.tbl th,.tbl td{padding:9px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap}.tbl td.r,.tbl th.r{text-align:right}.tw{overflow-x:auto}
+.tbl tr.tot td{font-weight:800;background:var(--card2)}
+.tbl a.ml{color:var(--neon);cursor:pointer;text-decoration:underline;font-weight:700}
+.stars{color:#ffc447;letter-spacing:1px;font-size:14px}.stars i{font-style:normal;color:var(--line)}
+.cnt{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.cnt button{font:inherit;text-align:left;background:var(--card)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:10px!important;padding:14px 16px;cursor:pointer}
+.cnt button small{display:block;color:var(--mute);font-size:12px}.cnt button b{font-family:var(--mono);font-size:26px}
+.cnt button.on{border-color:var(--neon)!important;box-shadow:0 0 0 1px var(--neon)}
+.rv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px}.rv.low{border-color:var(--red)}
+.rv .rh{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}.rv p{margin:8px 0;white-space:pre-wrap;word-break:break-word}
+.bd{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:6px;border:1px solid var(--line);margin-right:4px;font-family:var(--mono)}
+.bd.n{color:var(--neon);border-color:var(--neon)}.bd.l{color:var(--red);border-color:var(--red)}.bd.b{color:var(--warn);border-color:var(--warn)}
+.cnt a.cb{display:block;text-decoration:none;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.cnt a.cb small{display:block;color:var(--mute);font-size:12px}.cnt a.cb b{font-family:var(--mono);font-size:26px}

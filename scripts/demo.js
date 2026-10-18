@@ -24,6 +24,19 @@ window.fetch = function(u, o){
   if(u === "/api/logout"){ state.user = null; save(); return res({ok:true}); }
   if(!state.user && /^\/api\/(order|confirm)/.test(u)) return res({error:"로그인이 필요해요"}, 401);
   if(u === "/api/stock") return res({soldOut:[]});
+  if(/^\/api\/review/.test(u)){
+    state.reviews = state.reviews || [{id:"R0", productId:"bonkorea-cl", rating:5, text:"거품이 부드럽고 세안 후 당김이 적어요. 재구매 의사 있어요.", userName:"김*수", createdAt:"2026-10-10T03:00:00Z", best:true}, {id:"R00", productId:"bonkorea-cl", rating:4, text:"무난하게 쓰기 좋아요.", userName:"이*호", createdAt:"2026-10-12T03:00:00Z", best:false}];
+    if(/^\/api\/review\?/.test(u)){ var pid = decodeURIComponent(u.split("product=")[1] || ""), l = state.reviews.filter(function(r){ return r.productId === pid; }).sort(function(a, b){ return (b.best ? 1 : 0) - (a.best ? 1 : 0) || (a.createdAt < b.createdAt ? 1 : -1); }); return res({count:l.length, avg:l.length ? Math.round(l.reduce(function(a, r){ return a + r.rating; }, 0) / l.length * 10) / 10 : 0, reviews:l}); }
+    if(!state.user) return res({error:"로그인이 필요해요"}, 401);
+    if(u === "/api/review/mine") return res({done:state.reviews.filter(function(r){ return r.mine; }).map(function(r){ return r.orderId + "|" + r.productId; })});
+    if(u === "/api/review/new"){
+      var o3 = state.orders.filter(function(x){ return x.id === b.orderId; })[0], ln = o3 && o3.items.filter(function(l){ return l.id === b.productId; })[0];
+      if(!ln || !(o3.shipments && o3.shipments[ln.brand] && o3.shipments[ln.brand].tracking)) return res({error:"배송이 시작된 뒤에 작성할 수 있어요"}, 400);
+      if(!(b.rating >= 1 && b.rating <= 5)) return res({error:"별점을 선택해주세요"}, 400);
+      if(String(b.text || "").trim().length < 5) return res({error:"리뷰는 5자 이상 적어주세요"}, 400);
+      state.reviews.push({id:"R" + Date.now(), productId:b.productId, orderId:b.orderId, rating:b.rating, text:b.text, userName:"홍*동", createdAt:new Date().toISOString(), best:false, mine:true}); save(); return res({ok:true});
+    }
+  }
   if(/^\/api\/cs\//.test(u)){
     state.tickets = state.tickets || [];
     if(u === "/api/cs/mine") return res({tickets: state.tickets});
