@@ -76,16 +76,17 @@ function soon(){
 /* 홈 */
 function myResult(){ try{ var r = JSON.parse(localStorage.getItem("skinside_result") || "null"); return r && r.key && r.p ? r : null; }catch(e){ return null; } }
 function myCard(r){
-  var cx = 75, cy = 62, R = 36, ks = ["od","sr","pn","wt"], nm = ["피지","민감","색소","주름"];
-  function P(f){ return ks.map(function(k, i){ var a = -Math.PI / 2 + i * Math.PI / 2, v = typeof f === "number" ? f : Math.max(8, r.p[k] || 0), rr = R * v / 100; return (cx + rr * Math.cos(a)).toFixed(1) + "," + (cy + rr * Math.sin(a)).toFixed(1); }).join(" "); }
-  var g = '<svg viewBox="0 0 150 124" width="160" height="132" role="img" aria-label="피부 레이더 차트">';
-  [50, 100].forEach(function(l){ g += '<polygon points="' + P(l) + '" fill="none" stroke="rgba(255,255,255,.35)"/>'; });
-  g += '<polygon points="' + P(100) + '" fill="none" stroke="none"/>';
-  P(100).split(" ").forEach(function(q){ g += '<line x1="75" y1="62" x2="' + q.split(",")[0] + '" y2="' + q.split(",")[1] + '" stroke="rgba(255,255,255,.35)"/>'; });
-  g += '<polygon points="' + P() + '" fill="rgba(255,255,255,.4)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>';
-  [[75, 12], [128, 66], [75, 120], [22, 66]].forEach(function(q, i){ g += '<text x="' + q[0] + '" y="' + q[1] + '" text-anchor="middle" font-size="11" fill="#fff" opacity=".9">' + nm[i] + '</text>'; });
+  var cx = 75, cy = 62, R = 38, ks = ["od","sr","pn","wt"], nm = ["피지","민감","색소","주름"];
+  function P(f){ return ks.map(function(k, i){ var a = -Math.PI / 2 + i * Math.PI / 2, v = typeof f === "number" ? f : Math.max(8, r.p[k] || 0), rr = R * v / 100; return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)]; }); }
+  function pts(a){ return a.map(function(q){ return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" "); }
+  var g = '<svg viewBox="0 0 150 124" role="img" aria-label="피부 레이더 차트"><defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity=".25"/></linearGradient></defs>';
+  [33, 66, 100].forEach(function(l){ g += '<polygon points="' + pts(P(l)) + '" fill="none" stroke="rgba(255,255,255,.28)" stroke-width=".8"/>'; });
+  P(100).forEach(function(q){ g += '<line x1="75" y1="62" x2="' + q[0].toFixed(1) + '" y2="' + q[1].toFixed(1) + '" stroke="rgba(255,255,255,.22)" stroke-width=".8"/>'; });
+  g += '<polygon points="' + pts(P()) + '" fill="url(#rg)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/>';
+  P().forEach(function(q){ g += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="2.2" fill="#fff"/>'; });
+  [[75, 14], [128, 66], [75, 118], [22, 66]].forEach(function(q, i){ g += '<text x="' + q[0] + '" y="' + q[1] + '" text-anchor="middle" font-size="11" fill="#fff" opacity=".85">' + nm[i] + '</text>'; });
   g += '</svg>';
-  return '<div class="sec" style="padding-bottom:8px"><a class="hero my" href="' + QZ + '"' + QT + '><div><span class="k">나의 피부타입</span><b class="cd">' + esc(r.key) + '</b><span class="t">' + esc(r.desc || "") + '</span></div>' + g + '</a></div>';
+  return '<div class="sec" style="padding-bottom:8px"><a class="hero my" href="' + QZ + '"' + QT + '><div class="tx"><span class="k">나의 피부타입</span><b class="cd">' + esc(r.key) + '</b><span class="k">' + esc(r.desc || "") + '</span></div>' + g + '</a></div>';
 }
 function quizDone(){ try{ return JSON.parse(localStorage.getItem("skinside_quiz_v2") || "{}").screen === "result"; }catch(e){ return false; } }
 function home(){

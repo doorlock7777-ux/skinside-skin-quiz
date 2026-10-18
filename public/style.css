@@ -106,12 +106,8 @@ label.f{display:block;font-size:13px;color:var(--mute);font-weight:600;margin:14
 .tabs .bd{position:absolute;top:4px;left:calc(50% + 6px)}
 [hidden]{display:none!important}
 
-.hero.my{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px 12px 16px 20px}
-.hero.my b.cd{font-size:38px;font-weight:800;letter-spacing:.04em;line-height:1.15;margin:2px 0 4px}
-.hero.my span{display:block}
-.hero.my svg{flex:none;max-width:42%;height:auto}
-.hero.my{min-height:176px}
-.hero.my span.k{font-size:17px;font-weight:700;opacity:1}
-.hero.my b.cd{font-size:54px;letter-spacing:.03em;margin:0 0 2px}
-.hero.my span.t{font-size:22px;font-weight:800;opacity:1}
-.hero.my svg{max-width:44%}
+.hero.my{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:176px;padding:18px 14px 18px 22px;background:linear-gradient(145deg,#5a63b0 0%,var(--pri) 55%,#434b8f 100%);box-shadow:0 8px 24px rgba(78,87,162,.28)}
+.hero.my .tx{min-width:0}
+.hero.my span.k{display:block;font-size:15px;font-weight:400;opacity:.82;line-height:1.5;letter-spacing:0}
+.hero.my b.cd{display:block;font-size:clamp(46px,14.5vw,70px);font-weight:800;letter-spacing:.02em;line-height:1.05;margin:6px 0 8px}
+.hero.my svg{flex:none;width:42%;max-width:170px;height:auto}

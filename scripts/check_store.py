@@ -39,12 +39,13 @@ with sync_playwright() as pw:
         pg.set_viewport_size({"width": w, "height": 900}); pg.wait_for_timeout(300)
         r = pg.evaluate("""()=>{var s=document.querySelector('.hero.my svg'); if(!s) return null; var v=s.viewBox.baseVal, bad=[];
           s.querySelectorAll('text').forEach(t=>{var b=t.getBBox(); if(b.x<v.x||b.x+b.width>v.x+v.width||b.y<v.y||b.y+b.height>v.y+v.height) bad.push(t.textContent)});
-          var cd=parseFloat(getComputedStyle(document.querySelector('.hero.my .cd')).fontSize), k=parseFloat(getComputedStyle(document.querySelector('.hero.my .k')).fontSize), tt=parseFloat(getComputedStyle(document.querySelector('.hero.my .t')).fontSize);
-          return {bad:bad,cd:cd,k:k,t:tt,labels:[...s.querySelectorAll('text')].map(t=>t.textContent),sw:document.documentElement.scrollWidth,h:document.querySelector('.hero.my').getBoundingClientRect().height}}""")
+          var cd=parseFloat(getComputedStyle(document.querySelector('.hero.my .cd')).fontSize), k=parseFloat(getComputedStyle(document.querySelector('.hero.my .k')).fontSize), ks=document.querySelectorAll('.hero.my .k'), kw=[...ks].map(e=>parseInt(getComputedStyle(e).fontWeight)), ksz=[...ks].map(e=>parseFloat(getComputedStyle(e).fontSize)); var tt=ksz[1]; k=ksz[0];
+          return {bad:bad,cd:cd,k:k,t:tt,kw:kw,labels:[...s.querySelectorAll('text')].map(t=>t.textContent),sw:document.documentElement.scrollWidth,h:document.querySelector('.hero.my').getBoundingClientRect().height}}""")
         if r is None: err.append("결과 카드가 안 보여요"); break
         if r["bad"]: err.append("레이더 글자가 잘려요(%dpx): %s" % (w, r["bad"]))
         if r["labels"] != ["피지", "민감", "색소", "주름"]: err.append("레이더 라벨이 달라요: %s" % r["labels"])
-        if not (r["cd"] > r["t"] > r["k"] * 1.1): err.append("카드 글자 크기 비율이 이상해요: %s" % r)
+        if r["k"] != r["t"] or max(r["kw"]) > 500: err.append("나의 피부타입/진단 문구는 같은 크기, 볼드 없음이어야 해요: %s" % r)
+        if not (r["cd"] >= r["k"] * 3): err.append("카드 글자 크기 비율이 이상해요: %s" % r)
         if r["sw"] > w: err.append("가로로 넘쳐요(%dpx)" % w)
         if r["h"] < 176: err.append("카드 높이가 배너보다 작아요(%dpx)" % w)
     b.close()
