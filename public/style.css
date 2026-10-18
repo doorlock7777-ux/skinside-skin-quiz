@@ -104,3 +104,4 @@ label.f{display:block;font-size:13px;color:var(--mute);font-weight:600;margin:14
 .foot{padding:24px 20px;color:#8b95a1;font-size:12px;line-height:1.7}
 
 .tabs .bd{position:absolute;top:4px;left:calc(50% + 6px)}
+[hidden]{display:none!important}

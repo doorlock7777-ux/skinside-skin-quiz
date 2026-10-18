@@ -5,7 +5,12 @@ var $app = document.getElementById("app"), $nv = document.getElementById("nv"), 
 
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function won(n){ return Number(n).toLocaleString("ko-KR") + "원"; }
-function ls(k, v){ try{ if(v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
+var MEM = {}, HM = "#/", HS = [], DEMO = !!CFG.DEMO, SORT = "rec";
+function ls(k, v){ try{ if(v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); }catch(e){ if(v === undefined) return MEM[k] === undefined ? null : MEM[k]; MEM[k] = v; return null; } }
+function getH(){ return DEMO ? HM : location.hash; }
+function setH(v){ if(DEMO){ HS.push(HM); HM = v; route(); } else location.hash = v; }
+if(DEMO) window.__goto = setH;
+var QZ = DEMO ? "https://skinside.co.kr/" : "/", QT = DEMO ? ' target="_blank" rel="noopener"' : "";
 function toast(t){ var e = document.createElement("div"); e.className = "toast"; e.textContent = t; document.body.appendChild(e); setTimeout(function(){ e.remove(); }, 1800); }
 
 var KO = {MINIC:"미닉", LIVNA:"리브나", GRAFEN:"그라펜", MEDIHEAL:"메디힐", TORRIDEN:"토리든", NUMBUZIN:"넘버즈인", HWAPASA:"화파사", BRDY:"브르디", ETUDE:"에뛰드", Lindsay:"린제이", "Medi Flower":"메디플라워", JMW:"제이엠더블유"};
@@ -46,24 +51,24 @@ function chips(cur){
   return h + '</div>';
 }
 function drawTabs(){
-  var h = location.hash || "#/", n = cartCount(), open = CFG.STORE_OPEN;
-  function t(href, label, on, extra){ return '<a href="' + href + '" class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
+  var h = getH() || "#/", n = cartCount(), open = CFG.STORE_OPEN;
+  function t(href, label, on, extra){ return '<a href="' + href + '"' + (/^http/.test(href) ? QT : '') + ' class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
   document.querySelector(".tabs").hidden = open && /^#\/(p\/|cart|checkout)/.test(h);
-  $nv.innerHTML = t("/store", "스토어", /^#\/(store|p\/|c\/|search|cat)/.test(h)) + t("/", "피부 진단", false)
+  $nv.innerHTML = t(DEMO ? "#/store" : "/store", "스토어", /^#\/(store|p\/|c\/|search|cat)/.test(h)) + t(QZ, "피부 진단", false)
     + (open && CHECKOUT ? t("#/cart", "장바구니", /^#\/(cart|checkout)/.test(h), n ? '<span class="bd">' + n + '</span>' : '') + t("#/me", "내 정보", /^#\/(me|orders|done)/.test(h)) : '');
 }
 function searchForm(q){ return '<form class="search" id="sf"><input id="q" value="' + esc(q || "") + '" placeholder="제품이나 브랜드 검색" enterkeyhint="search"></form>'; }
 function bindSearch(){ var f = document.getElementById("sf"); if(f) f.onsubmit = function(e){ e.preventDefault(); var q = document.getElementById("q").value.trim(); if(q) location.hash = "#/search/" + encodeURIComponent(q); }; }
 function soon(){
   $app.innerHTML = '<div class="soon"><span class="pill">COMING SOON</span><h1>스토어 오픈 준비 중이에요</h1><p>문장군이 고른 제품을 더 좋은 가격으로<br>곧 만나보실 수 있게 준비하고 있어요.</p></div>'
-    + '<div style="padding:0 20px"><a class="btn" href="/">피부 진단 먼저 해보기</a></div>';
+    + '<div style="padding:0 20px"><a class="btn" href="' + QZ + '"' + QT + '>피부 진단 먼저 해보기</a></div>';
 }
 
 /* 홈 */
 function home(){
   var best = D.products.filter(function(p){ return disc(p) > 0 && !p.soldOut; }).sort(function(a, b){ return saved(b) - saved(a); })[0];
   var hot = D.products.filter(function(p){ return p.hot; });
-  var h = '<div class="sec" style="padding-bottom:8px"><a class="hero" href="/"><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
+  var h = '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
   h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
     h += '<div class="band"></div><div class="sec"><h2>지금 가장 많이 아끼는 제품</h2><a class="best" href="#/p/' + esc(best.id) + '"><div class="im">' + img(best) + '</div><div><div class="em">최대 ' + disc(best) + '% 할인</div><div class="nm">' + esc(best.name) + '</div><div class="big">' + won(best.price) + '</div></div></a></div>';
@@ -75,10 +80,13 @@ function home(){
   bindSearch();
 }
 function foot(){ return '<div class="foot">스킨인사이드 마켓<br>제품은 각 브랜드에서 직접 발송합니다. 교환과 반품은 브랜드 기준을 따릅니다.<br><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener" style="text-decoration:underline">카카오톡 채널 문의</a></div>'; }
-function list(title, ps, cur, q){
-  $app.innerHTML = '<div class="sec"><h1>' + esc(title) + '</h1><p class="sub" style="margin-bottom:16px">' + ps.length + '개 제품</p>' + searchForm(q) + chips(cur) + '<div style="height:16px"></div>'
+function sortBar(){ return '<div class="chips" style="margin-top:10px">' + [["rec","추천순"],["disc","할인율순"],["low","낮은 가격순"]].map(function(x){ return '<button class="chip' + (SORT === x[0] ? ' on' : '') + '" data-sort="' + x[0] + '">' + x[1] + '</button>'; }).join("") + '</div>'; }
+function sorted(ps){ var a = ps.slice(); if(SORT === "disc") a.sort(function(x, y){ return disc(y) - disc(x); }); else if(SORT === "low") a.sort(function(x, y){ return pr(x) - pr(y); }); return a; }
+function list(title, ps, cur, q){ ps = sorted(ps);
+  $app.innerHTML = '<div class="sec"><h1>' + esc(title) + '</h1><p class="sub" style="margin-bottom:16px">' + ps.length + '개 제품</p>' + searchForm(q) + chips(cur) + sortBar() + '<div style="height:16px"></div>'
     + (ps.length ? '<div class="grid">' + ps.map(card).join("") + '</div>' : '<div class="empty">찾는 제품이 없어요.</div>') + '</div>' + foot();
   bindSearch();
+  [].forEach.call($app.querySelectorAll("[data-sort]"), function(b){ b.onclick = function(){ SORT = b.dataset.sort; route(); }; });
 }
 
 /* 상세 */
@@ -92,7 +100,7 @@ function detail(id){
       + '<div class="price">' + (d && !p.options ? '<span class="d">' + d + '%</span>' : '') + '<span class="p">' + won(price) + '</span>' + (d && !p.options ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div>';
     if(p.options) h += '<div class="seg">' + p.options.map(function(o, i){ return '<button data-o="' + i + '" class="' + (i === oi ? 'on' : '') + '">' + esc(o.n) + ' ' + won(o.price) + '</button>'; }).join("") + '</div>';
     if(p.note) h += '<div class="note"><b>문장군의 한마디</b><p>' + esc(p.note) + '</p></div>';
-    h += '<div class="note"><b>리뷰 3줄 요약</b>' + (p.reviews && p.reviews.length ? '<ul class="rv">' + p.reviews.slice(0, 3).map(function(r){ return '<li>' + esc(r) + '</li>'; }).join("") + '</ul>' : '<p class="sub">아직 구매 후기가 없어요. 후기가 모이면 세 줄로 요약해 보여드려요.</p>') + '</div>';
+    h += '<div class="note"><b>리뷰 3줄 요약' + (DEMO && p.reviews && p.reviews.length ? ' <span class="sub" style="font-weight:600">(미리보기 예시)</span>' : '') + '</b>' + (p.reviews && p.reviews.length ? '<ul class="rv">' + p.reviews.slice(0, 3).map(function(r){ return '<li>' + esc(r) + '</li>'; }).join("") + '</ul>' : '<p class="sub">아직 구매 후기가 없어요. 후기가 모이면 세 줄로 요약해 보여드려요.</p>') + '</div>';
     var s = D.shipping || {};
     if(CHECKOUT) h += '<div class="note"><b>배송</b><p>브랜드에서 직접 발송해요. 배송비 ' + won(s.fee) + ', ' + won(s.freeOver) + ' 이상 무료.</p></div>';
     h += '</div></div><div class="cta"><div class="in">';
@@ -104,7 +112,7 @@ function detail(id){
     [].forEach.call($app.querySelectorAll("[data-o]"), function(b){ b.onclick = function(){ oi = +b.dataset.o; draw(); }; });
     var ad = document.getElementById("ad"), by = document.getElementById("by");
     if(ad) ad.onclick = function(){ addCart(p.id, oi, 1); toast("장바구니에 담았어요"); };
-    if(by) by.onclick = function(){ ls("sk_direct", [{id:p.id, opt:oi, q:1}]); location.hash = "#/checkout/direct"; };
+    if(by) by.onclick = function(){ ls("sk_direct", [{id:p.id, opt:oi, q:1}]); setH("#/checkout/direct"); };
   }
   draw();
 }
@@ -129,14 +137,14 @@ function sumBox(t){ return '<div class="sum"><div><span>상품금액</span><span
 /* 로그인 */
 function loginBox(next){
   return '<div class="empty"><h2 style="color:var(--ink)">네이버로 3초 만에 시작해요</h2><p>주문 내역과 배송 조회를 위해 로그인이 필요해요.</p>'
-    + (CFG.LOGIN ? '<a class="btn" style="display:inline-block;padding:14px 26px;background:#03c75a" href="/api/auth/naver/start?next=' + encodeURIComponent(next) + '">네이버로 시작하기</a>' : '<div class="ntc">로그인 기능은 준비 중이에요.</div>') + '</div>';
+    + (CFG.LOGIN ? (DEMO ? '<button class="btn" data-demo-login style="display:inline-block;padding:14px 26px;background:#03c75a">네이버로 시작하기 (데모)</button>' : '<a class="btn" style="display:inline-block;padding:14px 26px;background:#03c75a" href="/api/auth/naver/start?next=' + encodeURIComponent(next) + '">네이버로 시작하기</a>') : '<div class="ntc">로그인 기능은 준비 중이에요.</div>') + '</div>';
 }
 
 /* 주문서 */
 function checkout(direct){
-  if(!user){ $app.innerHTML = loginBox(location.hash); return; }
+  if(!user){ $app.innerHTML = loginBox(getH()); return; }
   var items = direct ? (ls("sk_direct") || []) : cart(), ls_ = lines(items);
-  if(!ls_.length){ location.hash = "#/cart"; return; }
+  if(!ls_.length){ setH("#/cart"); return; }
   var t = totals(ls_), sv = ls("sk_ship") || {}, method = "CARD";
   var h = '<div class="sec"><h1>주문서</h1><h2 style="margin-top:20px;font-size:17px">주문 제품</h2>';
   ls_.forEach(function(l){ h += '<div class="row"><div class="im">' + img(l.p) + '</div><div class="t"><div class="nm">' + esc(l.p.name) + (l.p.options ? ' (' + esc(l.p.options[l.opt].n) + ')' : '') + '</div><div class="s">' + l.q + '개 · ' + won(l.unit * l.q) + '</div></div></div>'; });
@@ -153,6 +161,7 @@ function checkout(direct){
   $app.innerHTML = h;
   [].forEach.call($app.querySelectorAll("[data-m]"), function(b){ b.onclick = function(){ method = b.dataset.m; [].forEach.call($app.querySelectorAll("[data-m]"), function(x){ x.classList.toggle("on", x === b); }); }; });
   document.getElementById("sa").onclick = function(){
+    if(DEMO){ document.getElementById("zp").value = "06236"; document.getElementById("a1").value = "서울특별시 강남구 테헤란로 123 (예시 주소)"; document.getElementById("a2").focus(); return; }
     function open(){ new daum.Postcode({oncomplete: function(r){ document.getElementById("zp").value = r.zonecode; document.getElementById("a1").value = r.roadAddress || r.jibunAddress; document.getElementById("a2").focus(); }}).open(); }
     if(window.daum && daum.Postcode) return open();
     var s = document.createElement("script"); s.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"; s.onload = open; s.onerror = function(){ toast("주소 검색을 불러오지 못했어요. 직접 입력해주세요."); document.getElementById("zp").readOnly = false; }; document.head.appendChild(s);
@@ -211,15 +220,15 @@ function me(){
   var h = '<div class="sec"><h1>' + (user ? esc(user.name || "회원") + '님' : '내 정보') + '</h1></div>';
   if(!user && CFG.LOGIN) h += loginBox("#/me");
   else if(!user) h += '<div class="sec"><div class="ntc">로그인 기능은 준비 중이에요.</div></div>';
-  h += '<div class="sec menu" style="padding-top:0">' + (CHECKOUT ? '<a href="#/orders">주문 내역<span>&#8250;</span></a>' : '') + '<a href="/">피부타입 진단<span>&#8250;</span></a><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener">카카오톡 채널 문의<span>&#8250;</span></a>' + (user ? '<a href="#/" id="lo">로그아웃<span>&#8250;</span></a>' : '') + '</div>' + foot();
+  h += '<div class="sec menu" style="padding-top:0">' + (CHECKOUT ? '<a href="#/orders">주문 내역<span>&#8250;</span></a>' : '') + '<a href="' + QZ + '"' + QT + '>피부타입 진단<span>&#8250;</span></a><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener">카카오톡 채널 문의<span>&#8250;</span></a>' + (DEMO ? '<a href="#/admin">관리자 화면 (데모)<span>&#8250;</span></a>' : '') + (user ? '<a href="#/" id="lo">로그아웃<span>&#8250;</span></a>' : '') + '</div>' + foot();
   $app.innerHTML = h;
   var lo = document.getElementById("lo");
-  if(lo) lo.onclick = function(e){ e.preventDefault(); fetch("/api/logout", {method:"POST"}).then(function(){ user = null; location.hash = "#/"; route(); }); };
+  if(lo) lo.onclick = function(e){ e.preventDefault(); fetch("/api/logout", {method:"POST"}).then(function(){ user = null; setH("#/"); }); };
 }
 
 /* 라우터 */
 function route(){
-  var h = location.hash || "#/", m;
+  var h = getH() || "#/", m;
   $bk.hidden = !CFG.STORE_OPEN || !/^#\/(p|cart|checkout|orders|search|c\/)/.test(h);
   drawTabs(); window.scrollTo(0, 0);
   if(!CFG.STORE_OPEN) return soon();
@@ -233,11 +242,18 @@ function route(){
   if(CHECKOUT && h === "#/checkout/direct") return checkout(true);
   if(CHECKOUT && h === "#/orders") return orders();
   if((m = h.match(/^#\/done\/(.+)/))) return done(decodeURIComponent(m[1]));
+  if(DEMO && h === "#/admin" && window.DEMO_ADMIN) return window.DEMO_ADMIN($app, toast);
   if(h === "#/me") return me();
   home();
 }
-$bk.onclick = function(){ history.length > 1 ? history.back() : (location.hash = "#/"); };
+$bk.onclick = function(){ if(DEMO){ HM = HS.pop() || "#/"; route(); } else history.length > 1 ? history.back() : (location.hash = "#/"); };
 window.addEventListener("hashchange", route);
+if(DEMO) document.addEventListener("click", function(e){
+  var dl = e.target.closest && e.target.closest("[data-demo-login]");
+  if(dl){ fetch("/api/demo-login", {method:"POST"}).then(function(r){ return r.json(); }).then(function(j){ user = j.user; route(); }); return; }
+  var a = e.target.closest && e.target.closest("a"), hr = a && a.getAttribute("href");
+  if(hr && hr.indexOf("#/") === 0){ e.preventDefault(); setH(hr); }
+});
 
 fetch("data/products.json").then(function(r){ return r.json(); }).then(function(j){
   D = j; j.products.forEach(function(p){ P[p.id] = p; });
