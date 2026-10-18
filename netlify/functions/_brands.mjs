@@ -15,11 +15,6 @@ export default {
   "email": "",
   "fee": 0
  },
- "citirover": {
-  "name": "시티로버",
-  "email": "",
-  "fee": 0
- },
  "mediheal": {
   "name": "MEDIHEAL",
   "email": "",
@@ -65,8 +60,8 @@ export default {
   "email": "",
   "fee": 0
  },
- "brdy": {
-  "name": "BRDY",
+ "bready": {
+  "name": "B.READY",
   "email": "",
   "fee": 0
  },
