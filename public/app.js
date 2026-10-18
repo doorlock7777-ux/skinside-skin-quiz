@@ -76,16 +76,16 @@ function soon(){
 /* 홈 */
 function myResult(){ try{ var r = JSON.parse(localStorage.getItem("skinside_result") || "null"); return r && r.key && r.p ? r : null; }catch(e){ return null; } }
 function myCard(r){
-  var cx = 60, cy = 60, R = 38, ks = ["od","sr","pn","wt"], nm = ["피지","민감","색소","주름"];
+  var cx = 75, cy = 62, R = 36, ks = ["od","sr","pn","wt"], nm = ["피지","민감","색소","주름"];
   function P(f){ return ks.map(function(k, i){ var a = -Math.PI / 2 + i * Math.PI / 2, v = typeof f === "number" ? f : Math.max(8, r.p[k] || 0), rr = R * v / 100; return (cx + rr * Math.cos(a)).toFixed(1) + "," + (cy + rr * Math.sin(a)).toFixed(1); }).join(" "); }
-  var g = '<svg viewBox="0 0 120 120" width="140" height="140" role="img" aria-label="피부 레이더 차트">';
+  var g = '<svg viewBox="0 0 150 124" width="160" height="132" role="img" aria-label="피부 레이더 차트">';
   [50, 100].forEach(function(l){ g += '<polygon points="' + P(l) + '" fill="none" stroke="rgba(255,255,255,.35)"/>'; });
   g += '<polygon points="' + P(100) + '" fill="none" stroke="none"/>';
-  P(100).split(" ").forEach(function(q){ g += '<line x1="60" y1="60" x2="' + q.split(",")[0] + '" y2="' + q.split(",")[1] + '" stroke="rgba(255,255,255,.35)"/>'; });
+  P(100).split(" ").forEach(function(q){ g += '<line x1="75" y1="62" x2="' + q.split(",")[0] + '" y2="' + q.split(",")[1] + '" stroke="rgba(255,255,255,.35)"/>'; });
   g += '<polygon points="' + P() + '" fill="rgba(255,255,255,.4)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>';
-  [[60, 12], [112, 63], [60, 117], [8, 63]].forEach(function(q, i){ g += '<text x="' + q[0] + '" y="' + q[1] + '" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">' + nm[i] + '</text>'; });
+  [[75, 12], [128, 66], [75, 120], [22, 66]].forEach(function(q, i){ g += '<text x="' + q[0] + '" y="' + q[1] + '" text-anchor="middle" font-size="11" fill="#fff" opacity=".9">' + nm[i] + '</text>'; });
   g += '</svg>';
-  return '<div class="sec" style="padding-bottom:8px"><a class="hero my" href="' + QZ + '"' + QT + '><div><span>나의 피부타입</span><b class="cd">' + esc(r.key) + '</b><span>' + esc(r.desc || "") + '</span></div>' + g + '</a></div>';
+  return '<div class="sec" style="padding-bottom:8px"><a class="hero my" href="' + QZ + '"' + QT + '><div><span class="k">나의 피부타입</span><b class="cd">' + esc(r.key) + '</b><span class="t">' + esc(r.desc || "") + '</span></div>' + g + '</a></div>';
 }
 function quizDone(){ try{ return JSON.parse(localStorage.getItem("skinside_quiz_v2") || "{}").screen === "result"; }catch(e){ return false; } }
 function home(){

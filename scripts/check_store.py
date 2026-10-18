@@ -34,6 +34,19 @@ with sync_playwright() as pw:
     if chips != want: err.append("칩 순서가 달라요: %s" % chips)
     wc = [names[i] for k in ORDER for i in EXPECT[k]]
     if cards != wc: err.append("처음 제품 배치 순서가 달라요")
+    # 결과 카드: 레이더 글자가 잘리지 않는지, 글자 비율, 가로 넘침
+    for w in (360, 400, 560):
+        pg.set_viewport_size({"width": w, "height": 900}); pg.wait_for_timeout(300)
+        r = pg.evaluate("""()=>{var s=document.querySelector('.hero.my svg'); if(!s) return null; var v=s.viewBox.baseVal, bad=[];
+          s.querySelectorAll('text').forEach(t=>{var b=t.getBBox(); if(b.x<v.x||b.x+b.width>v.x+v.width||b.y<v.y||b.y+b.height>v.y+v.height) bad.push(t.textContent)});
+          var cd=parseFloat(getComputedStyle(document.querySelector('.hero.my .cd')).fontSize), k=parseFloat(getComputedStyle(document.querySelector('.hero.my .k')).fontSize), tt=parseFloat(getComputedStyle(document.querySelector('.hero.my .t')).fontSize);
+          return {bad:bad,cd:cd,k:k,t:tt,labels:[...s.querySelectorAll('text')].map(t=>t.textContent),sw:document.documentElement.scrollWidth,h:document.querySelector('.hero.my').getBoundingClientRect().height}}""")
+        if r is None: err.append("결과 카드가 안 보여요"); break
+        if r["bad"]: err.append("레이더 글자가 잘려요(%dpx): %s" % (w, r["bad"]))
+        if r["labels"] != ["피지", "민감", "색소", "주름"]: err.append("레이더 라벨이 달라요: %s" % r["labels"])
+        if not (r["cd"] > r["t"] > r["k"] * 1.1): err.append("카드 글자 크기 비율이 이상해요: %s" % r)
+        if r["sw"] > w: err.append("가로로 넘쳐요(%dpx)" % w)
+        if r["h"] < 176: err.append("카드 높이가 배너보다 작아요(%dpx)" % w)
     b.close()
 print("\n".join(err) if err else "OK: 분류, 칩 순서, 제품 배치 모두 일치")
 sys.exit(1 if err else 0)

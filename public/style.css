@@ -111,3 +111,7 @@ label.f{display:block;font-size:13px;color:var(--mute);font-weight:600;margin:14
 .hero.my span{display:block}
 .hero.my svg{flex:none;max-width:42%;height:auto}
 .hero.my{min-height:176px}
+.hero.my span.k{font-size:17px;font-weight:700;opacity:1}
+.hero.my b.cd{font-size:54px;letter-spacing:.03em;margin:0 0 2px}
+.hero.my span.t{font-size:22px;font-weight:800;opacity:1}
+.hero.my svg{max-width:44%}
