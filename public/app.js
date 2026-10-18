@@ -22,8 +22,10 @@ function toast(t){ var e = document.createElement("div"); e.className = "toast";
 var KO = {MINIC:"미닉", LIVNA:"리브나", GRAFEN:"그라펜", MEDIHEAL:"메디힐", TORRIDEN:"토리든", NUMBUZIN:"넘버즈인", HWAPASA:"화파사", "B.READY":"비레디", ETUDE:"에뛰드", Lindsay:"린제이", "Medi Flower":"메디플라워", JMW:"제이엠더블유"};
 /* 가격 */
 function pr(p, oi){ return p.options && p.options[oi || 0] ? p.options[oi || 0].price : p.price; }
-function disc(p){ return p.list && p.list > p.price ? Math.round((p.list - p.price) / p.list * 100) : 0; }
-function saved(p){ return p.list && p.list > p.price ? p.list - p.price : 0; }
+function lp(p, oi){ return p.options && p.options[oi || 0] ? p.options[oi || 0].list || null : p.list; }
+function discAt(p, oi){ var l = lp(p, oi), v = pr(p, oi); return l && l > v ? Math.round((l - v) / l * 100) : 0; }
+function disc(p){ var m = 0; (p.options || [0]).forEach(function(o, i){ m = Math.max(m, discAt(p, i)); }); return m; }
+function saved(p){ var m = 0; (p.options || [0]).forEach(function(o, i){ var l = lp(p, i), v = pr(p, i); if(l && l > v) m = Math.max(m, l - v); }); return m; }
 
 /* 장바구니 */
 function cart(){ return ls("sk_cart") || []; }
@@ -50,7 +52,7 @@ function card(p){
   var d = disc(p);
   return '<a class="pc" ' + lnk(p) + '><div class="im">' + img(p) + (TOP[p.id] ? '<span class="tag">인기</span>' : '') + '</div>'
     + '<div class="br">' + esc(p.brandName) + '</div><div class="nm">' + esc(p.name) + '</div>'
-    + '<div class="pr">' + (d ? '<span class="d">' + d + '%</span>' : '') + '<span class="p">' + won(pr(p)) + (p.options ? '~' : '') + '</span>' + (d ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div></a>';
+    + '<div class="pr">' + (d ? '<span class="d">' + (p.options ? '최대 ' : '') + d + '%</span>' : '') + '<span class="p">' + won(pr(p)) + (p.options ? '~' : '') + '</span>' + (d && !p.options ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div></a>';
 }
 function chips(cur){
   var h = '<div class="chips"><a class="chip' + (!cur ? ' on' : '') + '" href="#/">전체</a>';
@@ -98,12 +100,12 @@ function list(title, ps, cur, q){ ps = sorted(ps);
 /* 상세 */
 function detail(id){
   var p = P[id]; if(!p){ $app.innerHTML = '<div class="empty">없는 제품이에요.</div>'; return; }
-  var oi = 0, d = disc(p);
+  var oi = 0;
   function draw(){
-    var price = pr(p, oi);
+    var price = pr(p, oi), d = discAt(p, oi);
     var h = '<div class="pd"><div class="big">' + img(p) + '</div><div class="sec">'
       + '<div class="sub">' + esc(p.brandName) + '</div><h1>' + esc(p.name) + '</h1>'
-      + '<div class="price">' + (d && !p.options ? '<span class="d">' + d + '%</span>' : '') + '<span class="p">' + won(price) + '</span>' + (d && !p.options ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div>';
+      + '<div class="price">' + (d ? '<span class="d">' + d + '%</span>' : '') + '<span class="p">' + won(price) + '</span>' + (d ? '<span class="l">' + won(lp(p, oi)) + '</span>' : '') + '</div>';
     if(p.options) h += '<div class="seg">' + p.options.map(function(o, i){ return '<button data-o="' + i + '" class="' + (i === oi ? 'on' : '') + '">' + esc(o.n) + ' ' + won(o.price) + '</button>'; }).join("") + '</div>';
     if(p.note) h += '<div class="note"><b>문장군의 한마디</b><p>' + esc(p.note) + '</p></div>';
     h += '<div class="note"><b>리뷰 3줄 요약' + (DEMO && p.reviews && p.reviews.length ? ' <span class="sub" style="font-weight:600">(미리보기 예시)</span>' : '') + '</b>' + (p.reviews && p.reviews.length ? '<ul class="rv">' + p.reviews.slice(0, 3).map(function(r){ return '<li>' + esc(r) + '</li>'; }).join("") + '</ul>' : '<p class="sub">아직 구매 후기가 없어요. 후기가 모이면 세 줄로 요약해 보여드려요.</p>') + '</div>';

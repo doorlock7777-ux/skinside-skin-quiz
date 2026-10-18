@@ -24,7 +24,7 @@
    "list": null,
    "cat": "cl",
    "img": "images/p/bonkorea-cl.webp",
-   "url": "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+   "url": "https://smartstore.naver.com/ecosmetics/products/2010729928",
    "note": "효소 세안의 기본. 문장군 루틴의 시작입니다.",
    "soldOut": false,
    "hot": true,
@@ -39,7 +39,7 @@
    "list": null,
    "cat": "sk",
    "img": "images/p/bonkorea-vit.webp",
-   "url": "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+   "url": "https://smartstore.naver.com/ecosmetics/products/13177133634",
    "note": "미백·주름이 고민이면 이 앰플 하나만 쓰세요.",
    "soldOut": false,
    "hot": true,
@@ -51,21 +51,23 @@
    "brandName": "MINIC",
    "name": "퍼펙트 콜라드그린 진정 올인원",
    "price": 21500,
-   "list": null,
+   "list": 32000,
    "cat": "sk",
    "img": "images/p/minic-allinone.webp",
-   "url": "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+   "url": "https://minic.store/product/detail.html?product_no=24",
    "note": "세안 후 3분 안에 이거 하나로 끝.",
    "soldOut": false,
    "hot": true,
    "options": [
     {
      "n": "1개",
-     "price": 21500
+     "price": 21500,
+     "list": 32000
     },
     {
      "n": "2개",
-     "price": 36500
+     "price": 36500,
+     "list": 64000
     }
    ],
    "directUrl": "https://minic.store/product/detail.html?product_no=24"
@@ -76,24 +78,26 @@
    "brandName": "MINIC",
    "name": "퍼펙트 콜라드그린 장벽 크림",
    "price": 22500,
-   "list": null,
+   "list": 34000,
    "cat": "sk",
    "img": "images/p/minic-cream.webp",
-   "url": "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+   "url": "https://minic.store/product/detail.html?product_no=24",
    "note": "",
    "soldOut": false,
    "hot": true,
    "options": [
     {
      "n": "1개",
-     "price": 22500
+     "price": 22500,
+     "list": 34000
     },
     {
      "n": "2개",
-     "price": 38500
+     "price": 38500,
+     "list": 68000
     }
    ],
-   "directUrl": "https://minic.store/"
+   "directUrl": "https://minic.store/product/detail.html?product_no=24"
   },
   {
    "id": "livna-calm",
@@ -104,7 +108,7 @@
    "list": null,
    "cat": "sk",
    "img": "images/p/livna-calm.webp",
-   "url": "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+   "url": "https://smartstore.naver.com/livna/products/12410370676",
    "note": "붉어짐과 트러블이 고민일 때.",
    "soldOut": false,
    "hot": true,
@@ -119,7 +123,7 @@
    "list": null,
    "cat": "sk",
    "img": "images/p/livna-cream.webp",
-   "url": "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+   "url": "https://smartstore.naver.com/livna/products/13031203956",
    "note": "",
    "soldOut": false,
    "hot": true,
@@ -148,7 +152,7 @@
    "list": null,
    "cat": "sun",
    "img": "images/p/mediheal-sun.webp",
-   "url": "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+   "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000223423",
    "note": "아침마다 꼭 챙기세요.",
    "soldOut": false,
    "hot": true,
@@ -163,7 +167,7 @@
    "list": null,
    "cat": "blackhead",
    "img": "images/p/grafen-patch.webp",
-   "url": "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+   "url": "https://brand.naver.com/grafen/products/13325759434",
    "note": "블랙헤드·모공이 고민일 때.",
    "soldOut": false,
    "hot": false,
