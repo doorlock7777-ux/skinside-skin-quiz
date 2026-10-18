@@ -4,6 +4,7 @@ import { partnerHome } from "./_home.mjs";
 import { shipCsv } from "./_batch.mjs";
 import { allTickets, getTicket, addMessage, decide, receiveAndRefund, markExchangeSent, escalate, close } from "./_cs.mjs";
 import { listSettlements } from "./_settle.mjs";
+import { allAdj } from "./_adj.mjs";
 import { allOrders } from "./_ctx.mjs";
 import { allReviews, getReview, summary as reviewSummary, manageView, markRead, setBest, requestDelete } from "./_reviews.mjs";
 import { monthsBetween, vatMonths, vatDays, txns, monthsCsv, daysCsv, ordersCsv } from "./_vat.mjs";
@@ -26,8 +27,8 @@ export default async (req) => {
 
   if (p === "/api/partner/me") return json({ brand: BRANDS[brand].name });
   if (p === "/api/partner/home") {
-    const [os, tickets, settles, stock, rv] = await Promise.all([allOrders(), allTickets(), listSettlements(), brandStock(req, brand), allReviews()]);
-    return json({ brand: BRANDS[brand].name, ...partnerHome(os.filter((o) => o.status !== "pending"), brand, { tickets, settles, stock, reviews: reviewSummary(rv, brand) }) });
+    const [os, tickets, settles, stock, rv, adj] = await Promise.all([allOrders(), allTickets(), listSettlements(), brandStock(req, brand), allReviews(), allAdj()]);
+    return json({ brand: BRANDS[brand].name, ...partnerHome(os.filter((o) => o.status !== "pending"), brand, { tickets, settles, adj, stock, reviews: reviewSummary(rv, brand) }) });
   }
 
   /* ---- 발송 ---- */

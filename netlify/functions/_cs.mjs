@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { getStore } from "@netlify/blobs";
 import { orders, BRANDS, mail, esc, tossAuth } from "./_lib.mjs";
+import { remaining } from "./_money.mjs";
 
 /* CS(문의, 교환, 반품) 티켓. 상태:
    inquiry: open(고객 답변 대기 아님=브랜드 답변 대기) -> answered -> closed
@@ -26,6 +27,7 @@ export async function createTicket(user, o, brand, type, text) {
   const shipped = !!(o.shipments && o.shipments[brand] && o.shipments[brand].tracking);
   if (type !== "inquiry" && !shipped) return { error: "발송된 뒤에 교환·반품을 신청할 수 있어요. 발송 전 취소는 문의로 남겨주세요" };
   if (type !== "inquiry") {
+    if (remaining(o, brand) <= 0) return { error: "이미 환불이 끝난 상품이에요" };
     const dup = (await allTickets()).find((t) => t.orderId === o.id && t.brand === brand && t.type !== "inquiry" && !["rejected", "refunded", "closed"].includes(t.status));
     if (dup) return { error: "이미 진행 중인 교환·반품이 있어요" };
   }
@@ -75,9 +77,9 @@ export async function receiveAndRefund(t) {
   if (!o) return { error: "주문 없음" };
   o.refunds = o.refunds || [];
   if (o.refunds.some((r) => r.ticketId === t.id)) { t.status = "refunded"; await save(t); return { ticket: t }; }
-  const amount = o.items.filter((l) => l.brand === t.brand).reduce((a, l) => a + l.unit * l.q, 0);
-  const already = o.refunds.reduce((a, r) => a + r.amount, 0);
-  if (!(amount > 0) || already + amount > o.total) { t.refundError = "환불 금액을 확인해주세요"; await save(t); return { ticket: t, error: t.refundError }; }
+  /* 환불 한도는 주문 전체가 아니라 그 브랜드 몫 기준: 이미 환불된 만큼은 빼고 남은 금액만 환불한다 */
+  const amount = remaining(o, t.brand);
+  if (!(amount > 0)) { t.refundError = "환불 금액을 확인해주세요"; await save(t); return { ticket: t, error: t.refundError }; }
   if (!o.paymentKey) { t.refundError = "결제 정보가 없어요"; await save(t); return { ticket: t, error: t.refundError }; }
   let r, j;
   try {
@@ -88,7 +90,8 @@ export async function receiveAndRefund(t) {
     j = await r.json().catch(() => ({}));
   } catch (e) { r = { ok: false }; j = { message: "결제사 연결 실패" }; }
   if (!r.ok) { t.refundError = j.message || "환불 실패"; await save(t); return { ticket: t, error: t.refundError }; }
-  o.refunds.push({ ticketId: t.id, brand: t.brand, amount, at: new Date().toISOString() });
+  const tx = ((j.cancels || []).slice(-1)[0] || {}).transactionKey;
+  o.refunds.push({ ticketId: t.id, brand: t.brand, amount, at: new Date().toISOString(), ...(tx ? { tx } : {}) });
   await st.setJSON(o.id, o);
   delete t.refundError; t.status = "refunded"; t.refundAmount = amount;
   t.messages.push({ from: "system", text: amount.toLocaleString("ko-KR") + "원이 환불됐어요.", at: new Date().toISOString() });

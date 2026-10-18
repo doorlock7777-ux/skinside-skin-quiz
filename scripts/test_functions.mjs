@@ -14,8 +14,22 @@ process.env.SESSION_SECRET = "x".repeat(20); process.env.TOSS_SECRET_KEY = "test
 const products = fs.readFileSync(path.join(R, "public/data/products.json"), "utf-8");
 const realFetch = globalThis.fetch;
 const MAILS = [];
-const TOSS = { calls: [], failCancel: false };
-globalThis.fetch = async (u, o) => String(u).includes("api.tosspayments.com") ? (TOSS.calls.push({ u: String(u), body: JSON.parse(o.body || "{}") }), String(u).endsWith("/cancel") && TOSS.failCancel ? new Response(JSON.stringify({ message: "취소 불가" }), { status: 400 }) : new Response(JSON.stringify({ paymentKey: "pk_" + (JSON.parse(o.body || "{}").orderId || ""), method: "카드" }), { status: 200 })) : String(u).includes("api.resend.com") ? (MAILS.push(JSON.parse(o.body)), new Response("{}", { status: 200 })) : String(u).includes("/data/products.json") ? new Response(products, { headers: { "content-type": "application/json" } }) : realFetch(u, o);
+const TOSS = { calls: [], failCancel: false, pay: {}, confirmFail: null, confirmThrow: false, seq: 0 };
+const J = (o, st = 200) => new Response(JSON.stringify(o), { status: st });
+globalThis.fetch = async (u, o) => {
+  const url = String(u);
+  if (url.includes("api.tosspayments.com")) {
+    if (!o || !o.method || o.method === "GET") { const k = decodeURIComponent(url.split("/").pop()); return TOSS.pay[k] ? J(TOSS.pay[k]) : J({ code: "NOT_FOUND_PAYMENT", message: "없음" }, 404); }
+    const body = JSON.parse(o.body || "{}");
+    TOSS.calls.push({ u: url, body });
+    if (url.endsWith("/confirm")) { if (TOSS.confirmThrow) throw new Error("net"); if (TOSS.confirmFail) return J(TOSS.confirmFail, 400); }
+    if (url.endsWith("/cancel")) { if (TOSS.failCancel) return J({ message: "취소 불가" }, 400); return J({ paymentKey: "x", cancels: [{ cancelAmount: body.cancelAmount || 0, transactionKey: "tx-own-" + (++TOSS.seq), canceledAt: new Date().toISOString() }] }); }
+    return J({ paymentKey: "pk_" + (body.orderId || ""), method: "카드" });
+  }
+  if (url.includes("api.resend.com")) { MAILS.push(JSON.parse(o.body)); return new Response("{}", { status: 200 }); }
+  if (url.includes("/data/products.json")) return new Response(products, { headers: { "content-type": "application/json" } });
+  return realFetch(u, o);
+};
 const site = (await import(pathToFileURL(path.join(T, "functions/site.mjs")))).default;
 const stats = (await import(pathToFileURL(path.join(T, "functions/stats.mjs")))).default;
 const auth = await import(pathToFileURL(path.join(T, "functions/_auth.mjs")));
@@ -202,9 +216,11 @@ ok(!MAILS.slice(before).some((m) => m.subject.includes("취소")), "이미 알�
 
 // 정산: 환불 반영 -> 확정(정산서 메일) -> 송금 완료 표시
 [s, j] = await call(adminApi, "/api/admin/settlement?format=json&month=" + month, "GET", null, A);
-const sb = j.rows.find((r) => r.name === "본코리아"); ok(s === 200 && sb && sb.sales >= 59800 && sb.refund === 59800 && sb.payout === Math.round((sb.sales - 59800) * 0.9), "정산에 환불이 반영되지 않아요 " + JSON.stringify(sb));
+const sb = j.rows.find((r) => r.name === "본코리아"); ok(s === 200 && sb && sb.sales >= 59800 && sb.refund === 59800 + 29900 && sb.payout === Math.round((sb.sales - 59800 - 29900) * 0.9), "정산에 환불이 반영되지 않아요 " + JSON.stringify(sb));
 [s, j] = await call(adminApi, "/api/admin/settlement/confirm", "POST", { month: month }); ok(s === 401, "로그인 없이 정산 확정이 돼요");
 [s, j] = await call(adminApi, "/api/admin/settlement/confirm", "POST", { month: "bad" }, A); ok(s === 400, "잘못된 월이 통과해요");
+[s, j] = await call(adminApi, "/api/admin/settlement/confirm", "POST", { month }, A); ok(s === 400 && /끝나지 않은/.test(j.error), "진행 중인 달이 확정돼요 " + JSON.stringify(j));
+process.env.SETTLE_TEST_MONTH = "2099-01"; /* 시험에서만: 이번 달을 끝난 달로 취급 */
 const mm = MAILS.length;
 [s, j] = await call(adminApi, "/api/admin/settlement/confirm", "POST", { month }, A); ok(s === 200 && j.created && j.settlement.rows.length >= 2, "정산 확정 실패");
 ok(MAILS.slice(mm).some((m) => m.to[0] === "bk@x.test" && m.subject.includes("정산서") && m.html.includes("환불")) && MAILS.slice(mm).some((m) => m.to[0] === "gf@x.test" && m.subject.includes("정산서")), "정산서 메일이 안 나가요");
@@ -215,7 +231,7 @@ const m2 = MAILS.length; [s, j] = await call(adminApi, "/api/admin/settlement/co
 [s, j] = await call(brand, "/api/partner/settlements", "GET", null, gh); ok(j.settlements.length === 1 && !j.settlements[0].paidAt, "다른 브랜드 송금 표시가 보여요");
 
 // 홈 요약
-[s, j] = await call(brand, "/api/partner/home", "GET", null, BH); ok(s === 200 && j.brand === "본코리아" && j.counts.done === 1 && j.counts.todo === 0 && j.cs.open === 0 && Array.isArray(j.stock.alerts) && j.month.refund === 59800, "파트너 홈 요약이 달라요 " + JSON.stringify(j.counts) + JSON.stringify(j.month));
+[s, j] = await call(brand, "/api/partner/home", "GET", null, BH); ok(s === 200 && j.brand === "본코리아" && j.counts.done === 1 && j.counts.todo === 0 && j.cs.open === 0 && Array.isArray(j.stock.alerts) && j.month.refund === 59800 + 29900, "파트너 홈 요약이 달라요 " + JSON.stringify(j.counts) + JSON.stringify(j.month));
 [s, j] = await call(brand, "/api/partner/home"); ok(s === 401, "로그인 없이 파트너 홈이 보여요");
 [s, j] = await call(adminApi, "/api/admin/home", "GET", null, A); ok(s === 200 && j.flow.wait >= 1 && Array.isArray(j.brands) && j.brands.some((b) => b.name === "본코리아" && b.hasCode) && j.cs && j.month.m === month, "관리자 홈 요약이 달라요 " + JSON.stringify(j.flow));
 [s, j] = await call(adminApi, "/api/admin/home"); ok(s === 401, "로그인 없이 관리자 홈이 보여요");
@@ -230,7 +246,7 @@ await lib.orders().setJSON("O8", mk("O8", [BK(1)], "paid", 3, { method: "가상�
 [s, j] = await call(brand, "/api/partner/vat?from=2026-10&to=2025-01", "GET", null, BH); ok(s === 400, "거꾸로 된 기간이 통과해요");
 [s, j] = await call(brand, "/api/partner/vat?from=2025-01&to=2026-10", "GET", null, BH); ok(s === 400, "12개월을 넘는 기간이 통과해요");
 [s, j] = await call(brand, "/api/partner/vat?from=" + month + "&to=" + month, "GET", null, BH);
-ok(s === 200 && j.rows.length === 1 && j.rows[0].gross === 119600 && j.rows[0].refund === 59800 && j.rows[0].net === 59800 && j.rows[0].card === 29900 && j.rows[0].other === 29900 && j.rows[0].supply === 54364 && j.rows[0].vat === 5436 && j.total.net === 59800, "부가세 월별 내역이 달라요 " + JSON.stringify(j.rows && j.rows[0]));
+ok(s === 200 && j.rows.length === 1 && j.rows[0].gross === 149500 && j.rows[0].refund === 89700 && j.rows[0].net === 59800 && j.rows[0].card === 29900 && j.rows[0].other === 29900 && j.rows[0].supply === 54364 && j.rows[0].vat === 5436 && j.total.net === 59800, "부가세 월별 내역이 달라요 " + JSON.stringify(j.rows && j.rows[0]));
 [s, j] = await call(brand, "/api/partner/vat?from=2026-08&to=" + month, "GET", null, BH); ok(j.rows.length >= 3 && j.rows[0].net === 0 && j.total.net === 59800, "기간 안의 빈 달 처리가 달라요");
 { const r = await brand(new Request(H + "/api/partner/vat.csv?from=" + month + "&to=" + month, { headers: BH })), t = await r.text(); ok(r.status === 200 && r.headers.get("content-type").includes("csv") && t.includes("부가세 신고기간") && t.includes(month) && t.includes("합계"), "부가세 월별 엑셀이 달라요 " + r.status + r.headers.get("content-type") + t.slice(0, 400)); }
 [s, j] = await call(brand, "/api/partner/vat-days?month=" + month, "GET", null, BH); ok(s === 200 && j.days.length >= 1 && j.days.reduce((a, d) => a + d.net, 0) === 59800, "일별 내역이 달라요 " + JSON.stringify(j));
@@ -305,6 +321,148 @@ const tgt = hi[3]; [s, j] = await call(brand, "/api/partner/reviews/delete-reque
 [s, j] = await call(adminApi, "/api/admin/reviews/best", "POST", { id: hi[1], on: false }, A); ok(s === 200, "관리자 베스트 해제 실패");
 [s, j] = await call(adminApi, "/api/admin/reviews/decide", "POST", { id: hi[2], action: "delete" }, A); ok(s === 200, "관리자 직접 삭제 실패");
 [s, j] = await call(brand, "/api/partner/home", "GET", null, BH); ok(j.reviews && j.reviews.total === 3 && j.reviews.delReq === 0 && j.reviews.low === 0, "파트너 홈 리뷰 요약이 달라요 " + JSON.stringify(j.reviews));
+
+// ===== 정산 구멍 점검 =====
+delete process.env.SETTLE_TEST_MONTH;
+const money = await import(pathToFileURL(path.join(T, "functions/_money.mjs")));
+const home = await import(pathToFileURL(path.join(T, "functions/_home.mjs")));
+const settleMod = await import(pathToFileURL(path.join(T, "functions/_settle.mjs")));
+const vatMod = await import(pathToFileURL(path.join(T, "functions/_vat.mjs")));
+const ctxMod = await import(pathToFileURL(path.join(T, "functions/_ctx.mjs")));
+const hookApi = (await import(pathToFileURL(path.join(T, "functions/tosswebhook.mjs")))).default;
+const mkp = (id, items, status, h, extra = {}) => { const sub = items.reduce((a, l) => a + l.unit * l.q, 0); return mk(id, items, status, h, { sub, shipFee: 3000, total: sub + 3000, ...extra }); };
+const iso = (minAgo) => new Date(Date.now() - minAgo * 6e4).toISOString();
+const net = (o, brandKey) => { const r = home.monthSettle([o], month, undefined)[0]; return r ? r : null; };
+const lastOrder = (id) => lib.orders().get(id, { type: "json" });
+const shippedBK = { bonkorea: { carrier: "cj", tracking: "900900900900", at: ago(2) } };
+
+// 1) 토스에서 직접 전체 취소 -> 웹훅이 환불로 가져옴 (중복 없음)
+await lib.orders().setJSON("SKEXT0001", mkp("SKEXT0001", [BK(1)], "paid", 5));
+TOSS.pay["pk_SKEXT0001"] = { status: "CANCELED", totalAmount: 32900, balanceAmount: 0, paymentKey: "pk_SKEXT0001", cancels: [{ cancelAmount: 32900, transactionKey: "txA", canceledAt: iso(30) }] };
+[s, j] = await call(hookApi, "/api/toss-webhook", "GET"); ok(s === 405, "웹훅이 GET을 받아요");
+[s, j] = await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "NOPE" } }); ok(s === 200, "없는 주문 웹훅 처리 실패");
+[s, j] = await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "SKEXT0001" } }); ok(s === 200, "웹훅 처리 실패 " + JSON.stringify(j));
+let x = await lastOrder("SKEXT0001");
+ok(x.status === "canceled" && x.refunds.length === 2 && x.refunds.reduce((a, r) => a + r.amount, 0) === 32900 && x.refunds.some((r) => r.brand === "_ship" && r.amount === 3000), "외부 취소가 환불로 반영되지 않아요 " + JSON.stringify(x.refunds));
+{ const r = home.monthSettle([x], month)[0]; ok(r.sales === 29900 && r.refund === 29900 && r.payout === 0, "외부 취소 주문이 정산에 남아요 " + JSON.stringify(r)); }
+await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "SKEXT0001" } });
+x = await lastOrder("SKEXT0001"); ok(x.refunds.length === 2, "같은 취소가 두 번 기록돼요");
+
+// 2) 방금 낸 취소는 건너뜀(우리 환불과 겹침 방지), 그 뒤 금액이 같은 우리 환불은 같은 건으로 인식
+await lib.orders().setJSON("SKREC0002", mkp("SKREC0002", [BK(2)], "shipped", 5, { shipments: shippedBK }));
+TOSS.pay["pk_SKREC0002"] = { status: "PARTIAL_CANCELED", totalAmount: 62800, balanceAmount: 52800, paymentKey: "pk_SKREC0002", cancels: [{ cancelAmount: 10000, transactionKey: "txB", canceledAt: iso(0) }] };
+await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "SKREC0002" } });
+x = await lastOrder("SKREC0002"); ok(!(x.refunds || []).length, "방금 낸 취소를 바로 외부 환불로 기록해요");
+TOSS.pay["pk_SKREC0002"].cancels[0].canceledAt = iso(30);
+await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "SKREC0002" } });
+x = await lastOrder("SKREC0002"); ok(x.refunds.length === 1 && x.refunds[0].brand === "bonkorea" && x.refunds[0].amount === 10000 && x.refunds[0].source === "toss", "한 브랜드 주문의 외부 부분취소 반영이 달라요 " + JSON.stringify(x.refunds));
+
+// 3) 부분환불 뒤 전체 취소: 이중 차감 없이 합계가 결제액과 같음
+TOSS.pay["pk_SKREC0002"].balanceAmount = 52800;
+[s, j] = await call(adminApi, "/api/admin/cancel", "POST", { orderId: "SKREC0002" }, A); ok(s === 200, "부분환불 뒤 취소 실패 " + JSON.stringify(j));
+x = await lastOrder("SKREC0002");
+ok(x.status === "canceled" && x.refunds.reduce((a, r) => a + r.amount, 0) === 62800, "취소 후 환불 합계가 결제액과 달라요 " + JSON.stringify(x.refunds));
+{ const r = home.monthSettle([x], month)[0]; ok(r.sales === 59800 && r.refund === 59800 && r.payout === 0, "부분환불+취소가 이중 차감돼요 " + JSON.stringify(r)); }
+[s, j] = await call(adminApi, "/api/admin/cancel", "POST", { orderId: "SKREC0002" }, A); ok(s === 400, "취소한 주문이 또 취소돼요");
+
+// 4) 예전 방식 취소(환불 기록 없이 canceled)도 같은 규칙으로 정산에서 0
+await lib.orders().setJSON("SKLEG0003", mkp("SKLEG0003", [BK(1)], "canceled", 5, { canceledAt: ago(1) }));
+{ const o = await lastOrder("SKLEG0003"); const r = home.monthSettle([o], month)[0]; ok(r.sales === 29900 && r.refund === 29900 && r.payout === 0, "예전 방식 취소 주문이 정산에 남아요 " + JSON.stringify(r)); }
+
+// 5) 결제는 됐는데 주문이 pending 인 경우 대조로 복구 + 알림 + 한 번만
+await lib.orders().setJSON("SKPEN0004", mkp("SKPEN0004", [BK(1)], "pending", 1, { paymentKey: undefined, paidAt: undefined }));
+TOSS.pay["SKPEN0004"] = { status: "DONE", totalAmount: 32900, paymentKey: "pk_real4", method: "간편결제", approvedAt: iso(20), cancels: null };
+const nrec = MAILS.length;
+[s, j] = await call(adminApi, "/api/admin/reconcile", "POST", {}); ok(s === 401, "로그인 없이 대조가 돼요");
+[s, j] = await call(adminApi, "/api/admin/reconcile", "POST", {}, A); ok(s === 200 && j.result.recovered === 1, "누락된 결제가 복구되지 않아요 " + JSON.stringify(j));
+x = await lastOrder("SKPEN0004"); ok(x.status === "paid" && x.paymentKey === "pk_real4" && x.recovered && x.finalized, "복구 후 주문 상태가 달라요 " + JSON.stringify(x));
+ok(MAILS.slice(nrec).some((m) => m.to[0] === "bk@x.test" && m.subject.includes("SKPEN0004")), "복구한 주문이 브랜드에 알려지지 않아요");
+const nrec2 = MAILS.length; [s, j] = await call(adminApi, "/api/admin/reconcile", "POST", {}, A); ok(j.result.recovered === 0 && MAILS.length === nrec2, "복구가 두 번 실행돼요");
+
+// 6) 결제 확인 경쟁/네트워크 오류: 결제된 주문을 failed 로 덮어쓰지 않음
+await lib.orders().setJSON("SKRACE005", mkp("SKRACE005", [BK(1)], "pending", 1, { paymentKey: undefined, paidAt: undefined, userId: "u1" }));
+TOSS.confirmThrow = true;
+[s, j] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_race", orderId: "SKRACE005", amount: 32900 }, U1); ok(s === 502, "응답 없는 결제 확인이 502가 아니에요 " + s);
+x = await lastOrder("SKRACE005"); ok(x.status === "pending", "응답을 못 받았다고 실패로 확정해요 " + x.status);
+TOSS.confirmThrow = false; TOSS.confirmFail = { code: "ALREADY_PROCESSED_PAYMENT", message: "이미 처리된 결제" };
+TOSS.pay["pk_race"] = { status: "DONE", totalAmount: 32900, paymentKey: "pk_race", method: "카드", approvedAt: iso(1) };
+[s, j] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_race", orderId: "SKRACE005", amount: 32900 }, U1); ok(s === 200, "이미 처리된 결제를 실패로 처리해요 " + JSON.stringify(j));
+x = await lastOrder("SKRACE005"); ok(x.status === "paid" && x.finalized, "이미 처리된 결제가 주문에 반영되지 않아요 " + x.status);
+TOSS.confirmFail = null;
+{ const o = await lastOrder("SKRACE005"); o.status = "shipped"; await lib.orders().setJSON(o.id, o);
+  TOSS.confirmFail = { code: "X", message: "카드 한도 초과" };
+  [s, j] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_race", orderId: "SKRACE005", amount: 32900 }, U1); ok(s === 200 && (await lastOrder("SKRACE005")).status === "shipped", "이미 결제된 주문이 늦은 실패 응답으로 바뀌어요"); TOSS.confirmFail = null; }
+
+// 7) 토스 금액 불일치 표시 -> 확정 막힘 -> 바로잡으면 해제
+await lib.orders().setJSON("SKMIS0006", mkp("SKMIS0006", [BK(1)], "paid", 3));
+TOSS.pay["pk_SKMIS0006"] = { status: "DONE", totalAmount: 25000, paymentKey: "pk_SKMIS0006", cancels: [] };
+await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "SKMIS0006" } });
+x = await lastOrder("SKMIS0006"); ok(x.mismatch && x.mismatch.toss === 25000, "금액 불일치를 표시하지 않아요");
+let osAll = (await ctxMod.allOrders()).filter((o) => o.status !== "pending");
+ok(settleMod.settleBlockers(osAll, "2026-07").some((t) => /다른 주문/.test(t)), "금액 불일치가 있는데 확정이 안 막혀요");
+TOSS.pay["pk_SKMIS0006"].totalAmount = 32900;
+await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "SKMIS0006" } });
+x = await lastOrder("SKMIS0006"); ok(!x.mismatch, "금액이 맞아졌는데 불일치 표시가 남아요");
+
+// 8) 묶음 주문의 외부 부분취소는 브랜드 미지정 -> 확정 막힘 -> 지정 후 해제
+await lib.orders().setJSON("SKMIX0007", mkp("SKMIX0007", [BK(1), GF(1)], "shipped", 4, { shipments: { ...shippedBK, grafen: { carrier: "cj", tracking: "800800800800", at: ago(2) } } }));
+TOSS.pay["pk_SKMIX0007"] = { status: "PARTIAL_CANCELED", totalAmount: 42800, balanceAmount: 32900, paymentKey: "pk_SKMIX0007", cancels: [{ cancelAmount: 9900, transactionKey: "txM", canceledAt: iso(40) }] };
+await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "SKMIX0007" } });
+x = await lastOrder("SKMIX0007"); ok(x.refunds.length === 1 && x.refunds[0].brand === "_unassigned", "묶음 주문 외부 부분취소가 미지정으로 안 남아요 " + JSON.stringify(x.refunds));
+osAll = (await ctxMod.allOrders()).filter((o) => o.status !== "pending");
+ok(settleMod.settleBlockers(osAll, "2026-07").some((t) => /정해지지 않은/.test(t)), "미지정 환불이 있는데 확정이 안 막혀요");
+{ const r = home.monthSettle([x], month); ok(r.every((y) => y.refund === 0), "미지정 환불이 임의 브랜드에 잡혀요"); }
+[s, j] = await call(adminApi, "/api/admin/settlement?format=json&month=" + month, "GET", null, A); ok(j.unassigned.length === 1 && j.unassigned[0].brands.length === 2 && j.warns.some((w) => /정해지지 않은/.test(w.text)), "미지정 환불이 정산 화면에 안 보여요 " + JSON.stringify(j.unassigned));
+[s, j] = await call(adminApi, "/api/admin/refund/assign", "POST", { orderId: "SKMIX0007", index: 0, brand: "minic" }, A); ok(s === 400, "주문에 없는 브랜드로 지정돼요");
+[s, j] = await call(adminApi, "/api/admin/refund/assign", "POST", { orderId: "SKMIX0007", index: 0, brand: "grafen" });  ok(s === 401, "로그인 없이 환불 지정이 돼요");
+[s, j] = await call(adminApi, "/api/admin/refund/assign", "POST", { orderId: "SKMIX0007", index: 0, brand: "grafen" }, A); ok(s === 200, "환불 지정 실패");
+x = await lastOrder("SKMIX0007"); { const r = home.monthSettle([x], month).find((y) => y.brand === "grafen"); ok(r.refund === 9900, "지정한 환불이 정산에 안 잡혀요"); }
+osAll = (await ctxMod.allOrders()).filter((o) => o.status !== "pending");
+ok(!settleMod.settleBlockers(osAll, "2026-07").length, "모두 해결했는데 확정이 막혀요 " + JSON.stringify(settleMod.settleBlockers(osAll, "2026-07")));
+[s, j] = await call(adminApi, "/api/admin/refund/assign", "POST", { orderId: "SKMIX0007", index: 0, brand: "bonkorea" }, A); ok(s === 400, "지정한 환불을 또 바꿀 수 있어요");
+
+// 9) 환불 한도: 같은 브랜드 반품 두 번 불가, 남은 금액만 환불
+await lib.orders().setJSON("SKCAP0008", mkp("SKCAP0008", [BK(1), GF(1)], "shipped", 4, { shipments: { ...shippedBK, grafen: { carrier: "cj", tracking: "600600600600", at: ago(2) } } }));
+[s, j] = await call(csApi, "/api/cs/new", "POST", { orderId: "SKCAP0008", brand: "bonkorea", type: "return", text: "반품해요" }, U1); ok(s === 200, "반품 신청 실패 " + JSON.stringify(j)); const TC = j.ticket.id;
+await call(brand, "/api/partner/cs/decide", "POST", { id: TC, action: "approve" }, BH);
+TOSS.calls.length = 0;
+[s, j] = await call(brand, "/api/partner/cs/received", "POST", { id: TC }, BH); ok(s === 200 && j.ticket.status === "refunded" && TOSS.calls[0].body.cancelAmount === 29900, "반품 환불 금액이 달라요 " + JSON.stringify(TOSS.calls));
+x = await lastOrder("SKCAP0008"); ok(x.refunds[0].tx && x.refunds[0].tx.startsWith("tx-own"), "우리 환불에 토스 거래키가 저장되지 않아요");
+[s, j] = await call(csApi, "/api/cs/new", "POST", { orderId: "SKCAP0008", brand: "bonkorea", type: "return", text: "또 반품" }, U1); ok(s === 400 && /환불이 끝난/.test(j.error), "이미 환불된 상품에 반품이 또 신청돼요 " + JSON.stringify(j));
+[s, j] = await call(csApi, "/api/cs/new", "POST", { orderId: "SKCAP0008", brand: "grafen", type: "return", text: "다른 브랜드 반품" }, U1); ok(s === 200, "다른 브랜드 반품은 가능해야 해요");
+// 우리 환불이 토스 대조에서 외부 환불로 중복 기록되지 않음
+TOSS.pay["pk_SKCAP0008"] = { status: "PARTIAL_CANCELED", totalAmount: 42800, balanceAmount: 12900, paymentKey: "pk_SKCAP0008", cancels: [{ cancelAmount: 29900, transactionKey: x.refunds[0].tx, canceledAt: iso(30) }] };
+await call(hookApi, "/api/toss-webhook", "POST", { data: { orderId: "SKCAP0008" } });
+x = await lastOrder("SKCAP0008"); ok(x.refunds.length === 1, "우리가 낸 환불이 대조에서 한 번 더 기록돼요");
+
+// 10) 확정 잠금: 진행 중인 달/미래 달 불가, 확정본은 이후 취소로 바뀌지 않고 취소는 취소한 달에서 차감
+for (const m of ["2099-12"]) { [s, j] = await call(adminApi, "/api/admin/settlement/confirm", "POST", { month: m }, A); ok(s === 400 && /끝나지 않은/.test(j.error), m + " 달이 확정돼요"); }
+{ const snap = JSON.stringify((await settleMod.getSettlement(month)).rows); await lib.orders().setJSON("SKLATE009", mkp("SKLATE009", [BK(1)], "paid", 2)); await call(adminApi, "/api/admin/cancel", "POST", { orderId: "SKLATE009" }, A);
+  ok(JSON.stringify((await settleMod.getSettlement(month)).rows) === snap, "확정한 정산이 이후 취소로 바뀌어요"); }
+
+// 11) 마이너스 이월 + 조정
+await lib.orders().setJSON("SKCAR0010", mkp("SKCAR0010", [{ id: "minic-allinone", brand: "minic", name: "올인원", optName: "", q: 1, unit: 15000 }], "shipped", 24 * 70, { paidAt: "2026-07-05T03:00:00.000Z", createdAt: "2026-07-05T03:00:00.000Z", refunds: [{ brand: "minic", amount: 15000, at: "2026-08-10T03:00:00.000Z" }], shipments: { minic: { carrier: "cj", tracking: "500500500500", at: ago(2) } } }));
+{ const o = await lastOrder("SKCAR0010"); const r = home.monthSettle([o], "2026-08")[0]; ok(r.sales === 0 && r.refund === 15000 && r.payout === -15000, "이월 전 계산이 달라요 " + JSON.stringify(r)); }
+[s, j] = await call(adminApi, "/api/admin/settlement/adjust", "POST", { month: "2026-08", brand: "minic", amount: 0, memo: "빈 조정" }, A); ok(s === 400, "금액 0 조정이 통과해요");
+[s, j] = await call(adminApi, "/api/admin/settlement/adjust", "POST", { month: "2026-08", brand: "zz", amount: 100, memo: "없는 브랜드" }, A); ok(s === 400, "없는 브랜드 조정이 통과해요");
+[s, j] = await call(adminApi, "/api/admin/settlement/adjust", "POST", { month: "2026-08", brand: "minic", amount: 3000, memo: "배송 지연 보상" });  ok(s === 401, "로그인 없이 조정이 돼요");
+[s, j] = await call(adminApi, "/api/admin/settlement/adjust", "POST", { month: "2026-08", brand: "minic", amount: 3000, memo: "배송 지연 보상" }, A); ok(s === 200 && j.adj.length === 1, "조정 추가 실패"); const adjId = j.adj[0].id;
+[s, j] = await call(adminApi, "/api/admin/settlement/adjust/delete", "POST", { month: "2026-08", id: adjId }, A); ok(s === 200 && j.adj.length === 0, "조정 삭제 실패");
+[s, j] = await call(adminApi, "/api/admin/settlement/confirm", "POST", { month: "2026-08" }, A); ok(s === 200 && j.created, "지난 달 확정 실패 " + JSON.stringify(j));
+{ const r = j.settlement.rows.find((y) => y.brand === "minic"); ok(r && r.carried === 15000 && r.payout === 0, "마이너스가 이월 처리되지 않아요 " + JSON.stringify(r)); }
+[s, j] = await call(adminApi, "/api/admin/settlement/adjust", "POST", { month: "2026-08", brand: "minic", amount: 100, memo: "확정 뒤 조정" }, A); ok(s === 400, "확정된 달에 조정이 들어가요");
+{ const adj9 = (await ctxMod.allOrders(), await (await import(pathToFileURL(path.join(T, "functions/_adj.mjs")))).getAdj("2026-09")); ok(adj9.length === 1 && adj9[0].amount === -15000 && adj9[0].auto, "다음 달 이월 조정이 없어요 " + JSON.stringify(adj9));
+  const o = await lastOrder("SKCAR0010"); const r = home.monthSettle([o], "2026-09", undefined, adj9)[0]; ok(r && r.payout === -15000, "이월이 다음 달에 반영되지 않아요 " + JSON.stringify(r)); }
+
+// 12) 주의 사항/대조 합계
+[s, j] = await call(adminApi, "/api/admin/settlement?format=json&month=" + month, "GET", null, A);
+ok(s === 200 && j.warns.some((w) => /수수료율이 0%/.test(w.text)) && j.warns.some((w) => /이메일이 없어/.test(w.text)) && j.last && j.recon && typeof j.recon.net === "number" && j.recon.refundShip >= 3000, "정산 주의 사항/대조 합계가 달라요 " + JSON.stringify(j.warns) + JSON.stringify(j.recon));
+{ const os2 = (await ctxMod.allOrders()).filter((o) => o.status !== "pending"); const t = vatMod.txns(os2, "bonkorea", month); ok(t.some((y) => y.kind === "취소") && t.some((y) => y.kind === "환불"), "부가세 자료에 취소/환불 구분이 없어요");
+  const v = vatMod.vatMonths(os2, "bonkorea", [month]).total; const h = home.monthSettle(os2, month, "bonkorea")[0]; ok(v.net === h.sales - h.refund, "부가세 순매출과 정산 순매출이 달라요 " + v.net + " vs " + (h.sales - h.refund)); }
+{ const os2 = (await ctxMod.allOrders()).filter((o) => o.status !== "pending"); const live = os2.filter((o) => ["paid", "partial", "shipped", "canceled"].includes(o.status) && String(o.paidAt).startsWith(month));
+  const paidTotal = live.reduce((a, o) => a + o.total, 0), refundAll = os2.flatMap((o) => money.refundsOf(o)).filter((r) => String(r.at).startsWith(month)).reduce((a, r) => a + r.amount, 0);
+  const rows = home.monthSettle(os2, month), brandNet = rows.reduce((a, r) => a + r.sales - r.refund, 0);
+  const rep = await settleMod.settleReport(os2, month); ok(rep.recon.gross === paidTotal && rep.recon.net === paidTotal - refundAll, "토스 대조용 합계가 달라요"); void brandNet; }
 
 // 코드 재발급/폐기/잠금
 [s, j] = await call(adminApi, "/api/admin/partners/issue", "POST", { brand: "bonkorea" }, A); const codeB2 = j.code;

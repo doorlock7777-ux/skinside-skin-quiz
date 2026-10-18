@@ -374,15 +374,50 @@ function cs(){
 }
 
 /* ---------- 정산 ---------- */
-var SM = new Date().toISOString().slice(0, 7);
+function warnCard(j){
+  if(!j.warns || !j.warns.length) return '<div class="card"><span class="okc">정산 점검: 이상 없음</span></div>';
+  return '<div class="card note"><h2>정산 전에 확인하세요</h2>' + j.warns.map(function(w){ return '<div class="rw"><span>' + (w.level === "bad" ? '<b class="wn">막힘</b> ' : w.level === "warn" ? '<b class="wn">주의</b> ' : '<span class="s">참고</span> ') + esc(w.text) + '</span></div>'; }).join("") + '</div>';
+}
+function unCard(j){
+  if(!j.unassigned || !j.unassigned.length) return "";
+  return '<div class="card note"><h2>어느 브랜드 몫인지 지정해주세요</h2><p class="sub">토스에서 직접 부분취소한 금액이에요. 지정하기 전에는 정산을 확정할 수 없어요.</p>' + j.unassigned.map(function(u){
+    return '<div class="rw" style="gap:8px;flex-wrap:wrap"><span>' + esc(u.orderId) + ' · <b>' + n(u.amount) + '원</b> · ' + kst(u.at) + (u.note ? ' · ' + esc(u.note) : '') + '</span><span><select data-ub="' + esc(u.orderId) + ':' + u.index + '">' + u.brands.map(function(b){ return '<option value="' + esc(b.key) + '">' + esc(b.name) + '</option>'; }).join("") + '</select> <button class="sm" data-ua="' + esc(u.orderId) + ':' + u.index + '">지정</button></span></div>'; }).join("") + '</div>';
+}
+function adjCard(j){
+  var nm = j.confirmed ? pm(SM, 1) : SM;
+  return '<div class="card"><h2>정산 조정</h2><p class="sub">환불 누락·보상·정정처럼 정산에 더하거나 뺄 금액이에요. 이미 확정한 달은 바꿀 수 없어서, 고칠 일은 아직 확정 전인 달(보통 다음 달)에 넣어요.</p>'
+    + (j.adj && j.adj.length ? j.adj.map(function(a){ var b = (j.brands.filter(function(x){ return x.key === a.brand; })[0] || {name:a.brand}).name; return '<div class="rw"><span>' + esc(b) + ' · ' + esc(a.memo) + (a.auto ? ' <span class="s">자동 이월</span>' : '') + '</span><span><b>' + (a.amount > 0 ? '+' : '-') + n(Math.abs(a.amount)) + '원</b> ' + (j.confirmed ? '' : '<button class="del" data-ad="' + esc(a.id) + '">삭제</button>') + '</span></div>'; }).join("") : '<div class="empty" style="padding:8px 0">' + esc(SM) + ' 조정 없음</div>')
+    + '<div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px"><input id="am" type="month" value="' + esc(nm) + '" style="width:auto"><select id="ab">' + j.brands.map(function(b){ return '<option value="' + esc(b.key) + '">' + esc(b.name) + '</option>'; }).join("") + '</select><input id="aa" type="number" placeholder="금액 (빼려면 -)" style="width:140px"><input id="ar" placeholder="사유" style="flex:1;min-width:120px"><button class="g" id="aadd">조정 추가</button></div><span class="msg" id="amm"></span></div>';
+}
+function reconCard(j){
+  var r = j.recon || {}, l = j.last;
+  return '<div class="card"><h2>토스와 대조</h2><p class="sub">매일 새벽 4시 30분에 자동으로 맞추고, 토스에서 직접 취소한 건과 놓친 결제를 가져와요. 지금 바로 하려면 버튼을 누르세요.</p>'
+    + '<div class="rw"><span>마지막 대조</span><b>' + (l ? kst(l.at) + ' · ' + l.checked + '건 확인' + (l.recovered ? ' · 결제 복구 ' + l.recovered : '') + (l.external ? ' · 외부 환불 ' + n(l.external) + '원' : '') + (l.errors ? ' · 오류 ' + l.errors : '') : '아직 없음') + '</b></div>'
+    + '<div class="rw"><span>' + esc(SM) + ' 결제 총액 (배송비 ' + n(r.ship) + '원 포함)</span><b>' + n(r.gross) + '원</b></div>'
+    + '<div class="rw"><span>환불 (브랜드 ' + n(r.refundBrand) + ' · 배송비 ' + n(r.refundShip) + (r.refundUnassigned ? ' · 미지정 ' + n(r.refundUnassigned) : '') + ')</span><b>-' + n(r.refundBrand + r.refundShip + r.refundUnassigned) + '원</b></div>'
+    + '<div class="rw"><span><b>토스 정산서와 맞춰볼 순 결제액</b></span><b>' + n(r.net) + '원</b></div>'
+    + '<div style="margin-top:8px"><button class="g" id="rc">토스와 대조하기</button> <span class="msg" id="rcm"></span></div></div>';
+}
+function bindSettle(j){
+  var rc = document.getElementById("rc"); if(rc) rc.onclick = function(){ rc.disabled = true; document.getElementById("rcm").textContent = "대조 중..."; post("/api/admin/reconcile", {}).then(settle).catch(function(e){ rc.disabled = false; var m = document.getElementById("rcm"); m.className = "msg e"; m.textContent = e.message; }); };
+  var ad = document.getElementById("aadd"); if(ad) ad.onclick = function(){ var m = document.getElementById("amm"); post("/api/admin/settlement/adjust", {month:document.getElementById("am").value, brand:document.getElementById("ab").value, amount:document.getElementById("aa").value, memo:document.getElementById("ar").value}).then(function(){ SM = document.getElementById("am").value || SM; settle(); }).catch(function(e){ m.className = "msg e"; m.textContent = e.message; }); };
+  [].forEach.call(M().querySelectorAll("[data-ad]"), function(b){ b.onclick = function(){ post("/api/admin/settlement/adjust/delete", {month:SM, id:b.dataset.ad}).then(settle).catch(function(e){ b.textContent = e.message; }); }; });
+  [].forEach.call(M().querySelectorAll("[data-ua]"), function(b){ b.onclick = function(){ var k = b.dataset.ua, i = k.lastIndexOf(":"), sel = M().querySelector('[data-ub="' + k + '"]'); post("/api/admin/refund/assign", {orderId:k.slice(0, i), index:+k.slice(i + 1), brand:sel.value}).then(settle).catch(function(e){ b.textContent = e.message; }); }; });
+}
+
+function pm(m, d){ var p = m.split("-"), t = new Date(Date.UTC(+p[0], +p[1] - 1 + d, 1)); return t.toISOString().slice(0, 7); }
+var SM = pm(new Date().toISOString().slice(0, 7), -1); /* 확정은 끝난 달만 가능해서 기본은 지난 달 */
 function settle(){
   M().innerHTML = '<div class="empty">불러오는 중...</div>';
   api("/api/admin/settlement?format=json&month=" + SM).then(function(j){
     var t = j.rows.reduce(function(a, r){ return {s:a.s + r.sales, f:a.f + r.fee, p:a.p + r.payout}; }, {s:0, f:0, p:0});
     M().innerHTML = '<div class="card"><h2>월별 정산</h2><div class="row" style="margin-top:8px"><input id="sm" type="month" value="' + esc(SM) + '" style="width:auto"><button class="g" id="sd">엑셀(CSV) 받기</button></div></div>'
       + '<div class="card' + (j.confirmed ? '' : ' note') + '">' + (j.confirmed ? '<b>정산 확정됨</b> · ' + kst(j.confirmed.at) + ' · 정산서가 각 브랜드 이메일로 나갔어요. 브랜드에 송금한 뒤 "송금했어요"를 눌러주세요.' : '<b>아직 확정 전이에요.</b> 말일이 지난 뒤 확정 버튼을 누르면 정산서가 브랜드별로 자동 발송돼요.<div style="margin-top:8px"><button class="pri" id="sc">' + esc(SM) + ' 정산 확정하고 정산서 보내기</button> <span class="msg" id="scm"></span></div>') + '</div>'
+      + warnCard(j) + unCard(j)
       + '<div class="kpi"><div><small>판매 금액</small><b>' + n(t.s) + '원</b></div><div><small>수수료(우리 수익)</small><b>' + n(t.f) + '원</b></div><div><small>브랜드 정산 합계</small><b>' + n(t.p) + '원</b></div></div>'
-      + '<div class="card">' + (j.rows.length ? '<div class="tw"><table class="tbl"><tr><th>브랜드</th><th class="r">수량</th><th class="r">판매금액</th><th class="r">환불</th><th class="r">수수료율</th><th class="r">수수료</th><th class="r">정산금</th><th>송금</th></tr>' + j.rows.map(function(r){ var pd = j.confirmed && j.confirmed.paid[r.brand]; return '<tr><td><b>' + esc(r.name) + '</b></td><td class="r">' + n(r.n) + '</td><td class="r">' + n(r.sales) + '</td><td class="r">' + (r.refund ? '-' + n(r.refund) : '-') + '</td><td class="r">' + r.feeRate + '%</td><td class="r">' + n(r.fee) + '</td><td class="r"><b>' + n(r.payout) + '</b></td><td>' + (!j.confirmed ? '<span class="s">확정 전</span>' : pd ? '<span class="okc">완료 ' + kst(pd) + '</span>' : r.payout > 0 ? '<button class="sm" data-pd="' + esc(r.brand) + '">송금했어요</button>' : '-') + '</td></tr>'; }).join("") + '</table></div>' : '<div class="empty">이 달 판매 내역이 없어요.</div>') + '</div>';
+      + '<div class="card">' + (j.rows.length ? '<div class="tw"><table class="tbl"><tr><th>브랜드</th><th class="r">수량</th><th class="r">판매금액</th><th class="r">환불</th><th class="r">수수료율</th><th class="r">수수료</th><th class="r">조정</th><th class="r">정산금</th><th>송금</th></tr>' + j.rows.map(function(r){ var pd = j.confirmed && j.confirmed.paid[r.brand]; return '<tr><td><b>' + esc(r.name) + '</b></td><td class="r">' + n(r.n) + '</td><td class="r">' + n(r.sales) + '</td><td class="r">' + (r.refund ? '-' + n(r.refund) : '-') + '</td><td class="r">' + r.feeRate + '%</td><td class="r">' + n(r.fee) + '</td><td class="r">' + (r.adj ? (r.adj > 0 ? '+' : '-') + n(Math.abs(r.adj)) : '-') + '</td><td class="r"><b>' + n(r.payout) + '</b>' + (r.carried ? '<br><span class="wn">' + n(r.carried) + '원 다음 달로 이월</span>' : '') + '</td><td>' + (!j.confirmed ? '<span class="s">확정 전</span>' : pd ? '<span class="okc">완료 ' + kst(pd) + '</span>' : r.payout > 0 ? '<button class="sm" data-pd="' + esc(r.brand) + '">송금했어요</button>' : '-') + '</td></tr>'; }).join("") + '</table></div>' : '<div class="empty">이 달 판매 내역이 없어요.</div>') + '</div>'
+      + adjCard(j) + reconCard(j);
+    bindSettle(j);
     var sc = document.getElementById("sc"); if(sc) sc.onclick = function(){ if(sc.dataset.s !== "1"){ sc.dataset.s = "1"; sc.textContent = "정말 확정할까요? 한 번 더 누르세요"; return; } sc.disabled = true; post("/api/admin/settlement/confirm", {month:SM}).then(settle).catch(function(e){ sc.disabled = false; document.getElementById("scm").className = "msg e"; document.getElementById("scm").textContent = e.message; }); };
     [].forEach.call(M().querySelectorAll("[data-pd]"), function(b){ b.onclick = function(){ post("/api/admin/settlement/paid", {month:SM, brand:b.dataset.pd}).then(settle).catch(function(e){ b.textContent = e.message; }); }; });
     document.getElementById("sm").onchange = function(){ SM = this.value || SM; settle(); };

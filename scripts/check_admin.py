@@ -66,6 +66,21 @@ with sync_playwright() as p:
         # 정산: 확정 -> 송금 표시
         F.locator("nav button[data-t=settle]").click(); pg.wait_for_timeout(400)
         if F.locator("#sc").count() != 1: err.append("정산 확정 버튼이 없어요")
+        # 정산 점검: 미지정 환불이 있으면 경고가 보이고 확정이 막힌다 -> 지정하면 확정된다
+        t = F.locator("#mn").inner_text()
+        if "정해지지 않은 환불" not in t or F.locator("[data-ua]").count() != 1: err.append("미지정 환불 경고/지정 UI가 없어요")
+        F.locator("#sc").click(); F.locator("#sc").click(); pg.wait_for_timeout(500)
+        if "정해지지 않은 환불" not in F.locator("#scm").inner_text(): err.append("미지정 환불이 있는데 확정 오류가 안 보여요")
+        F.locator("[data-ua]").first.click(); pg.wait_for_timeout(500)
+        if F.locator("[data-ua]").count() != 0: err.append("환불 지정이 반영되지 않아요")
+        # 조정 추가/삭제, 토스 대조
+        F.locator("#aa").fill("-3000"); F.locator("#ar").fill("배송 지연 보상"); F.locator("#aadd").click(); pg.wait_for_timeout(500)
+        if "배송 지연 보상" not in F.locator("#mn").inner_text(): err.append("조정이 추가되지 않아요")
+        F.locator("[data-ad]").first.click(); pg.wait_for_timeout(500)
+        if "배송 지연 보상" in F.locator("#mn").inner_text(): err.append("조정이 삭제되지 않아요")
+        F.locator("#rc").click(); pg.wait_for_timeout(600)
+        if "42건 확인" not in F.locator("#mn").inner_text(): err.append("토스 대조 결과가 안 보여요")
+        if "토스 정산서와 맞춰볼" not in F.locator("#mn").inner_text(): err.append("대조용 합계가 안 보여요")
         F.locator("#sc").click(); F.locator("#sc").click(); pg.wait_for_timeout(500)
         if F.locator("[data-pd]").count() != 3: err.append("정산 확정 후 송금 버튼이 3개가 아니에요")
         F.locator("[data-pd]").first.click(); pg.wait_for_timeout(400)

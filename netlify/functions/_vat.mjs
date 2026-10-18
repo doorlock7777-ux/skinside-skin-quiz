@@ -1,4 +1,5 @@
 import { BRANDS } from "./_lib.mjs";
+import { isSale, refundsOf, SHIP, UNASSIGNED } from "./_money.mjs";
 
 /* 브랜드별 부가가치세 신고용 매출 자료. 기준: 결제 완료일(취소·환불은 환불한 달에서 차감), 금액은 부가세 포함 */
 const LIVE = ["paid", "partial", "shipped"];
@@ -19,17 +20,17 @@ export const monthsBetween = (from, to) => {
 /* 거래 내역(건별): 판매 + 환불을 한 줄씩 */
 export function txns(os, brand, month) {
   const t = [];
-  os.filter((o) => LIVE.includes(o.status) && lines(o, brand).length && dayOf(when(o)).startsWith(month)).forEach((o) => {
+  os.filter((o) => isSale(o) && lines(o, brand).length && dayOf(when(o)).startsWith(month)).forEach((o) => {
     const ls = lines(o, brand);
     t.push({ at: when(o), day: dayOf(when(o)), orderId: o.id, kind: "판매", items: ls.map((l) => l.name + (l.optName ? " (" + l.optName + ")" : "")).join(" / "), q: ls.reduce((a, l) => a + l.q, 0), amount: amt(ls), method: o.method || "", card: isCard(o.method) });
   });
-  os.forEach((o) => (o.refunds || []).forEach((r) => { if (r.brand === brand && dayOf(r.at).startsWith(month)) t.push({ at: r.at, day: dayOf(r.at), orderId: o.id, kind: "환불", items: lines(o, brand).map((l) => l.name).join(" / "), q: 0, amount: -r.amount, method: o.method || "", card: isCard(o.method) }); }));
+  os.forEach((o) => refundsOf(o).forEach((r) => { if (r.brand === brand && dayOf(r.at).startsWith(month)) t.push({ at: r.at, day: dayOf(r.at), orderId: o.id, kind: r.source === "cancel" ? "취소" : "환불", items: lines(o, brand).map((l) => l.name).join(" / "), q: 0, amount: -r.amount, method: o.method || "", card: isCard(o.method) }); }));
   return t.sort((a, b) => (a.at < b.at ? -1 : 1));
 }
 const sum = (t) => {
   const card = t.filter((x) => x.card).reduce((a, x) => a + x.amount, 0), other = t.filter((x) => !x.card).reduce((a, x) => a + x.amount, 0), net = card + other;
   const supply = Math.round(net / 1.1);
-  return { orders: t.filter((x) => x.kind === "판매").length, gross: t.filter((x) => x.kind === "판매").reduce((a, x) => a + x.amount, 0), refund: -t.filter((x) => x.kind === "환불").reduce((a, x) => a + x.amount, 0), net, exempt: 0, card, other, supply, vat: net - supply };
+  return { orders: t.filter((x) => x.kind === "판매").length, gross: t.filter((x) => x.kind === "판매").reduce((a, x) => a + x.amount, 0), refund: -t.filter((x) => x.kind !== "판매").reduce((a, x) => a + x.amount, 0), net, exempt: 0, card, other, supply, vat: net - supply };
 };
 export function vatMonths(os, brand, months) {
   const rows = months.map((m) => ({ month: m, ...sum(txns(os, brand, m)) }));

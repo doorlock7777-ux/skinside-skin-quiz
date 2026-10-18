@@ -5,7 +5,10 @@ import { notifyCancel } from "./_batch.mjs";
 import { adminSummary, allOrders } from "./_ctx.mjs";
 import { allTickets, getTicket, addMessage, close, receiveAndRefund } from "./_cs.mjs";
 import { allReviews, getReview, manageView, markRead, setBest, decide as decideReview } from "./_reviews.mjs";
-import { confirmSettlement, markPaid, getSettlement, listSettlements } from "./_settle.mjs";
+import { confirmSettlement, markPaid, getSettlement, listSettlements, settleReport } from "./_settle.mjs";
+import { getAdj, addAdj, delAdj } from "./_adj.mjs";
+import { syncOrder, reconcileAll } from "./_toss.mjs";
+import { bookCancel, refundsOf, UNASSIGNED, brandsOf } from "./_money.mjs";
 
 const all = allOrders;
 const csv = (rows) => "﻿" + rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
@@ -48,14 +51,20 @@ export default async (req) => {
 
   if (p === "/api/admin/cancel" && req.method === "POST") {
     const o = await st.get(String(b.orderId || ""), { type: "json" });
-    if (!o || !o.paymentKey || o.status === "canceled") return json({ error: "취소할 수 없는 주문" }, 400);
+    if (!o || !o.paymentKey || o.status === "canceled" || !["paid", "partial", "shipped"].includes(o.status)) return json({ error: "취소할 수 없는 주문" }, 400);
     const r = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(o.paymentKey)}/cancel`, {
-      method: "POST", headers: { authorization: tossAuth(), "content-type": "application/json" },
+      method: "POST", headers: { authorization: tossAuth(), "content-type": "application/json", "Idempotency-Key": "cancel-" + o.id },
       body: JSON.stringify({ cancelReason: String(b.reason || "관리자 취소").slice(0, 100) }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) return json({ error: j.message || "취소 실패" }, 400);
-    o.status = "canceled"; o.canceledAt = new Date().toISOString();
+    if (!r.ok) {
+      /* 이미 토스에서 취소된 주문이면 토스 기록을 가져와 맞춘다 */
+      if (j.code === "ALREADY_CANCELED_PAYMENT") { const sy = await syncOrder(o.id); return sy.error ? json({ error: sy.error }, 502) : json({ ok: true, synced: true }); }
+      return json({ error: j.message || "취소 실패" }, 400);
+    }
+    /* 취소는 남은 금액 전부를 "환불"로 기록한다. 취소한 달에서 차감되고 이미 확정한 정산은 바뀌지 않는다 */
+    const tx = ((j.cancels || []).slice(-1)[0] || {}).transactionKey;
+    bookCancel(o, new Date().toISOString(), tx); if (tx) (o.tossTx = o.tossTx || []).push(tx);
     try { await adjustStock(o.items.map((l) => [l.id, l.q])); } catch {}
     try { await notifyCancel(o); } catch {}
     await st.setJSON(o.id, o);
@@ -91,10 +100,33 @@ export default async (req) => {
   }
 
   /* ---- 정산 ---- */
+  if (p === "/api/admin/reconcile" && req.method === "POST") {
+    return json({ ok: true, result: await reconcileAll() });
+  }
   if (p === "/api/admin/settlement/confirm" && req.method === "POST") {
     if (!/^\d{4}-\d{2}$/.test(String(b.month || ""))) return json({ error: "월을 확인해주세요" }, 400);
-    const { s, created } = await confirmSettlement((await all()).filter((o) => o.status !== "pending"), b.month);
-    return json({ ok: true, created, settlement: s });
+    try { await reconcileAll(); } catch {}
+    const { s, created, error } = await confirmSettlement((await all()).filter((o) => o.status !== "pending"), b.month);
+    return error ? json({ error }, 400) : json({ ok: true, created, settlement: s });
+  }
+  if (p === "/api/admin/settlement/adjust" && req.method === "POST") {
+    const amount = Math.round(Number(b.amount)), memo = String(b.memo || "").trim();
+    if (!/^\d{4}-\d{2}$/.test(String(b.month || "")) || !BRANDS[b.brand] || !amount || Math.abs(amount) > 1e9 || memo.length < 2) return json({ error: "월·브랜드·금액(0 제외)·사유(2자 이상)를 확인해주세요" }, 400);
+    if (await getSettlement(b.month)) return json({ error: "이미 확정된 달이에요. 확정 전인 달에 넣어주세요 (보통 다음 달)" }, 400);
+    return json({ ok: true, adj: await addAdj(b.month, b.brand, amount, memo) });
+  }
+  if (p === "/api/admin/settlement/adjust/delete" && req.method === "POST") {
+    if (await getSettlement(String(b.month || ""))) return json({ error: "이미 확정된 달이에요" }, 400);
+    const r = await delAdj(String(b.month || ""), String(b.id || ""));
+    return r ? json({ ok: true, adj: r }) : json({ error: "없는 조정이에요" }, 400);
+  }
+  if (p === "/api/admin/refund/assign" && req.method === "POST") {
+    const o = await st.get(String(b.orderId || ""), { type: "json" });
+    const i = Number(b.index);
+    if (!o || !o.refunds || !o.refunds[i] || o.refunds[i].brand !== UNASSIGNED || !brandsOf(o).includes(b.brand)) return json({ error: "지정할 수 없는 환불이에요" }, 400);
+    o.refunds[i].brand = b.brand; o.refunds[i].assignedAt = new Date().toISOString();
+    await st.setJSON(o.id, o);
+    return json({ ok: true });
   }
   if (p === "/api/admin/settlement/paid" && req.method === "POST") {
     const s = await markPaid(String(b.month || ""), String(b.brand || ""));
@@ -103,10 +135,14 @@ export default async (req) => {
   if (p === "/api/admin/settlement") {
     const m = u.searchParams.get("month") || new Date().toISOString().slice(0, 7);
     const conf = await getSettlement(m);
-    const rows = conf ? conf.rows : monthSettle(await all(), m);
-    if (u.searchParams.get("format") === "json") return json({ month: m, rows, confirmed: conf ? { at: conf.confirmedAt, paid: conf.paid || {} } : null });
-    const out = [["월", "브랜드", "판매수량", "판매금액", "환불금액", "수수료율(%)", "수수료(우리 수익)", "브랜드 정산금", "송금 완료"]];
-    rows.forEach((r) => out.push([m, r.name, r.n, r.sales, r.refund || 0, r.feeRate, r.fee, r.payout, conf && (conf.paid || {})[r.brand] ? "완료" : ""]));
+    const os = (await all()).filter((o) => o.status !== "pending"), rep = await settleReport(os, m);
+    const rows = conf ? conf.rows : rep.rows;
+    if (u.searchParams.get("format") === "json") {
+      const unassigned = os.flatMap((o) => (o.refunds || []).map((r, i) => ({ r, i, o })).filter((x) => x.r.brand === UNASSIGNED).map((x) => ({ orderId: x.o.id, index: x.i, amount: x.r.amount, at: x.r.at, note: x.r.note || "", brands: brandsOf(x.o).map((k) => ({ key: k, name: (BRANDS[k] || {}).name || k })) })));
+      return json({ month: m, rows, confirmed: conf ? { at: conf.confirmedAt, paid: conf.paid || {} } : null, warns: rep.warns, recon: rep.recon, last: rep.last, adj: await getAdj(m), unassigned, brands: Object.keys(BRANDS).map((k) => ({ key: k, name: BRANDS[k].name })) });
+    }
+    const out = [["월", "브랜드", "판매수량", "판매금액", "환불금액", "수수료율(%)", "수수료(우리 수익)", "조정", "브랜드 정산금", "송금 완료"]];
+    rows.forEach((r) => out.push([m, r.name, r.n, r.sales, r.refund || 0, r.feeRate, r.fee, r.adj || 0, r.payout, conf && (conf.paid || {})[r.brand] ? "완료" : ""]));
     return new Response(csv(out), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="settlement-${m}.csv"` } });
   }
   return json({ error: "not found" }, 404);
