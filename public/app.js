@@ -45,9 +45,10 @@ function totals(ls_){
 
 /* 화면 조각 */
 function img(p){ return p.img ? '<img src="' + esc(p.img) + '" alt="' + esc(p.name) + '" loading="lazy">' : '<div class="ph">' + esc(p.brandName) + '</div>'; }
+function lnk(p){ return CHECKOUT ? 'href="#/p/' + esc(p.id) + '"' : 'href="' + esc(p.url || CFG.STORE_URL) + '" target="_blank" rel="noopener" data-pid="' + esc(p.id) + '"'; }
 function card(p){
   var d = disc(p);
-  return '<a class="pc" href="#/p/' + esc(p.id) + '"><div class="im">' + img(p) + (TOP[p.id] ? '<span class="tag">인기</span>' : '') + '</div>'
+  return '<a class="pc" ' + lnk(p) + '><div class="im">' + img(p) + (TOP[p.id] ? '<span class="tag">인기</span>' : '') + '</div>'
     + '<div class="br">' + esc(p.brandName) + '</div><div class="nm">' + esc(p.name) + '</div>'
     + '<div class="pr">' + (d ? '<span class="d">' + d + '%</span>' : '') + '<span class="p">' + won(pr(p)) + (p.options ? '~' : '') + '</span>' + (d ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div></a>';
 }
@@ -77,7 +78,7 @@ function home(){
   h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
     var em = [buys(best) > 0 ? '이번 주 ' + buys(best).toLocaleString("ko-KR") + '개 구매' : '', disc(best) ? '최대 ' + disc(best) + '% 할인' : ''].filter(Boolean).join(' · ');
-    h += '<div class="band"></div><div class="sec"><h2>지금 가장 많이 구매하는 제품</h2><a class="best" href="#/p/' + esc(best.id) + '"><div class="im">' + img(best) + '</div><div>' + (em ? '<div class="em">' + em + '</div>' : '') + '<div class="nm">' + esc(best.name) + '</div><div class="big">' + won(best.price) + '</div></div></a></div>';
+    h += '<div class="band"></div><div class="sec"><h2>지금 가장 많이 구매하는 제품</h2><a class="best" ' + lnk(best) + '><div class="im">' + img(best) + '</div><div>' + (em ? '<div class="em">' + em + '</div>' : '') + '<div class="nm">' + esc(best.name) + '</div><div class="big">' + won(best.price) + '</div></div></a></div>';
   }
   h += '<div class="band"></div><div class="sec"><h2>인기 제품</h2><div class="grid">' + byPop(D.products).map(card).join("") + '</div></div>';
   h += foot();
@@ -253,6 +254,7 @@ function route(){
   if(h === "#/me") return me();
   home();
 }
+document.addEventListener("click", function(e){ var a = e.target.closest && e.target.closest("[data-pid]"); if(a) track(a.getAttribute("data-pid"), "c"); });
 $bk.onclick = function(){ if(DEMO){ HM = HS.pop() || "#/"; route(); } else history.length > 1 ? history.back() : (location.hash = "#/"); };
 window.addEventListener("hashchange", route);
 if(DEMO) document.addEventListener("click", function(e){

@@ -12,16 +12,17 @@ RV = {"cl": ["거품이 부드럽고 세안 후 당김이 적다는 의견이 �
       "pack": ["쿨링감이 확실해서 만족한다는 후기가 많아요", "사용 후 피부가 차분해진다는 의견이 있어요", "가격 대비 양이 넉넉하다는 평이에요"]}
 for i, p in enumerate(d["products"]):
     if p.get("img"): p["img"] = uri(p["img"])
-    m = MUL[i % len(MUL)]
+    m = MUL[i % len(MUL)] if os.environ.get("DEMO_LIST") else None
     if m and not p.get("options"): p["list"] = int(round(p["price"] * m / 100.0)) * 100
     if p["cat"] in RV and (p.get("hot") or i % 3 == 0): p["reviews"] = RV[p["cat"]]
 css = rd("public/style.css")
-cfg = {"MODE": "checkout", "STORE_OPEN": True, "LOGIN": True, "DEMO": True, "TOSS_CLIENT_KEY": "demo", "STORE_URL": "", "KAKAO_URL": "https://pf.kakao.com/_ZujbG/friend"}
+CHK = os.environ.get("DEMO_MODE") == "checkout"
+cfg = {"MODE": "checkout" if CHK else "link", "STORE_OPEN": True, "LOGIN": CHK, "DEMO": True, "TOSS_CLIENT_KEY": "demo" if CHK else "", "STORE_URL": "", "KAKAO_URL": "https://pf.kakao.com/_ZujbG/friend"}
 html = """<title>스킨인사이드 스토어 미리보기</title>
 <style>%s
 .demo{background:#fff8e6;color:#8a5a00;font-size:12.5px;text-align:center;padding:8px 16px;line-height:1.5}
 :root{color-scheme:light}</style>
-<div class="demo">미리보기 화면이에요. 정가, 할인율, 후기는 예시이고 결제는 실제로 이루어지지 않아요.</div>
+<div class="demo">미리보기 화면이에요. 인기순과 구매 수는 예시 값이고, 제품을 누르면 족보템 스토어로 이동해요.</div>
 <header id="top"><button class="back" id="bk" hidden aria-label="뒤로">&#8249;</button><a href="#/"><img src="%s" alt="Skinside.co.kr"></a></header>
 <main id="app"></main>
 <nav class="tabs"><div class="in" id="nv"></div></nav>
