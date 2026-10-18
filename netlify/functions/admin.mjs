@@ -8,6 +8,7 @@ import { allReviews, getReview, manageView, markRead, setBest, decide as decideR
 import { confirmSettlement, markPaid, getSettlement, listSettlements, settleReport } from "./_settle.mjs";
 import { getAdj, addAdj, delAdj } from "./_adj.mjs";
 import { cancelOrder } from "./_cancel.mjs";
+import { listTpl, addTpl, delTpl } from "./_tpl.mjs";
 import { syncOrder, reconcileAll } from "./_toss.mjs";
 import { bookCancel, refundsOf, UNASSIGNED, brandsOf } from "./_money.mjs";
 
@@ -72,6 +73,11 @@ export default async (req) => {
     if (!res) return json({ error: "not found" }, 404);
     return res.error ? json({ error: res.error }, 400) : json({ ok: true });
   }
+  /* ---- CS 자동 입력 문구 (관리자용) ---- */
+  if (p === "/api/admin/cs/templates") return json({ templates: await listTpl("_admin") });
+  if (p === "/api/admin/cs/templates/add" && req.method === "POST") { const r = await addTpl("_admin", b.title, b.text); return r.error ? json({ error: r.error }, 400) : json({ templates: r.list }); }
+  if (p === "/api/admin/cs/templates/delete" && req.method === "POST") { const r = await delTpl("_admin", String(b.id || "")); return r.error ? json({ error: r.error }, 400) : json({ templates: r.list }); }
+
   if (p === "/api/admin/cs") {
     const [tickets, os] = await Promise.all([allTickets(), all()]), byId = Object.fromEntries(os.map((o) => [o.id, o]));
     return json({ tickets: tickets.slice(0, 300).map((t) => { const o = byId[t.orderId] || {}; const { userId, ...pub } = t; return { ...pub, brandName: (BRANDS[t.brand] || {}).name || t.brand, customer: { name: (o.ship || {}).name || t.userName, phone: (o.ship || {}).phone || "" } }; }) });

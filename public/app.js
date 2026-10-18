@@ -128,7 +128,7 @@ function loadReviews(id){
   fetch("/api/review?product=" + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(j){
     if(!document.getElementById("rvbox")) return;
     box.innerHTML = '<b>구매 후기 ' + (j.count ? stars(Math.round(j.avg)) + ' ' + j.avg + ' (' + j.count + '개)' : '') + '</b>' + (j.reviews.length ? j.reviews.slice(0, 20).map(function(r){
-      return '<div style="padding:10px 0;border-top:1px solid var(--line)"><div>' + stars(r.rating) + (r.best ? ' <span style="font-size:12px;font-weight:800;color:var(--pri)">베스트</span>' : '') + ' <span class="s" style="margin-left:6px">' + esc(r.userName) + ' · ' + new Date(r.createdAt).toLocaleDateString("ko-KR") + '</span></div><p style="margin:6px 0 0;white-space:pre-wrap">' + esc(r.text) + '</p></div>'; }).join("") : '<p class="sub">아직 후기가 없어요. 첫 후기를 남겨주세요.</p>');
+      return '<div style="padding:10px 0;border-top:1px solid var(--line)"><div>' + stars(r.rating) + (r.best ? ' <span style="font-size:12px;font-weight:800;color:var(--pri)">베스트</span>' : '') + ' <span class="s" style="margin-left:6px">' + esc(r.userName) + ' · ' + new Date(r.createdAt).toLocaleDateString("ko-KR") + '</span></div><p style="margin:6px 0 0;white-space:pre-wrap">' + esc(r.text) + '</p>' + ((r.photos && r.photos.length) ? '<div class="rv-ph">' + r.photos.map(function(u){ return '<img loading="lazy" decoding="async" src="' + esc(u) + '" data-full="' + esc(u) + '" alt="후기 사진">'; }).join("") + '</div>' : '') + '</div>'; }).join("") : '<p class="sub">아직 후기가 없어요. 첫 후기를 남겨주세요.</p>');
   }).catch(function(){ box.innerHTML = '<b>구매 후기</b><p class="sub">후기를 불러오지 못했어요.</p>'; });
 }
 function detail(id){
@@ -223,11 +223,11 @@ function checkout(direct){
     if(!ship.name || !/^[0-9\-+ ]{9,15}$/.test(ship.phone) || !ship.addr1){ toast("받는 분, 연락처, 주소를 확인해주세요"); return; }
     if(!document.getElementById("ag").checked){ toast("동의 항목을 체크해주세요"); return; }
     ls("sk_ship", ship);
-    var btn = this; btn.classList.add("off");
+    var btn = this; if(btn.dataset.busy) return; btn.dataset.busy = "1"; btn.classList.add("off");
     fetch("/api/order", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({items:items, ship:ship, usePoints:PTS})})
       .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "주문을 만들지 못했어요"); return j; }); })
       .then(function(o){ return startToss(o, method); })
-      .catch(function(e){ btn.classList.remove("off"); toast(e.message || "결제를 시작하지 못했어요"); });
+      .catch(function(e){ btn.dataset.busy = ""; btn.classList.remove("off"); toast(e.message || "결제를 시작하지 못했어요"); });
   };
 }
 function startToss(o, method){
@@ -256,12 +256,25 @@ function orders(){
     drawOrders();
   }).catch(function(){ $app.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; });
 }
+function maskPh(p){ var d = String(p || "").replace(/[^0-9]/g, ""); return d.length >= 9 ? d.slice(0, 3) + "-****-" + d.slice(-4) : ""; }
+function shipInfo(o){
+  var s = o.ship || {}, h = '<div class="shp"><b>배송 정보</b>', seen = {};
+  o.items.forEach(function(l){
+    if(seen[l.brand]) return; seen[l.brand] = 1;
+    var sh = (o.shipments || {})[l.brand], bn = brandLabel(l) || l.brand, st = o.status === "canceled" ? "취소됨" : (sh && sh.tracking ? "발송 완료" : "상품 준비중");
+    var tr = "";
+    if(sh && sh.tracking){ var c = CARR[sh.carrier] || [sh.carrier, ""]; tr = ' · ' + esc(c[0]) + ' ' + esc(sh.tracking) + ' <a target="_blank" rel="noopener" href="https://tracker.delivery/#/' + esc(c[1]) + '/' + encodeURIComponent(sh.tracking) + '">배송 조회</a>'; }
+    h += '<div><span>' + esc(bn) + '</span><span>' + st + tr + '</span></div>';
+  });
+  if(s.name) h += '<div><span>받는 분</span><span>' + esc(s.name) + (maskPh(s.phone) ? ' · ' + maskPh(s.phone) : '') + '</span></div><div><span>주소</span><span>' + (s.zip ? '(' + esc(s.zip) + ') ' : '') + esc(s.addr1 || "") + ' ' + esc(s.addr2 || "") + '</span></div>' + (s.memo ? '<div><span>배송 메모</span><span>' + esc(s.memo) + '</span></div>' : '');
+  return h + '</div>';
+}
 function drawOrders(){
   var C = OCACHE, os = C.os, DONE = C.done, TK = C.tk, claim = {};
   TK.forEach(function(t){ if(t.type !== "inquiry") claim[t.orderId] = 1; });
   var claimN = os.filter(function(o){ return o.status === "canceled" || claim[o.id]; }).length;
   var list = OFILTER === "claim" ? os.filter(function(o){ return o.status === "canceled" || claim[o.id]; }) : os;
-  var h = '<div class="sec"><h1>주문/배송내역</h1></div><div class="oc-chips"><button data-of="all" class="' + (OFILTER === "all" ? "on" : "") + '">전체</button><button data-of="claim" class="' + (OFILTER === "claim" ? "on" : "") + '">취소/교환/반품 <b>' + claimN + '</b></button></div><div class="oc-list">';
+  var h = '<div class="oc-page"><div class="sec"><h1>주문/배송내역</h1></div><div class="oc-chips"><button data-of="all" class="' + (OFILTER === "all" ? "on" : "") + '">전체</button><button data-of="claim" class="' + (OFILTER === "claim" ? "on" : "") + '">취소/교환/반품 <b>' + claimN + '</b></button></div><div class="oc-list">';
   if(!os.length) h += '<div class="empty">아직 주문이 없어요.</div>';
   else if(!list.length) h += '<div class="empty">내역이 없어요.</div>';
   list.forEach(function(o){
@@ -276,18 +289,18 @@ function drawOrders(){
       if(o.status !== "canceled"){
         acts += DONE.indexOf(key) >= 0 ? '<button class="ob" disabled>리뷰 작성 완료</button>' : '<span class="obw"><button class="ob pri" data-rv="open" data-k="' + esc(key) + '">리뷰쓰기</button><i class="bub">최대 500P</i></span>';
       }
-      if(p) acts += '<button class="ob" data-add="' + esc(l.id) + '" data-opt="' + (l.opt || 0) + '">장바구니 담기</button><button class="ob" data-buy="' + esc(l.id) + '" data-opt="' + (l.opt || 0) + '">바로 구매하기</button>';
+      if(p) acts += '<button class="ob" data-add="' + esc(l.id) + '" data-opt="' + (l.opt || 0) + '">장바구니 담기</button>';
       h += '<div class="obs">' + acts + '</div><div data-rvform="' + esc(key) + '"></div>';
     });
     if(canCancel) h += '<div class="obs"><button class="ob" data-ocancel="' + esc(o.id) + '">취소요청</button></div><div data-cform="' + esc(o.id) + '" hidden></div>';
     else if(o.status === "partial" || o.status === "shipped") h += '<p class="s" style="margin:6px 0 0">발송이 시작돼서 직접 취소할 수 없어요. 판매자정보/문의에서 교환·반품을 신청해주세요.</p>';
     var pay = o.payAmount !== undefined ? o.payAmount : o.total;
-    h += '<div data-det="' + esc(o.id) + '" class="det" hidden><div><span>주문번호</span><span>' + esc(o.id) + '</span></div><div><span>상품금액</span><span>' + won(o.sub !== undefined ? o.sub : o.total) + '</span></div><div><span>배송비</span><span>' + (o.shipFee ? won(o.shipFee) : '무료') + '</span></div>' + (o.pointsUsed ? '<div><span>포인트 사용</span><span>-' + won(o.pointsUsed) + '</span></div>' : '') + '<div class="tot"><span>결제금액</span><span>' + won(pay) + '</span></div>' + (o.status === "canceled" ? '<p class="s" style="margin:8px 0 0">결제 취소는 카드사·결제수단에 따라 반영까지 영업일 기준 3~5일 걸릴 수 있어요.' + (o.pointsUsed ? ' 사용한 포인트는 바로 돌려드렸어요.' : '') + '</p>' : '') + '</div>';
+    h += '<div data-det="' + esc(o.id) + '" class="det" hidden><div><span>주문번호</span><span>' + esc(o.id) + '</span></div><div><span>상품금액</span><span>' + won(o.sub !== undefined ? o.sub : o.total) + '</span></div><div><span>배송비</span><span>' + (o.shipFee ? won(o.shipFee) : '무료') + '</span></div>' + (o.pointsUsed ? '<div><span>포인트 사용</span><span>-' + won(o.pointsUsed) + '</span></div>' : '') + '<div class="tot"><span>결제금액</span><span>' + won(pay) + '</span></div>' + shipInfo(o) + (o.status === "canceled" ? '<p class="s" style="margin:8px 0 0">결제 취소는 카드사·결제수단에 따라 반영까지 영업일 기준 3~5일 걸릴 수 있어요.' + (o.pointsUsed ? ' 사용한 포인트는 바로 돌려드렸어요.' : '') + '</p>' : '') + '</div>';
     var seen = {};
     o.items.forEach(function(l){ if(seen[l.brand]) return; seen[l.brand] = 1; var tks = TK.filter(function(t){ return t.orderId === o.id && t.brand === l.brand; }); h += '<div data-csw="' + esc(o.id + "|" + l.brand) + '"' + (tks.length ? '' : ' hidden') + '>' + csBox(o, l, tks) + '</div>'; });
     h += '</div>';
   });
-  $app.innerHTML = h + '</div>';
+  $app.innerHTML = h + '</div></div>';
 }
 document.addEventListener("click", function(e){
   var t = e.target, q = function(sel){ return t.closest && t.closest(sel); }, b;
@@ -295,7 +308,6 @@ document.addEventListener("click", function(e){
   if((b = q("[data-od]"))){ var d = document.querySelector('[data-det="' + b.dataset.od + '"]'); if(d) d.hidden = !d.hidden; return; }
   if((b = q("[data-oc]"))){ var w = document.querySelector('[data-csw="' + b.dataset.oc + '"]'); if(w) w.hidden = !w.hidden; return; }
   if((b = q("[data-add]"))){ addCart(b.dataset.add, +b.dataset.opt || 0, 1); toast("장바구니에 담았어요"); return; }
-  if((b = q("[data-buy]"))){ ls("sk_direct", [{id:b.dataset.buy, opt:+b.dataset.opt || 0, q:1}]); setH("#/checkout/direct"); return; }
   if((b = q("[data-ocancel]"))){ var f = document.querySelector('[data-cform="' + b.dataset.ocancel + '"]'); if(!f.hidden){ f.hidden = true; return; } f.hidden = false;
     f.innerHTML = '<div class="cf"><b>주문을 취소할까요?</b><p class="s">아직 발송 전이라 바로 취소돼요. 결제는 취소(환불)되고, 사용한 포인트는 바로 돌려드려요. 이 주문에 남긴 리뷰와 적립 포인트는 함께 사라져요.</p><select>' + ["단순 변심", "주문을 잘못 했어요", "배송지를 잘못 입력했어요", "다른 곳에서 구매했어요", "기타"].map(function(x){ return '<option>' + x + '</option>'; }).join("") + '</select><div class="row2"><button class="ob" data-ocn="x">닫기</button><button class="ob red" data-ocx="' + esc(b.dataset.ocancel) + '">주문 취소하기</button></div><span class="s" data-cerr></span></div>'; return; }
   if((b = q("[data-ocn]"))){ var f2 = b.closest("[data-cform]"); f2.hidden = true; return; }
@@ -317,14 +329,50 @@ function csBox(o, l, tks){
   return h;
 }
 function brandLabel(l){ var p = P[l.id]; return (p && p.brandName) || (p && p.brand) || ""; }
+/* 포토리뷰: 사진은 올리기 전에 화면에서 줄인다 (긴 변 1280px, 장당 약 600KB 이하) */
+function shrink(file){
+  return new Promise(function(res, rej){
+    var fr = new FileReader();
+    fr.onerror = function(){ rej(new Error("사진을 읽지 못했어요")); };
+    fr.onload = function(){
+      var im = new Image();
+      im.onerror = function(){ rej(new Error("사진 형식을 확인해주세요")); };
+      im.onload = function(){
+        var sc = Math.min(1, 1280 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(im.width * sc)); c.height = Math.max(1, Math.round(im.height * sc));
+        var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+        var q = .85, d = c.toDataURL("image/jpeg", q);
+        while(d.length * .75 > 600 * 1024 && q > .3){ q -= .1; d = c.toDataURL("image/jpeg", q); }
+        if(d.length * .75 > 690 * 1024) rej(new Error("사진이 너무 커요")); else res(d);
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+function drawPh(w){
+  var row = w.querySelector("[data-ph]"), a = w._ph || [];
+  row.innerHTML = a.map(function(d, i){ return '<div class="ph-th"><img src="' + d + '" alt=""><button type="button" data-phdel="' + i + '" aria-label="사진 삭제">×</button></div>'; }).join("") + (a.length < 3 ? '<button type="button" class="ph-add" data-phadd>＋ 사진<br>' + a.length + '/3</button>' : '');
+}
+document.addEventListener("change", function(e){
+  var f = e.target; if(!f.matches || !f.matches("[data-phf]")) return;
+  var w = f.parentNode, files = [].slice.call(f.files || []); f.value = "";
+  w._ph = w._ph || [];
+  var room = 3 - w._ph.length; if(files.length > room) toast("사진은 최대 3장까지 올릴 수 있어요");
+  files.slice(0, room).reduce(function(p, file){ return p.then(function(){ return shrink(file).then(function(d){ w._ph.push(d); drawPh(w); }); }); }, Promise.resolve()).catch(function(x){ toast(x.message || "사진을 올리지 못했어요"); });
+});
 document.addEventListener("click", function(e){
+  var t0 = e.target, pa = t0.closest && t0.closest("[data-phadd]"), pd = t0.closest && t0.closest("[data-phdel]"), zi = t0.closest && t0.closest(".rv-ph img");
+  if(pa){ pa.closest("[data-rvform]").querySelector("[data-phf]").click(); return; }
+  if(pd){ var w0 = pd.closest("[data-rvform]").firstChild; w0._ph.splice(+pd.dataset.phdel, 1); drawPh(w0); return; }
+  if(zi){ var lb = document.createElement("div"); lb.className = "lbx"; lb.innerHTML = '<img src="' + zi.dataset.full + '" alt="">'; lb.onclick = function(){ lb.remove(); }; document.body.appendChild(lb); return; }
   var rb = e.target.closest && e.target.closest("[data-rv]");
   if(rb){
     var rpost = function(u, body){ return fetch(u, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "오류"); return j; }); }); };
     if(rb.dataset.rv === "open"){ var f = document.querySelector('[data-rvform="' + rb.dataset.k + '"]'); if(f.innerHTML){ f.innerHTML = ""; return; }
-      f.innerHTML = '<div style="margin-top:6px"><div data-stars="5" style="font-size:26px;cursor:pointer;color:#ffb400">' + [1,2,3,4,5].map(function(i){ return '<span data-s="' + i + '">★</span>'; }).join("") + '</div><div class="s" style="margin:4px 0">리뷰를 남기면 500P가 적립돼요</div><textarea placeholder="사용해보신 느낌을 5자 이상 적어주세요" style="display:block;width:100%;min-height:80px;margin-top:6px;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px"></textarea><button type="button" data-rv="send" data-k="' + rb.dataset.k + '" style="font:inherit;font-weight:700;border:0;background:var(--pri);color:#fff;border-radius:10px;padding:10px 16px;margin-top:8px">리뷰 등록</button> <span class="s" data-rerr></span></div>'; return; }
+      f.innerHTML = '<div style="margin-top:6px"><div data-stars="5" style="font-size:26px;cursor:pointer;color:#ffb400">' + [1,2,3,4,5].map(function(i){ return '<span data-s="' + i + '">★</span>'; }).join("") + '</div><div class="s" style="margin:4px 0">리뷰를 남기면 500P가 적립돼요</div><textarea placeholder="사용해보신 느낌을 5자 이상 적어주세요" style="display:block;width:100%;min-height:80px;margin-top:6px;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px"></textarea><div class="ph-row" data-ph><button type="button" class="ph-add" data-phadd>＋ 사진<br>0/3</button></div><input type="file" accept="image/*" multiple hidden data-phf><button type="button" data-rv="send" data-k="' + rb.dataset.k + '" style="font:inherit;font-weight:700;border:0;background:var(--pri);color:#fff;border-radius:10px;padding:10px 16px;margin-top:8px">리뷰 등록</button> <span class="s" data-rerr></span></div>'; return; }
     if(rb.dataset.rv === "send"){ var w = rb.parentNode, k = rb.dataset.k.split("|"), n = +w.querySelector("[data-stars]").dataset.stars; rb.disabled = true;
-      rpost("/api/review/new", {orderId:k[0], productId:k[1], rating:n, text:w.querySelector("textarea").value}).then(function(j){ toast(j.points ? j.points + "P가 적립됐어요" : "리뷰를 남겼어요"); orders(); }).catch(function(x){ rb.disabled = false; w.querySelector("[data-rerr]").textContent = x.message; }); }
+      rpost("/api/review/new", {orderId:k[0], productId:k[1], rating:n, text:w.querySelector("textarea").value, photos:w._ph || []}).then(function(j){ toast(j.points ? j.points + "P가 적립됐어요" : "리뷰를 남겼어요"); orders(); }).catch(function(x){ rb.disabled = false; w.querySelector("[data-rerr]").textContent = x.message; }); }
     return;
   }
   var st = e.target.closest && e.target.closest("[data-stars] [data-s]");
@@ -396,21 +444,20 @@ if(DEMO) document.addEventListener("click", function(e){
   if(hr && hr.indexOf("#/") === 0 && !(a.classList.contains("chip"))){ e.preventDefault(); setH(hr); }
 });
 
-fetch("data/products.json").then(function(r){ return r.json(); }).then(function(j){
+/* 시작할 때 필요한 5가지를 한꺼번에 받는다 (전에는 하나씩 차례로 받았음). 하나가 실패해도 나머지는 그대로 쓴다 */
+var soft = function(u){ return fetch(u).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; }); };
+Promise.all([
+  fetch("data/products.json").then(function(r){ return r.json(); }),
+  soft("/api/extra"), soft("/api/stock"), soft("/api/popular"),
+  (CFG.LOGIN || CHECKOUT) ? soft("/api/me") : Promise.resolve(null)
+]).then(function(a){
+  var j = a[0], x = a[1] || {}, st = a[2] || {};
   /* 관리자 페이지에서 추가한 제품을 합친다 (실패해도 기본 제품은 그대로) */
-  return fetch("/api/extra").then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(x){
-    ((x && x.products) || []).forEach(function(p){ if(p && p.id && j.categories[p.cat] && !j.products.some(function(q){ return q.id === p.id; })) j.products.push(p); });
-    return j;
-  });
-}).then(function(j){
-  return fetch("/api/stock").then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(x){
-    ((x && x.soldOut) || []).forEach(function(id){ var p = j.products.filter(function(q){ return q.id === id; })[0]; if(p) p.soldOut = true; });
-    return j;
-  });
-}).then(function(j){
+  (x.products || []).forEach(function(p){ if(p && p.id && j.categories[p.cat] && !j.products.some(function(q){ return q.id === p.id; })) j.products.push(p); });
+  (st.soldOut || []).forEach(function(id){ var p = j.products.filter(function(q){ return q.id === id; })[0]; if(p) p.soldOut = true; });
   D = j; j.products.forEach(function(p){ P[p.id] = p; });
-  var go0 = function(){ route(); };
-  var go = function(){ fetch("/api/popular").then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(pp){ POP = (pp && pp.stats) || {}; rank(); go0(); }); };
-  if(CFG.LOGIN || CHECKOUT) fetch("/api/me").then(function(r){ return r.ok ? r.json() : null; }).then(function(u){ user = u && u.user; go(); }).catch(go); else go();
+  POP = (a[3] && a[3].stats) || {};
+  user = a[4] && a[4].user;
+  rank(); route();
 }).catch(function(){ $app.innerHTML = '<div class="empty">제품 정보를 불러오지 못했어요.</div>'; });
 })();

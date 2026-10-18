@@ -19,7 +19,26 @@ const save = (r) => reviewStore().setJSON(r.id, r);
 const vis = (r) => r.status !== "deleted";
 
 /* 결제가 끝난 본인 주문의 제품에 작성(배송 전에도 가능). 주문+제품당 1개. 작성하면 500P 적립 */
-export async function createReview(user, o, productId, rating, text) {
+/* 포토리뷰: 사진은 최대 3장, 장당 700KB 이하(화면에서 줄여서 보냄). 형식은 파일 앞부분(매직바이트)까지 확인한다 */
+export const imgStore = () => getStore({ name: "reviewimg", consistency: "strong" });
+export const MAX_PHOTOS = 3, MAX_PHOTO_BYTES = 700 * 1024;
+const MAGIC = { jpeg: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff, png: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47, webp: (b) => b.slice(0, 4).toString() === "RIFF" && b.slice(8, 12).toString() === "WEBP" };
+export function parsePhotos(arr) {
+  const list = Array.isArray(arr) ? arr : [];
+  if (list.length > MAX_PHOTOS) return { error: `사진은 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요` };
+  const out = [];
+  for (const d of list) {
+    const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(d || ""));
+    if (!m) return { error: "사진 형식을 확인해주세요 (JPG, PNG, WEBP)" };
+    const buf = Buffer.from(m[2], "base64");
+    if (buf.length > MAX_PHOTO_BYTES) return { error: "사진 한 장이 너무 커요. 다시 선택해주세요" };
+    if (!MAGIC[m[1]](buf)) return { error: "사진 파일이 올바르지 않아요" };
+    out.push({ t: m[1], d: m[2] });
+  }
+  return { files: out };
+}
+
+export async function createReview(user, o, productId, rating, text, photos) {
   const line = o && o.userId === user.id ? o.items.find((l) => l.id === productId) : null;
   if (!line) return { error: "주문한 제품이 아니에요" };
   if (!["paid", "partial", "shipped"].includes(o.status)) return { error: "취소된 주문에는 리뷰를 쓸 수 없어요" };
@@ -27,8 +46,10 @@ export async function createReview(user, o, productId, rating, text) {
   if (!(n >= 1 && n <= 5)) return { error: "별점을 선택해주세요" };
   const t = clip(text, 500).trim();
   if (t.length < 5) return { error: "리뷰는 5자 이상 적어주세요" };
+  const ph = parsePhotos(photos); if (ph.error) return { error: ph.error };
   if ((await allReviews()).some((x) => x.orderId === o.id && x.productId === productId)) return { error: "이미 리뷰를 작성했어요" };
-  const r = { id: "R" + Date.now().toString(36).toUpperCase() + randomBytes(2).toString("hex").toUpperCase(), productId, productName: line.name, brand: line.brand, orderId: o.id, userId: user.id, userName: mask(o.userName || user.name), rating: n, text: t, createdAt: new Date().toISOString(), status: "visible", best: false, read: { brand: false, admin: false }, delReq: null };
+  const r = { id: "R" + Date.now().toString(36).toUpperCase() + randomBytes(2).toString("hex").toUpperCase(), productId, productName: line.name, brand: line.brand, orderId: o.id, userId: user.id, userName: mask(o.userName || user.name), rating: n, text: t, photos: [], createdAt: new Date().toISOString(), status: "visible", best: false, read: { brand: false, admin: false }, delReq: null };
+  for (let i = 0; i < ph.files.length; i++) { await imgStore().setJSON(r.id + "-" + i, ph.files[i]); r.photos.push(`/api/review/img?id=${r.id}&n=${i}`); }
   await save(r);
   const pt = await earnReview(user.id, o.id, productId).catch(() => null);
   const b = BRANDS[r.brand];
@@ -39,7 +60,7 @@ export async function createReview(user, o, productId, rating, text) {
 /* 소비자에게 보이는 목록: 베스트(최신순) 먼저, 그 다음 최신순 */
 export function publicList(all, productId) {
   const l = all.filter((r) => r.productId === productId && vis(r));
-  const strip = (r) => ({ id: r.id, rating: r.rating, text: r.text, userName: r.userName, createdAt: r.createdAt, best: !!r.best });
+  const strip = (r) => ({ id: r.id, rating: r.rating, text: r.text, photos: r.photos || [], userName: r.userName, createdAt: r.createdAt, best: !!r.best });
   const best = l.filter((r) => r.best), rest = l.filter((r) => !r.best);
   const cnt = l.length, avg = cnt ? Math.round((l.reduce((a, r) => a + r.rating, 0) / cnt) * 10) / 10 : 0;
   return { count: cnt, avg, reviews: best.concat(rest).map(strip) };
@@ -52,7 +73,7 @@ export function summary(all, brand) {
 /* 브랜드/관리자 화면용 (작성자 식별 정보는 이름 마스킹만) */
 export function manageView(all, brand) {
   const who = brand ? "brand" : "admin";
-  const list = all.filter((r) => vis(r) && (!brand || r.brand === brand)).map((r) => ({ id: r.id, productId: r.productId, productName: r.productName, brand: r.brand, brandName: (BRANDS[r.brand] || {}).name || r.brand, orderId: r.orderId, userName: r.userName, rating: r.rating, text: r.text, createdAt: r.createdAt, best: !!r.best, isNew: !r.read[who], low: r.rating <= LOW, delReq: r.delReq }));
+  const list = all.filter((r) => vis(r) && (!brand || r.brand === brand)).map((r) => ({ id: r.id, productId: r.productId, productName: r.productName, brand: r.brand, brandName: (BRANDS[r.brand] || {}).name || r.brand, orderId: r.orderId, userName: r.userName, rating: r.rating, text: r.text, photos: r.photos || [], createdAt: r.createdAt, best: !!r.best, isNew: !r.read[who], low: r.rating <= LOW, delReq: r.delReq }));
   return { counts: summary(all, brand), reviews: list };
 }
 export async function markRead(all, who, ids, brand) {

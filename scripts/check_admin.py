@@ -59,6 +59,21 @@ with sync_playwright() as p:
         # CS: 내가 처리할 것(확인 요청) 1건, 답변 후 종료
         F.locator("nav button[data-t=cs]").click(); pg.wait_for_timeout(400)
         if F.locator(".o2").count() != 1: err.append("관리자 CS에 '내가 처리할 것'이 1건이 아니에요")
+        AU = F.locator("button.auto").first
+        if AU.count() != 1 or "자동 입력" not in AU.inner_text(): err.append("관리자 CS에 '자동 입력' 버튼이 없어요")
+        else:
+            bg = AU.evaluate("e => getComputedStyle(e).backgroundColor")
+            if not (lambda c: c[1] > c[0] and c[1] > c[2])([int(x) for x in bg[bg.index('(')+1:-1].split(',')[:3]]): err.append("자동 입력 버튼이 초록색이 아니에요: " + bg)
+            AU.click(); pg.wait_for_timeout(500)
+            if F.locator(".aup:not([hidden]) .pk").count() != 4: err.append("자동 입력 기본 문구가 4개가 아니에요 (%d)" % F.locator(".aup:not([hidden]) .pk").count())
+            F.locator(".aup:not([hidden]) .pk").first.click(); pg.wait_for_timeout(200)
+            v = F.locator("[data-tx]").first.input_value()
+            if "{" in v or "님" not in v or len(v) < 20: err.append("자동 입력 결과가 이상해요: " + v)
+            AU.click(); pg.wait_for_timeout(300)
+            F.locator(".aup:not([hidden]) [data-nt]").fill("재입고"); F.locator(".aup:not([hidden]) [data-nx]").fill("재입고는 다음 주 예정이에요"); F.locator(".aup:not([hidden]) [data-pn]").click(); pg.wait_for_timeout(400)
+            if F.locator(".aup:not([hidden]) .pk").count() != 5: err.append("문구 추가가 안 돼요")
+            F.locator(".aup:not([hidden]) [data-px]").last.click(); F.locator(".aup:not([hidden]) [data-px]").last.click(); pg.wait_for_timeout(400)
+            if F.locator(".aup:not([hidden]) .pk").count() != 4: err.append("문구 삭제가 안 돼요")
         F.locator("[data-tx]").first.fill("확인했어요"); F.locator("[data-a=reply]").first.click(); pg.wait_for_timeout(400)
         if "확인했어요" not in F.locator("#mn").inner_text(): err.append("관리자 CS 답변이 보이지 않아요")
         F.locator("[data-a=close]").first.click(); pg.wait_for_timeout(400)
@@ -213,6 +228,20 @@ with sync_playwright() as p:
         P.locator("[data-q=minic-allinone]").fill("0"); P.locator("[data-sq=minic-allinone]").click(); pg.wait_for_timeout(400)
         if "품절" not in P.locator(".o").first.inner_text(): err.append("재고 0을 저장해도 품절로 안 바뀌어요")
         P.locator("#tb button[data-t=cs]").click(); pg.wait_for_timeout(300)
+        PU = P.locator("button.auto").first
+        if PU.count() != 1 or "자동 입력" not in PU.inner_text(): err.append("파트너 CS에 '자동 입력' 버튼이 없어요")
+        else:
+            PU.click(); pg.wait_for_timeout(500)
+            if P.locator(".aup:not([hidden]) .pk").count() != 4: err.append("파트너 자동 입력 기본 문구가 4개가 아니에요")
+            P.locator(".aup:not([hidden]) .pk").nth(1).click(); pg.wait_for_timeout(200)
+            v = P.locator("[data-tx]").first.input_value()
+            if "{" in v or "MINIC" not in v or "님" not in v: err.append("파트너 자동 입력 결과(브랜드/고객 이름 치환)가 이상해요: " + v)
+            PU.click(); pg.wait_for_timeout(300)
+            P.locator(".aup:not([hidden]) [data-nt]").fill("재입고"); P.locator(".aup:not([hidden]) [data-nx]").fill("재입고는 다음 주 예정이에요"); P.locator(".aup:not([hidden]) [data-pn]").click(); pg.wait_for_timeout(400)
+            if P.locator(".aup:not([hidden]) .pk").count() != 5: err.append("파트너 문구 추가가 안 돼요")
+            P.locator(".aup:not([hidden]) [data-px]").last.click(); P.locator(".aup:not([hidden]) [data-px]").last.click(); pg.wait_for_timeout(400)
+            if P.locator(".aup:not([hidden]) .pk").count() != 4: err.append("파트너 문구 삭제가 안 돼요")
+        if P.locator(".rv-ph img").count() < 0: pass
         P.locator("[data-a=decide][data-x=approve]").first.click(); pg.wait_for_timeout(400)
         if "승인됨" not in P.locator("#m").inner_text(): err.append("반품 승인이 반영되지 않아요")
         P.locator("[data-a=received]").first.click(); pg.wait_for_timeout(400)

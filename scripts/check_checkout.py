@@ -37,19 +37,22 @@ with sync_playwright() as p:
     if "1,200 P" not in pg.inner_text("body"): err.append("취소 뒤 포인트가 원래대로 돌아오지 않아요: " + pg.inner_text("body")[:120])
     # 내 주문: 발송 전엔 문의만, 발송 후엔 반품 가능. 문의 -> 답변란 -> 확인 요청
     import json
-    st = {"user": {"id": "n_demo", "name": "홍길동", "email": "d@x.com", "phone": "010-1234-5678"}, "points": {"balance": 1200, "log": []}, "orders": [{"id": "SK1", "userId": "n_demo", "status": "paid", "total": 32900, "sub": 29900, "shipFee": 3000, "payAmount": 32900, "pointsUsed": 0, "createdAt": "2026-10-18T01:00:00Z", "shipments": {}, "items": [{"id": "bonkorea-cl", "brand": "bonkorea", "name": "엔젤 탄산 효소 세안제", "optName": "", "q": 1, "unit": 29900}]}, {"id": "SK2", "userId": "n_demo", "status": "shipped", "total": 32900, "createdAt": "2026-10-17T01:00:00Z", "shipments": {"bonkorea": {"carrier": "cj", "tracking": "123456789012"}}, "items": [{"id": "bonkorea-cl", "brand": "bonkorea", "name": "엔젤 탄산 효소 세안제", "optName": "", "q": 1, "unit": 29900}]}]}
+    st = {"v": 4, "user": {"id": "n_demo", "name": "홍길동", "email": "d@x.com", "phone": "010-1234-5678"}, "points": {"balance": 1200, "log": []}, "orders": [{"id": "SK1", "userId": "n_demo", "status": "paid", "total": 32900, "sub": 29900, "shipFee": 3000, "payAmount": 32900, "pointsUsed": 0, "createdAt": "2026-10-18T01:00:00Z", "shipments": {}, "items": [{"id": "bonkorea-cl", "brand": "bonkorea", "name": "엔젤 탄산 효소 세안제", "optName": "", "q": 1, "unit": 29900}]}, {"id": "SK2", "userId": "n_demo", "status": "shipped", "total": 32900, "createdAt": "2026-10-17T01:00:00Z", "shipments": {"bonkorea": {"carrier": "cj", "tracking": "123456789012"}}, "items": [{"id": "bonkorea-cl", "brand": "bonkorea", "name": "엔젤 탄산 효소 세안제", "optName": "", "q": 1, "unit": 29900}]}]}
     pg2 = b.new_page(viewport={"width": 400, "height": 1200}); errs = []; pg2.on("pageerror", lambda e: errs.append(str(e)))
     pg2.add_init_script("localStorage.setItem('skd', %r)" % json.dumps(st)); pg2.goto("file://" + o); pg2.wait_for_timeout(900); pg2.click("text=내 정보"); pg2.wait_for_timeout(500)
     if "1,200 P" not in pg2.inner_text("#mypt"): err.append("내 정보에 보유 포인트가 안 보여요: " + pg2.inner_text("#mypt"))
     pg2.click("a:has-text('주문/배송내역')"); pg2.wait_for_timeout(1000)
     bt = pg2.inner_text("body")
-    for w in ["주문/배송내역", "결제완료", "배송중", "취소/교환/반품", "상세보기", "판매자정보/문의", "취소요청", "리뷰쓰기", "최대 500P", "장바구니 담기", "바로 구매하기"]:
+    for w in ["주문/배송내역", "결제완료", "배송중", "취소/교환/반품", "상세보기", "판매자정보/문의", "취소요청", "리뷰쓰기", "최대 500P", "장바구니 담기"]:
         if w not in bt: err.append("주문내역에 '%s'이(가) 없어요" % w)
+    if "바로 구매하기" in bt or pg2.locator("[data-buy]").count(): err.append("주문내역에 '바로 구매하기'가 있어요")
+    if pg2.evaluate("getComputedStyle(document.querySelector('.oc-page')).backgroundColor") != "rgb(242, 244, 246)" or pg2.evaluate("document.querySelector('.oc-page').getBoundingClientRect().height") < 600: err.append("주문내역 배경이 화면 전체를 덮지 않아요")
     if pg2.locator("[data-ocancel]").count() != 1: err.append("취소요청은 발송 전 주문에만 있어야 해요 (%d)" % pg2.locator("[data-ocancel]").count())
     if "직접 취소할 수 없어요" not in pg2.inner_text(".oc >> nth=0"): err.append("발송된 주문에 직접 취소 불가 안내가 없어요")
     # 상세보기
     pg2.locator("[data-od=SK1]").click()
     if "결제금액" not in pg2.inner_text("[data-det=SK1]"): err.append("상세보기에 결제 내역이 안 열려요")
+    if "배송 정보" not in pg2.inner_text("[data-det=SK1]") or ("발송 완료" not in pg2.inner_text("[data-det=SK1]") and "상품 준비중" not in pg2.inner_text("[data-det=SK1]")): err.append("상세보기에 배송 정보가 없어요: " + pg2.inner_text("[data-det=SK1]"))
     # 판매자정보/문의: 문의 -> 답변란 -> 확인 요청. 발송 전 주문에는 반품이 안 됨
     K2, K1 = "SK2|bonkorea", "SK1|bonkorea"
     pg2.click("[data-oc='%s']" % K2); pg2.locator("[data-csw='%s'] [data-cs=open]" % K2).click(); pg2.fill("[data-csw='%s'] [data-form] textarea" % K2, "사이즈가 안 맞아요"); pg2.select_option("[data-csw='%s'] [data-form] select" % K2, "return"); pg2.click("[data-csw='%s'] [data-cs=new]" % K2); pg2.wait_for_timeout(900)
@@ -67,8 +70,15 @@ with sync_playwright() as p:
         pg2.click("[data-rv=open][data-k='SK1|bonkorea-cl']"); pg2.click("[data-rvform='SK1|bonkorea-cl'] [data-stars] [data-s]:nth-child(4)"); pg2.fill("[data-rvform='SK1|bonkorea-cl'] textarea", "짧"); pg2.click("[data-rvform='SK1|bonkorea-cl'] [data-rv=send]"); pg2.wait_for_timeout(500)
         if "5자" not in pg2.inner_text("body"): err.append("짧은 리뷰가 통과해요")
         if "500P가 적립" not in pg2.inner_text("[data-rvform='SK1|bonkorea-cl']"): err.append("리뷰 폼에 적립 안내가 없어요")
+        import base64
+        png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+        pg2.set_input_files("[data-rvform='SK1|bonkorea-cl'] [data-phf]", [{"name": "a.png", "mimeType": "image/png", "buffer": png}, {"name": "b.png", "mimeType": "image/png", "buffer": png}]); pg2.wait_for_timeout(700)
+        if pg2.locator("[data-rvform='SK1|bonkorea-cl'] .ph-th").count() != 2 or "2/3" not in pg2.inner_text("[data-rvform='SK1|bonkorea-cl'] [data-ph]"): err.append("리뷰 사진 첨부가 안 돼요")
+        pg2.click("[data-rvform='SK1|bonkorea-cl'] [data-phdel='0']"); pg2.wait_for_timeout(150)
+        if pg2.locator("[data-rvform='SK1|bonkorea-cl'] .ph-th").count() != 1: err.append("리뷰 사진 삭제가 안 돼요")
         pg2.fill("[data-rvform='SK1|bonkorea-cl'] textarea", "거품이 부드럽고 좋아요 추천해요"); pg2.click("[data-rvform='SK1|bonkorea-cl'] [data-rv=send]"); pg2.wait_for_timeout(800)
         if "리뷰 작성 완료" not in pg2.inner_text("body"): err.append("리뷰 등록 뒤 '리뷰 작성 완료' 표시가 없어요")
+        if len([r for r in json.loads(pg2.evaluate("localStorage.getItem('skd')"))["reviews"] if r.get("photos") and r["photos"][0].startswith("data:image/jpeg")]) != 1: err.append("사진이 리뷰와 함께 저장되지 않아요")
     pg2.go_back() if False else None
     # 주문 취소: 발송 전 주문(SK1) -> 사유 선택 -> 취소됨, 리뷰 적립 회수
     pg2.click("[data-ocancel=SK1]"); pg2.wait_for_timeout(200)

@@ -21,8 +21,8 @@ export default async (req) => {
   }
   if (u.pathname === "/api/popular") {
     const st = stats(), sum = {};
-    for (let i = 0; i < 7; i++) {
-      const o = await st.get(kday(i), { type: "json" });
+    const days = await Promise.all(Array.from({ length: 7 }, (_, i) => st.get(kday(i), { type: "json" })));
+    for (const o of days) {
       if (!o) continue;
       Object.keys(o).forEach((id) => { const s = (sum[id] = sum[id] || { v: 0, c: 0, b: 0, d: 0 }); s.v += o[id].v; s.c += o[id].c; s.b += o[id].b; s.d += o[id].d || 0; });
     }

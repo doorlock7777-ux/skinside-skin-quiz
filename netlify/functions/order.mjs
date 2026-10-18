@@ -10,7 +10,7 @@ export default async (req) => {
   if (req.method === "GET") {
     const ids = (await userIdx().get(user.id, { type: "json" })) || [];
     const os = (await Promise.all(ids.slice(-30).map((i) => orders().get(i, { type: "json" })))).filter(Boolean);
-    os.forEach((o) => { delete o.paymentKey; delete o.ship; delete o.tossTx; });
+    os.forEach((o) => { delete o.paymentKey; delete o.tossTx; delete o.reqKey; });
     return json({ orders: os.reverse() });
   }
   if (req.method !== "POST") return json({ error: "method" }, 405);
@@ -45,6 +45,13 @@ export default async (req) => {
   const id = "SK" + Date.now().toString(36).toUpperCase() + randomBytes(3).toString("hex").toUpperCase();
   /* 포인트는 현금처럼 쓴다. 주문을 만들 때 미리 잡아두고, 결제하지 않으면 돌려준다. 토스는 0원 결제를 받지 않아 최소 금액은 결제해야 한다 */
   const want = Math.max(0, Math.floor(Number(b.usePoints) || 0));
+  /* 결제창을 닫았다 다시 누르거나 연타해도 같은 내용의 미결제 주문이 계속 쌓이지 않게, 10분 안의 똑같은 주문은 그대로 쓴다 */
+  const reqKey = JSON.stringify([items.map((l) => [l.id, l.opt, l.q]), ship, want]);
+  for (const oid of ((await userIdx().get(user.id, { type: "json" })) || []).slice(-5).reverse()) {
+    const e = await orders().get(oid, { type: "json" });
+    if (e && e.status === "pending" && !e.pointsReleased && e.reqKey === reqKey && e.sub === sub && e.shipFee === fee && Date.now() - new Date(e.createdAt).getTime() < 10 * 6e4)
+      return json({ orderId: e.id, amount: e.payAmount, pointsUsed: e.pointsUsed || 0, orderName: e.items[0].name + (e.items.length > 1 ? " 외 " + (e.items.length - 1) + "건" : "") });
+  }
   let pts = 0;
   if (want > 0) {
     await releaseStale(user.id, { immediate: true });
@@ -56,7 +63,7 @@ export default async (req) => {
   }
   const order = {
     id, userId: user.id, userName: user.name, userEmail: user.email, items, ship,
-    sub, shipFee: fee, total: sub + fee, pointsUsed: pts, payAmount: sub + fee - pts, status: "pending", createdAt: new Date().toISOString(), shipments: {},
+    sub, shipFee: fee, total: sub + fee, pointsUsed: pts, payAmount: sub + fee - pts, reqKey, status: "pending", createdAt: new Date().toISOString(), shipments: {},
   };
   await orders().setJSON(id, order);
   const idx = (await userIdx().get(user.id, { type: "json" })) || [];

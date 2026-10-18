@@ -38,10 +38,10 @@ export async function returnPoints(o, n, why, key) {
 }
 /* 결제가 끝나지 않은 주문이 잡고 있는 포인트 풀어주기. immediate 면 나이와 상관없이(새 주문을 만들 때), 아니면 HOLD_MIN 분이 지난 것만 */
 export async function releaseStale(uid, { immediate = false, exceptId = "", now = Date.now() } = {}) {
-  const os = orders(), ids = (await userIdx().get(uid, { type: "json" })) || []; let n = 0;
-  for (const id of ids.slice(-50)) {
-    if (id === exceptId) continue;
-    const o = await os.get(id, { type: "json" });
+  /* 최근 주문 10개만 병렬로 확인한다 (이보다 오래된 미결제 주문은 새 주문을 만들 때 이미 풀렸다) */
+  const os = orders(), ids = ((await userIdx().get(uid, { type: "json" })) || []).filter((id) => id !== exceptId).slice(-10); let n = 0;
+  const list = await Promise.all(ids.map((id) => os.get(id, { type: "json" })));
+  for (const o of list) {
     if (!o || o.userId !== uid || !o.pointsUsed || o.pointsReleased) continue;
     const open = ["pending", "failed"].includes(o.status);
     if (!open || (!immediate && now - new Date(o.createdAt).getTime() <= HOLD_MIN * 6e4)) continue;

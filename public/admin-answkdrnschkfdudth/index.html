@@ -203,6 +203,17 @@ main .tabs button.on{background:var(--pri-soft)!important;color:var(--neon)!impo
 .bd.n{color:var(--neon);border-color:var(--neon)}.bd.l{color:var(--red);border-color:var(--red)}.bd.b{color:var(--warn);border-color:var(--warn)}
 .cnt a.cb{display:block;text-decoration:none;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
 .cnt a.cb small{display:block;color:var(--mute);font-size:12px}.cnt a.cb b{font-family:var(--mono);font-size:26px}
+
+.autr{display:flex;gap:8px;align-items:center;margin-top:6px}
+button.auto{font:inherit;font-weight:800;font-size:13px;border:0;background:var(--ok);color:#04130d;padding:8px 14px;border-radius:9px;cursor:pointer;width:auto;margin:0}
+.aup{margin-top:8px;border:1px solid var(--ok);border-radius:10px;padding:10px;background:var(--card2,var(--card))}
+.aup .tp{display:flex;gap:6px;align-items:stretch;margin-bottom:6px}
+.aup .tp button.pk{flex:1;min-width:0;text-align:left;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--inp,var(--card));color:var(--ink);border-radius:8px;padding:8px 10px;cursor:pointer}
+.aup .tp button.pk b{display:block;color:var(--ok);font-size:13px}.aup .tp button.pk span{display:block;color:var(--mute);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aup .tp button.x{font:inherit;border:1px solid var(--line);background:none;color:var(--mute);border-radius:8px;padding:0 10px;cursor:pointer;width:auto;margin:0}.aup .tp button.x.on{color:var(--red);border-color:var(--red)}
+.aup .nw{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}.aup .nw input,.aup .nw textarea{width:100%;margin-top:6px}
+.aup .ah{font-size:12px;color:var(--mute)}
+.rv-ph{display:flex;gap:6px;margin:6px 0;flex-wrap:wrap}.rv-ph a img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
 </style></head>
 <body>
 <div id="dm" class="demo" hidden></div>
@@ -339,7 +350,7 @@ function reviews(){
     h += RF === "new" && c.new ? '<div class="row" style="margin-bottom:10px"><button class="g" id="rall">모두 확인했어요</button></div>' : '';
     h += list.length ? list.map(function(r){
       var d = r.delReq;
-      return '<div class="rv' + (r.low ? " low" : "") + '"><div class="rh"><span>' + stars(r.rating) + ' <span class="bd">' + esc(r.brandName) + '</span>' + (r.isNew ? '<span class="bd n">NEW</span>' : '') + (r.low ? '<span class="bd l">낮은 평점</span>' : '') + (r.best ? '<span class="bd b">베스트</span>' : '') + (d && d.status === "rejected" ? '<span class="bd">삭제 거부함</span>' : '') + '</span><span class="s">' + kst(r.createdAt) + '</span></div><div class="s">' + esc(r.productName) + ' · ' + esc(r.userName) + ' · ' + esc(r.orderId) + '</div><p>' + esc(r.text) + '</p>'
+      return '<div class="rv' + (r.low ? " low" : "") + '"><div class="rh"><span>' + stars(r.rating) + ' <span class="bd">' + esc(r.brandName) + '</span>' + (r.isNew ? '<span class="bd n">NEW</span>' : '') + (r.low ? '<span class="bd l">낮은 평점</span>' : '') + (r.best ? '<span class="bd b">베스트</span>' : '') + (d && d.status === "rejected" ? '<span class="bd">삭제 거부함</span>' : '') + '</span><span class="s">' + kst(r.createdAt) + '</span></div><div class="s">' + esc(r.productName) + ' · ' + esc(r.userName) + ' · ' + esc(r.orderId) + '</div><p>' + esc(r.text) + '</p>' + phHtml(r)
         + (pend(r) ? '<div class="card note" style="margin:8px 0"><small><b>삭제 요청 사유</b> ' + esc(d.reason) + ' · ' + kst(d.at) + '</small></div><div class="row"><button class="sm" data-d="approve" data-i="' + esc(r.id) + '">승인 (삭제)</button><button class="g" data-d="reject" data-i="' + esc(r.id) + '">거부</button></div>'
           : '<div class="row">' + (r.rating >= 4 ? '<button class="g" data-b="' + esc(r.id) + '" data-on="' + (r.best ? 0 : 1) + '">' + (r.best ? "베스트 해제" : "베스트로 선정 (" + (bestCnt[r.productId] || 0) + "/3)") + '</button>' : '') + '<button class="del" data-d="delete" data-i="' + esc(r.id) + '">직접 삭제</button></div>') + '<div class="msg" data-rm="' + esc(r.id) + '"></div></div>';
     }).join("") : '<div class="card"><div class="empty">' + (RF === "del" ? "삭제 요청이 없어요." : "해당하는 리뷰가 없어요.") + '</div></div>';
@@ -364,16 +375,44 @@ function cs(){
     h += list.length ? list.map(function(t){
       return '<div class="o2"><div class="h"><span>' + esc(t.brandName) + ' · ' + TY[t.type] + ' · ' + esc(t.orderId) + '</span><span class="tag ' + (need(t) ? "r" : "") + '">' + SS[t.status] + (t.escalated ? " · 확인 요청" : "") + '</span></div><div class="s">' + esc(t.customer.name) + ' / ' + esc(t.customer.phone) + (t.refundError ? '<br><b class="wn">환불 실패: ' + esc(t.refundError) + '</b>' : '') + (t.refundAmount ? '<br>환불 ' + n(t.refundAmount) + '원' : '') + '</div>'
         + t.messages.map(function(m){ return '<div class="s" style="margin-top:6px"><b>' + ({customer:"고객", partner:"브랜드", admin:"운영자"}[m.from] || m.from) + '</b> ' + kst(m.at) + '<br>' + esc(m.text) + '</div>'; }).join("")
-        + (fin(t) ? '' : '<textarea data-tx="' + esc(t.id) + '" placeholder="고객에게 보낼 답변" style="width:100%;margin-top:8px"></textarea><div class="row" style="margin-top:6px"><button class="sm" data-a="reply" data-i="' + esc(t.id) + '">답변 보내기</button>' + (t.type === "return" && t.status === "received" ? '<button class="sm" data-a="refund" data-i="' + esc(t.id) + '">환불 다시 시도</button>' : '') + '<button class="g" data-a="close" data-i="' + esc(t.id) + '">종료</button> <span class="msg" data-cm="' + esc(t.id) + '"></span></div>') + '</div>';
+        + (fin(t) ? '' : '<textarea data-tx="' + esc(t.id) + '" placeholder="고객에게 보낼 답변" style="width:100%;margin-top:8px"></textarea>' + autoBtn(esc(t.id), t.customer.name) + '<div class="row" style="margin-top:6px"><button class="sm" data-a="reply" data-i="' + esc(t.id) + '">답변 보내기</button>' + (t.type === "return" && t.status === "received" ? '<button class="sm" data-a="refund" data-i="' + esc(t.id) + '">환불 다시 시도</button>' : '') + '<button class="g" data-a="close" data-i="' + esc(t.id) + '">종료</button> <span class="msg" data-cm="' + esc(t.id) + '"></span></div>') + '</div>';
     }).join("") : '<div class="card"><div class="empty">' + (CF === "todo" ? "처리할 CS가 없어요." : "해당하는 CS가 없어요.") + '</div></div>';
     M().innerHTML = h;
     [].forEach.call(M().querySelectorAll("#cf button"), function(b){ b.onclick = function(){ CF = b.dataset.f; cs(); }; });
+    tplWire(M());
     [].forEach.call(M().querySelectorAll("[data-a]"), function(b){ b.onclick = function(){ var id = b.dataset.i, tx = M().querySelector('[data-tx="' + id + '"]'), m = M().querySelector('[data-cm="' + id + '"]'); b.disabled = true;
       post("/api/admin/cs/" + b.dataset.a, {id:id, text:tx ? tx.value : ""}).then(cs).catch(function(e){ b.disabled = false; m.className = "msg e"; m.textContent = e.message; }); }; });
   }).catch(fail);
 }
 
+
+/* CS 자동 입력: 자주 쓰는 답변을 눌러서 채운다. 문구는 직접 추가·삭제할 수 있다 */
+var TPL = null, TPLBN = "스킨인사이드";
+function tplLoad(){ return TPL ? Promise.resolve(TPL) : api("/api/admin/cs/templates").then(function(j){ TPL = j.templates; if(j.brand) TPLBN = j.brand; return TPL; }); }
+function tplFill(text, cust){ return text.replace(/\{브랜드\}/g, TPLBN).replace(/\{고객\}/g, (cust || "고객") + "님"); }
+function tplDraw(box, ta, cust){
+  var h = '<div class="ah">누르면 답변칸에 채워져요. 고쳐서 보내도 돼요. {고객}·{브랜드}는 자동으로 바뀌어요.</div><div style="margin-top:8px">' + TPL.map(function(x){
+    return '<div class="tp"><button type="button" class="pk" data-pk="' + esc(x.id) + '"><b>' + esc(x.title) + '</b><span>' + esc(x.text) + '</span></button><button type="button" class="x" data-px="' + esc(x.id) + '" title="삭제">×</button></div>'; }).join("") + '</div>'
+    + '<div class="nw"><div class="ah">새 문구 추가 (' + TPL.length + '/12)</div><input data-nt maxlength="20" placeholder="제목 (예: 재입고 문의)"><textarea data-nx maxlength="600" placeholder="답변 내용" style="min-height:70px"></textarea><div class="autr"><button type="button" class="auto" data-pn>문구 추가</button><span class="msg" data-pm></span></div></div>';
+  box.innerHTML = h;
+  var say = function(t){ var m = box.querySelector("[data-pm]"); m.className = "msg e"; m.textContent = t; };
+  [].forEach.call(box.querySelectorAll("[data-pk]"), function(b){ b.onclick = function(){ var x = TPL.filter(function(y){ return y.id === b.dataset.pk; })[0]; if(!x) return; ta.value = tplFill(x.text, cust); ta.focus(); box.hidden = true; }; });
+  [].forEach.call(box.querySelectorAll("[data-px]"), function(b){ b.onclick = function(){
+    if(!b.classList.contains("on")){ b.classList.add("on"); b.textContent = "삭제?"; setTimeout(function(){ b.classList.remove("on"); b.textContent = "×"; }, 3000); return; }
+    api("/api/admin/cs/templates/delete", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({id:b.dataset.px})}).then(function(j){ TPL = j.templates; tplDraw(box, ta, cust); }).catch(function(e){ if(e.message !== "auth") say(e.message); }); }; });
+  box.querySelector("[data-pn]").onclick = function(){
+    api("/api/admin/cs/templates/add", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({title:box.querySelector("[data-nt]").value, text:box.querySelector("[data-nx]").value})}).then(function(j){ TPL = j.templates; tplDraw(box, ta, cust); }).catch(function(e){ if(e.message !== "auth") say(e.message); }); };
+}
+function tplWire(root){
+  [].forEach.call(root.querySelectorAll("[data-au]"), function(b){ b.onclick = function(){
+    var id = b.dataset.au, box = root.querySelector('[data-aup="' + id + '"]'), ta = root.querySelector('[data-tx="' + id + '"]');
+    if(!box.hidden){ box.hidden = true; return; }
+    tplLoad().then(function(){ tplDraw(box, ta, b.dataset.cu); box.hidden = false; }).catch(function(e){ if(e.message !== "auth"){ box.hidden = false; box.textContent = e.message; } }); }; });
+}
+function autoBtn(id, cust){ return '<div class="autr"><button type="button" class="auto" data-au="' + id + '" data-cu="' + esc(cust) + '">자동 입력</button><span class="s">자주 쓰는 답변을 한 번에 채워요</span></div><div class="aup" data-aup="' + id + '" hidden></div>'; }
+
 /* ---------- 정산 ---------- */
+function phHtml(r){ return (r.photos && r.photos.length) ? '<div class="rv-ph">' + r.photos.map(function(u){ return '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img loading="lazy" decoding="async" src="' + esc(u) + '" alt="리뷰 사진"></a>'; }).join("") + '</div>' : ""; }
 function warnCard(j){
   if(!j.warns || !j.warns.length) return '<div class="card"><span class="okc">정산 점검: 이상 없음</span></div>';
   return '<div class="card note"><h2>정산 전에 확인하세요</h2>' + j.warns.map(function(w){ return '<div class="rw"><span>' + (w.level === "bad" ? '<b class="wn">막힘</b> ' : w.level === "warn" ? '<b class="wn">주의</b> ' : '<span class="s">참고</span> ') + esc(w.text) + '</span></div>'; }).join("") + '</div>';

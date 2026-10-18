@@ -5,8 +5,8 @@ import { randomBytes } from "node:crypto";
 const st = () => getStore({ name: "adjust", consistency: "strong" });
 export const getAdj = async (m) => (await st().get("adj-" + m, { type: "json" })) || [];
 export async function allAdj() {
-  const s = st(), { blobs } = await s.list(), out = {};
-  for (const b of blobs) if (b.key.startsWith("adj-")) out[b.key.slice(4)] = (await s.get(b.key, { type: "json" })) || [];
+  const s = st(), { blobs } = await s.list(), keys = blobs.map((b) => b.key).filter((k) => k.startsWith("adj-")), out = {};
+  (await Promise.all(keys.map((k) => s.get(k, { type: "json" })))).forEach((v, i) => { out[keys[i].slice(4)] = v || []; });
   return out;
 }
 export async function addAdj(m, brand, amount, memo, auto = false) {

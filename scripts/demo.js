@@ -6,7 +6,7 @@ var state = {user:null, orders:[], stats:{}, points:{balance:1200, log:[{type:"e
 /* 미리보기용 예시 집계: 실제 사이트에서는 방문자 행동으로 쌓인다 */
 var SEED = {"bonkorea-cl":[420,70,31],"minic-allinone":[380,66,27],"bonkorea-vit":[350,52,22],"mediheal-sun":[300,48,19],"livna-calm":[260,40,15],"minic-cream":[240,35,12],"citirover-retinol":[210,30,11],"grafen-patch":[190,34,13],"numbuzin-4":[150,22,8],"hwapasa-shampoo":[140,20,7],"grafen-wax":[130,19,6],"torriden-cica":[120,15,5],"jmw-iron":[110,14,3],"grafen-sunstick":[100,16,4],"brdy-powder":[80,9,2]};
 if(window.__NOSEED) SEED = {};
-try{ var s = JSON.parse(localStorage.getItem("skd")); if(s) state = s; }catch(e){} state.stats = {};  /* 인기 집계는 새로고침하면 초기화: 처음 열면 항상 기본 카테고리 순서 */
+try{ var s = JSON.parse(localStorage.getItem("skd")); if(s && s.v === 4) state = s; }catch(e){} state.v = 4;  /* 예전 버전으로 만든 시험 주문이 남아 중복처럼 보이지 않게 버전이 다르면 비운다 */ state.stats = {};  /* 인기 집계는 새로고침하면 초기화: 처음 열면 항상 기본 카테고리 순서 */
 function pts(){ state.points = state.points || {balance:0, log:[]}; return state.points; }
 function pAdd(n, type, note){ var q = pts(); q.balance += n; q.log.unshift({type:type, amount:n, note:note, at:new Date().toISOString()}); }
 function save(){ try{ localStorage.setItem("skd", JSON.stringify(state)); }catch(e){} }
@@ -27,7 +27,7 @@ window.fetch = function(u, o){
   if(!state.user && /^\/api\/(order|confirm)/.test(u)) return res({error:"로그인이 필요해요"}, 401);
   if(u === "/api/stock") return res({soldOut:[]});
   if(/^\/api\/review/.test(u)){
-    state.reviews = state.reviews || [{id:"R0", productId:"bonkorea-cl", rating:5, text:"거품이 부드럽고 세안 후 당김이 적어요. 재구매 의사 있어요.", userName:"김*수", createdAt:"2026-10-10T03:00:00Z", best:true}, {id:"R00", productId:"bonkorea-cl", rating:4, text:"무난하게 쓰기 좋아요.", userName:"이*호", createdAt:"2026-10-12T03:00:00Z", best:false}];
+    state.reviews = state.reviews || [{id:"R0", productId:"bonkorea-cl", photos:["data:image/svg+xml;utf8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27120%27 height=%27120%27%3E%3Crect width=%27120%27 height=%27120%27 fill=%27%23c9d3f5%27/%3E%3Ccircle cx=%2760%27 cy=%2750%27 r=%2722%27 fill=%27%235560ea%27/%3E%3Crect x=%2730%27 y=%2782%27 width=%2760%27 height=%2716%27 rx=%278%27 fill=%27%238d98ff%27/%3E%3C/svg%3E"], rating:5, text:"거품이 부드럽고 세안 후 당김이 적어요. 재구매 의사 있어요.", userName:"김*수", createdAt:"2026-10-10T03:00:00Z", best:true}, {id:"R00", productId:"bonkorea-cl", rating:4, text:"무난하게 쓰기 좋아요.", userName:"이*호", createdAt:"2026-10-12T03:00:00Z", best:false}];
     if(/^\/api\/review\?/.test(u)){ var pid = decodeURIComponent(u.split("product=")[1] || ""), l = state.reviews.filter(function(r){ return r.productId === pid; }).sort(function(a, b){ return (b.best ? 1 : 0) - (a.best ? 1 : 0) || (a.createdAt < b.createdAt ? 1 : -1); }); return res({count:l.length, avg:l.length ? Math.round(l.reduce(function(a, r){ return a + r.rating; }, 0) / l.length * 10) / 10 : 0, reviews:l}); }
     if(!state.user) return res({error:"로그인이 필요해요"}, 401);
     if(u === "/api/review/mine") return res({done:state.reviews.filter(function(r){ return r.mine; }).map(function(r){ return r.orderId + "|" + r.productId; })});
@@ -37,7 +37,7 @@ window.fetch = function(u, o){
       if(o3.status === "canceled") return res({error:"취소된 주문에는 리뷰를 쓸 수 없어요"}, 400);
       if(!(b.rating >= 1 && b.rating <= 5)) return res({error:"별점을 선택해주세요"}, 400);
       if(String(b.text || "").trim().length < 5) return res({error:"리뷰는 5자 이상 적어주세요"}, 400);
-      state.reviews.push({id:"R" + Date.now(), productId:b.productId, orderId:b.orderId, rating:b.rating, text:b.text, userName:"홍*동", createdAt:new Date().toISOString(), best:false, mine:true}); pAdd(500, "earn", "리뷰 작성"); save(); return res({ok:true, points:500});
+      state.reviews.push({id:"R" + Date.now(), productId:b.productId, orderId:b.orderId, rating:b.rating, text:b.text, userName:"홍*동", createdAt:new Date().toISOString(), best:false, mine:true, photos:(b.photos || []).slice(0, 3)}); pAdd(500, "earn", "리뷰 작성"); save(); return res({ok:true, points:500});
     }
   }
   if(/^\/api\/cs\//.test(u)){

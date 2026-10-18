@@ -548,6 +548,53 @@ const paidOrder = async (U, body) => { const [s1, o] = await mkOrder(U, body); i
     ok(rep.recon.pointsUsed > 0 && rep.recon.cashPaid === rep.recon.gross - rep.recon.pointsUsed, "대조 합계에 포인트 몫이 반영되지 않아요 " + JSON.stringify(rep.recon)); }
 }
 
+// 포토리뷰
+{
+  const jpg = (n = 100) => "data:image/jpeg;base64," + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(n, 1)]).toString("base64");
+  await lib.orders().setJSON("OPH", mk("OPH", [BK(1)], "paid", 2));
+  const rvP = (photos, orderId = "OPH") => call(reviewsApi, "/api/review/new", "POST", { orderId, productId: "bonkorea-cl", rating: 5, text: "사진도 같이 올려요 좋아요", photos }, U1);
+  [s, j] = await rvP([jpg(), jpg(), jpg(), jpg()]); ok(s === 400 && /3장/.test(j.error), "사진이 4장 이상 올라가요 " + JSON.stringify(j));
+  [s, j] = await rvP(["data:text/html;base64,PGI+"]); ok(s === 400, "이미지가 아닌 파일이 통과해요");
+  [s, j] = await rvP(["data:image/jpeg;base64," + Buffer.from("not a jpeg at all").toString("base64")]); ok(s === 400 && /올바르지/.test(j.error), "가짜 사진 파일이 통과해요 " + JSON.stringify(j));
+  [s, j] = await rvP([jpg(800 * 1024)]); ok(s === 400 && /커요/.test(j.error), "너무 큰 사진이 통과해요");
+  [s, j] = await call(reviewsApi, "/api/review/mine", "GET", null, U1); ok(!j.done.includes("OPH|bonkorea-cl"), "실패한 사진 리뷰가 등록돼요");
+  [s, j] = await rvP([jpg(), jpg()]); ok(s === 200, "사진 리뷰 작성 실패 " + JSON.stringify(j));
+  [s, j] = await call(reviewsApi, "/api/review?product=bonkorea-cl"); const rp = j.reviews.find((r) => r.photos && r.photos.length === 2); ok(rp && /^\/api\/review\/img\?id=/.test(rp.photos[0]), "소비자 리뷰에 사진 주소가 없어요 " + JSON.stringify(j.reviews.map((r) => r.photos)));
+  const r0 = await reviewsApi(new Request(H + rp.photos[0])); ok(r0.status === 200 && r0.headers.get("content-type") === "image/jpeg" && (await r0.arrayBuffer()).byteLength === 104, "사진이 내려오지 않아요 " + r0.status);
+  const r1 = await reviewsApi(new Request(H + "/api/review/img?id=" + rp.id + "&n=2")); ok(r1.status === 404, "없는 사진 번호가 404가 아니에요");
+  const r2 = await reviewsApi(new Request(H + "/api/review/img?id=../x&n=0")); ok(r2.status === 404 || r2.status === 400, "이상한 사진 주소가 통과해요");
+  [s, j] = await call(brand, "/api/partner/reviews", "GET", null, BH); ok(j.reviews.some((r) => r.photos && r.photos.length === 2), "브랜드 리뷰 목록에 사진이 없어요");
+  [s, j] = await call(adminApi, "/api/admin/reviews", "GET", null, A); ok(j.reviews.some((r) => r.photos && r.photos.length === 2), "관리자 리뷰 목록에 사진이 없어요");
+}
+// CS 자동 입력 문구
+{
+  [s, j] = await call(brand, "/api/partner/cs/templates"); ok(s === 401, "로그인 없이 자동 입력 문구가 보여요");
+  [s, j] = await call(brand, "/api/partner/cs/templates", "GET", null, BH); ok(s === 200 && j.templates.length === 4 && j.brand && j.templates.every((x) => x.title && x.text), "기본 문구 4개가 아니에요 " + JSON.stringify(j).slice(0, 200));
+  [s, j] = await call(brand, "/api/partner/cs/templates/add", "POST", { title: "재입고", text: "" }, BH); ok(s === 400, "내용 없는 문구가 추가돼요");
+  [s, j] = await call(brand, "/api/partner/cs/templates/add", "POST", { title: "재입고 문의", text: "재입고는 다음 주 월요일 예정이에요." }, BH); ok(s === 200 && j.templates.length === 5, "문구 추가 실패");
+  const tid = j.templates[4].id;
+  [s, j] = await call(brand, "/api/partner/cs/templates", "GET", null, gh); ok(j.templates.length === 4 && !j.templates.some((x) => x.id === tid), "다른 브랜드에 문구가 섞여요");
+  [s, j] = await call(adminApi, "/api/admin/cs/templates", "GET", null, A); ok(s === 200 && j.templates.length === 4, "관리자 문구가 브랜드와 섞여요");
+  [s, j] = await call(adminApi, "/api/admin/cs/templates/add", "POST", { title: "운영자 안내", text: "스킨인사이드 운영팀입니다. 확인해서 안내드릴게요." }, A); ok(s === 200 && j.templates.length === 5, "관리자 문구 추가 실패");
+  [s, j] = await call(brand, "/api/partner/cs/templates", "GET", null, BH); ok(j.templates.length === 5, "관리자 문구가 브랜드에 섞여요");
+  [s, j] = await call(brand, "/api/partner/cs/templates/delete", "POST", { id: tid }, BH); ok(s === 200 && j.templates.length === 4, "문구 삭제 실패");
+  [s, j] = await call(brand, "/api/partner/cs/templates/delete", "POST", { id: "none" }, BH); ok(s === 400, "없는 문구 삭제가 성공해요");
+  [s, j] = await call(brand, "/api/partner/cs/templates/delete", "POST", { id: "d1" }, gh); ok(s === 200 && !j.templates.some((x) => x.id === "d1"), "기본 문구도 지울 수 있어야 해요");
+  for (let i = 0; i < 12; i++) await call(brand, "/api/partner/cs/templates/add", "POST", { title: "문구" + i, text: "채우기용 문구 " + i }, BH);
+  [s, j] = await call(brand, "/api/partner/cs/templates/add", "POST", { title: "초과", text: "열두 개를 넘는 문구예요" }, BH); ok(s === 400 && /12개/.test(j.error), "문구가 12개를 넘어요 " + JSON.stringify(j));
+}
+// 같은 내용으로 두 번 눌러도 주문은 하나
+{
+  const cnt = async () => (await lib.orders().list()).blobs.length;
+  const n0 = await cnt();
+  const a1 = await call(orderApi, "/api/order", "POST", { items: [{ id: "grafen-patch", q: 1 }], ship: shipBody }, U2);
+  const a2 = await call(orderApi, "/api/order", "POST", { items: [{ id: "grafen-patch", q: 1 }], ship: shipBody }, U2);
+  ok(a1[0] === 200 && a2[0] === 200 && a1[1].orderId === a2[1].orderId && (await cnt()) === n0 + 1, "같은 내용으로 두 번 눌러도 주문이 하나가 아니에요 " + a1[1].orderId + " " + a2[1].orderId);
+  const a3 = await call(orderApi, "/api/order", "POST", { items: [{ id: "grafen-patch", q: 2 }], ship: shipBody }, U2); ok(a3[0] === 200 && a3[1].orderId !== a1[1].orderId, "수량이 다른데 같은 주문으로 합쳐져요");
+  [s, j] = await call(orderApi, "/api/order", "GET", null, U2); ok(j.orders.some((o) => o.ship && o.ship.name), "주문 내역에 배송지가 없어요");
+  ok(!JSON.stringify(j).includes("paymentKey") && !JSON.stringify(j).includes("tossTx"), "주문 내역에 결제 키가 노출돼요");
+}
+
 // 코드 재발급/폐기/잠금
 [s, j] = await call(adminApi, "/api/admin/partners/issue", "POST", { brand: "bonkorea" }, A); const codeB2 = j.code;
 [s, j] = await call(brand, "/api/partner/orders", "GET", null, BH); ok(s === 401, "재발급 후에도 이전 로그인이 유지돼요");

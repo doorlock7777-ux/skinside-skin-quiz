@@ -5,6 +5,7 @@ import { shipCsv } from "./_batch.mjs";
 import { allTickets, getTicket, addMessage, decide, receiveAndRefund, markExchangeSent, escalate, close } from "./_cs.mjs";
 import { listSettlements } from "./_settle.mjs";
 import { allAdj } from "./_adj.mjs";
+import { listTpl, addTpl, delTpl } from "./_tpl.mjs";
 import { allOrders } from "./_ctx.mjs";
 import { allReviews, getReview, summary as reviewSummary, manageView, markRead, setBest, requestDelete } from "./_reviews.mjs";
 import { monthsBetween, vatMonths, vatDays, txns, monthsCsv, daysCsv, ordersCsv } from "./_vat.mjs";
@@ -88,6 +89,11 @@ export default async (req) => {
 
   /* ---- CS ---- */
   const tk = async (id) => { const t = await getTicket(id); return t && t.brand === brand ? t : null; };
+  /* ---- CS 자동 입력 문구 (브랜드별) ---- */
+  if (p === "/api/partner/cs/templates") return json({ templates: await listTpl(brand), brand: BRANDS[brand].name });
+  if (p === "/api/partner/cs/templates/add" && req.method === "POST") { const r = await addTpl(brand, b.title, b.text); return r.error ? json({ error: r.error }, 400) : json({ templates: r.list }); }
+  if (p === "/api/partner/cs/templates/delete" && req.method === "POST") { const r = await delTpl(brand, String(b.id || "")); return r.error ? json({ error: r.error }, 400) : json({ templates: r.list }); }
+
   if (p === "/api/partner/cs") {
     const [tickets, os] = await Promise.all([allTickets(), allOrders()]), byId = Object.fromEntries(os.map((o) => [o.id, o]));
     return json({ tickets: tickets.filter((t) => t.brand === brand).slice(0, 200).map((t) => { const o = byId[t.orderId] || {}; const { userId, ...pub } = t; return { ...pub, customer: { name: (o.ship || {}).name || t.userName, phone: (o.ship || {}).phone || "" }, items: (o.items || []).filter((l) => l.brand === brand).map((l) => ({ name: l.name, optName: l.optName, q: l.q })), shipment: (o.shipments || {})[brand] || null }; }) });
