@@ -18,7 +18,7 @@ window.fetch = function(u, o){
   try{ b = o.body ? JSON.parse(o.body) : {}; }catch(e){}
   if(/data\/products\.json/.test(u)) return res(P);
   if(u === "/api/popular"){ var out = {}; Object.keys(SEED).forEach(function(k){ out[k] = {v:SEED[k][0], c:SEED[k][1], b:SEED[k][2], d:Math.round(SEED[k][1] * 6.5)}; }); Object.keys(state.stats || {}).forEach(function(k){ var s = state.stats[k], t = out[k] = out[k] || {v:0, c:0, b:0}; t.v += s.v; t.c += s.c; t.b += s.b; t.d = (t.d || 0) + (s.d || 0); }); return res({stats: out}); }
-  if(u === "/api/track"){ state.stats = state.stats || {}; var s0 = state.stats[b.id] = state.stats[b.id] || {v:0, c:0, b:0, d:0}, inc = 0; if(b.e === "v") s0.v++; if(b.e === "c"){ var wk = s0.c + (SEED[b.id] ? SEED[b.id][1] : 0); inc = wk < 100 ? 4 + Math.floor(Math.random() * 6) : 10; s0.c++; s0.d = (s0.d || 0) + inc; } save(); return res({ok:true, inc:inc}); }
+  if(u === "/api/track"){ state.stats = state.stats || {}; var s0 = state.stats[b.id] = state.stats[b.id] || {v:0, c:0, b:0, d:0}, inc = 0; if(b.e === "v") s0.v++; if(b.e === "c"){ var cur = s0.d || 0; inc = cur <= 100 ? 10 : cur <= 300 ? 4 + Math.floor(Math.random() * 6) : cur <= 1000 ? 1 + Math.floor(Math.random() * 3) : 1; s0.c++; s0.d = (s0.d || 0) + inc; } save(); return res({ok:true, inc:inc}); }
   if(u === "/api/me") return res({user: state.user});
   if(u === "/api/demo-login"){ state.user = {id:"n_demo", name:"홍길동", email:"demo@example.com", phone:"010-1234-5678"}; save(); return res({user: state.user}); }
   if(u === "/api/logout"){ state.user = null; save(); return res({ok:true}); }

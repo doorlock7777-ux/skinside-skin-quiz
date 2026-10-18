@@ -8,11 +8,11 @@ export default async (req) => {
     const { map } = await loadProducts(req);
     if (!map[b.id]) return json({ error: "bad id" }, 400);
     if (b.e === "c") {
-      /* 이번 주 구매 클릭이 100회 이하이면 클릭당 4~9 랜덤, 이후에는 클릭당 10 */
+      /* 표시 구매 수(이번 주 합계)가 100 이하 +10, 300 이하 +4~9, 1000 이하 +1~3, 그 이후 +1. 100 이하면 화면에는 숨김 */
       const st = stats();
       const days = await Promise.all([0, 1, 2, 3, 4, 5, 6].map((i) => st.get(kday(i), { type: "json" })));
-      const wk = days.reduce((a, o) => a + (o && o[b.id] ? o[b.id].c : 0), 0);
-      const inc = wk < 100 ? 4 + Math.floor(Math.random() * 6) : 10;
+      const cur = days.reduce((a, o) => a + (o && o[b.id] ? o[b.id].d || 0 : 0), 0);
+      const inc = cur <= 100 ? 10 : cur <= 300 ? 4 + Math.floor(Math.random() * 6) : cur <= 1000 ? 1 + Math.floor(Math.random() * 3) : 1;
       await addStat([[b.id, "c", 1], [b.id, "d", inc]]);
       return json({ ok: true, inc });
     }
