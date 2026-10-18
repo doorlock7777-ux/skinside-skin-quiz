@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded",function(){
 try{var R0=JSON.parse(localStorage.getItem("skinside_result")||"null");
 if(R0&&R0.t===1&&S.screen==="result"&&!(S.a&&S.a.length)){var r=function(n){var a=[];for(var i=0;i<n;i++)a.push(Math.floor(Math.random()*4));return a};
 for(var k=0;k<20000;k++){S.a=r(NQ);S.c=r(NC);S.simple=false;if(calc(true).label===R0.key)break}
-S.analyzed=false;save();render()}}catch(e){}
+if(!S.shown)S.analyzed=false;save();render()}}catch(e){}
 var b=document.getElementById("pvgo");if(!b)return;b.onclick=function(){try{localStorage.removeItem("skinside_unlocked")}catch(e){}
 var r=function(n){var a=[];for(var i=0;i<n;i++)a.push(Math.floor(Math.random()*4));return a};
 S={screen:"result",i:0,a:r(NQ),c:r(NC),start:0,simple:false,notify:false,recorded:false};save();render()}});</script>'''

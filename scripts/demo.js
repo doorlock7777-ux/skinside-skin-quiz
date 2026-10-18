@@ -126,7 +126,7 @@ window.DEMO_ADMIN = function(el, toast){
   var K = "skinside_quiz_v2", R = "skinside_result", SMP = {key:"ORNT", desc:"지성 피부", p:{od:78, sr:30, pn:22, wt:18}, t:1};
   var done = true;
   try{ var m = localStorage.getItem("skd_diag"); if(m === null){ localStorage.setItem("skd_diag", "1"); m = "1"; } done = m === "1"; }catch(e){}
-  try{ if(done){ localStorage.setItem(K, JSON.stringify({screen:"result"})); localStorage.setItem(R, JSON.stringify(SMP)); } else { localStorage.removeItem(K); localStorage.removeItem(R); } }catch(e){}
+  try{ if(done){ if(!localStorage.getItem(K)){ localStorage.setItem(K, JSON.stringify({screen:"result"})); } localStorage.setItem(R, JSON.stringify(SMP)); } else { localStorage.removeItem(K); localStorage.removeItem(R); } }catch(e){}  /* 이미 결과를 본 상태(K)는 덮어쓰지 않는다 */
   var b = document.getElementById("dm");
   if(b){ var a = document.createElement("a"); a.href = "#"; a.style.cssText = "display:block;margin-top:4px;font-weight:700;color:#8a5a00;text-decoration:underline"; a.textContent = done ? "진단 전 화면으로 보기" : "진단 완료 화면으로 보기";
     a.onclick = function(e){ e.preventDefault(); try{ localStorage.setItem("skd_diag", done ? "0" : "1"); }catch(x){} location.reload(); }; b.appendChild(a); }

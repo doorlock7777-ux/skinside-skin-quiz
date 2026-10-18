@@ -17,6 +17,13 @@ with sync_playwright() as p:
     if q.locator("#kk").count() != 1: err.append("진단 완료 상태에서 분석 중 -> 카카오 화면이 안 나와요")
     q.locator("#ok").evaluate("e=>e.disabled=false"); q.locator("#ok").click(); pg.wait_for_timeout(600)
     if q.locator(".code").inner_text().strip() != "ORNT": err.append("스토어 카드(ORNT)와 진단 결과가 달라요: " + q.locator(".code").inner_text())
+    # 결과를 한 번 본 뒤에는 어떤 경로로 다시 들어와도 분석 중 화면이 뜨면 안 된다
+    if "알파벳의 의미" in q.locator("body").inner_text(): err.append("결과 화면에 '알파벳의 의미' 문구가 남아 있어요")
+    pg.frame_locator("#fq").locator("nav.mt a:has-text('스토어')").click(); pg.wait_for_timeout(300)
+    pg.frame_locator("#fs").locator("nav.tabs a:has-text('피부 진단')").click(); pg.wait_for_timeout(900)
+    if q.locator(".an").count(): err.append("결과를 본 뒤 탭을 오가면 분석 중 화면이 다시 떠요")
+    pg.reload(); pg.wait_for_timeout(1500); pg.frame_locator("#fs").locator("nav.tabs a:has-text('피부 진단')").click(); pg.wait_for_timeout(1200)
+    if pg.frame_locator("#fq").locator(".an").count(): err.append("새로고침 뒤 진단에 들어가면 분석 중 화면이 다시 떠요")
     q.locator("#pvgo").click(); pg.wait_for_timeout(5600)
     if q.locator("#kk").count() != 1: err.append("분석 중 -> 카카오 화면이 안 나와요")
     q.locator("nav.mt a:has-text('스토어')").click(); pg.wait_for_timeout(500)

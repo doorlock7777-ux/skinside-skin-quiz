@@ -59,5 +59,11 @@ with sync_playwright() as p:
         tx = pg.inner_text("#app")
         for need in ["문장군", "친구 8,144", "카카오톡 채널 추가하기"]:
             if need not in tx: err.append("카카오 화면에 없어요: " + need)
+    # 결과를 이미 본 사람(S.shown)에게는 분석 화면이 뜨지 않는다
+    pg = b.new_page(viewport={"width": 400, "height": 800}); st2 = dict(st, shown=True)
+    pg.add_init_script("localStorage.setItem('skinside_unlocked','1');localStorage.setItem('skinside_quiz_v2',%r)" % json.dumps(st2))
+    pg.goto("file://" + os.path.join(R, "public/quiz/index.html")); pg.wait_for_timeout(1200)
+    if pg.locator(".an").count(): err.append("결과를 이미 본 사람에게 분석 중 화면이 떠요")
+    if "알파벳의 의미" in pg.inner_text("#app"): err.append("결과 화면에 '알파벳의 의미' 문구가 남아 있어요")
     b.close()
 print("\n".join(err) if err else "OK: 관리자, 분석 화면, 카카오 화면 모두 정상"); sys.exit(1 if err else 0)
