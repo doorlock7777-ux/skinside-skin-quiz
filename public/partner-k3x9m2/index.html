@@ -187,7 +187,7 @@ function draw(){
   var os = DATA.orders, todo = os.filter(function(o){ return !o.canceled && !(o.shipment && o.shipment.tracking); }), done = os.filter(function(o){ return o.shipment && o.shipment.tracking; }), cx = os.filter(function(o){ return o.canceled; });
   var list = OT === "todo" ? todo : OT === "done" ? done : cx;
   var h = '<div class="help"><b>송장번호란?</b> 택배사에 물건을 접수하면 받는 운송장 번호예요. 번호를 입력하면 고객이 배송 조회를 할 수 있어요. 발송 후 택배사와 번호를 입력해주세요.</div>'
- + '<div class="card"><h2>엑셀로 한 번에 처리하기</h2><p class="sub">① 발송 대기 주문을 엑셀로 받아 택배사 프로그램에 붙여넣거나 송장을 채워요. ② 택배사·송장번호를 채운 파일(CSV)을 올리거나, 엑셀에서 복사해 붙여넣으면 한 번에 입력돼요.</p><div class="f"><button class="sv" id="dl">발송 대기 엑셀 받기</button><button class="bt2" id="cp">엑셀에 붙여넣기용으로 복사</button><label class="bt2">채운 파일 올리기<input type="file" id="bf" accept=".csv,.tsv,.txt" hidden></label></div><textarea id="bp" placeholder="엑셀에서 주문번호 · 택배사 · 송장번호 열을 복사해 여기에 붙여넣어도 돼요" style="margin-top:10px"></textarea><div class="f"><button class="sv" id="bgo">미리보기</button></div><div id="bres"></div></div>'
+ + '<div class="card"><h2>엑셀로 한 번에 처리하기</h2><p class="sub">① 발송 대기 주문을 엑셀로 받아 택배사 프로그램에 붙여넣거나 송장을 채워요. ② 택배사·송장번호를 채운 엑셀 파일(.xlsx 또는 CSV)을 올리거나, 엑셀에서 복사해 붙여넣으면 한 번에 입력돼요.</p><div class="f"><button class="sv" id="dl">발송 대기 엑셀 받기</button><button class="bt2" id="cp">엑셀에 붙여넣기용으로 복사</button><label class="bt2">채운 엑셀 올리기<input type="file" id="bf" accept=".xlsx,.csv,.tsv,.txt" hidden></label></div><textarea id="bp" placeholder="엑셀에서 주문번호 · 택배사 · 송장번호 열을 복사해 여기에 붙여넣어도 돼요" style="margin-top:10px"></textarea><div class="f"><select id="bc"><option value="">택배사는 엑셀에 적은 대로</option>' + Object.keys(CAR).map(function(c){ return '<option value="' + c + '">택배사 칸이 비어 있으면 ' + CAR[c] + '</option>'; }).join("") + '</select><button class="sv" id="bgo">미리보기</button></div><div id="bres"></div></div>'
     + '<div class="tabs">' + [["todo", "발송 대기 " + todo.length], ["done", "발송 완료 " + done.length], ["cx", "취소 " + cx.length]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (OT === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
   h += list.length ? list.map(function(o){
     var a = o.ship || {}, sh = o.shipment || {};
@@ -206,25 +206,76 @@ function draw(){
   }; });
 }
 /* ---------- 엑셀 일괄 입력 ---------- */
-function parseRows(t){
+function textRows(t){
   var sep = t.indexOf("\t") >= 0 ? "\t" : ",", rows = [], r = [], c = "", q = false, i;
   for(i = 0; i < t.length; i++){ var ch = t[i];
     if(q){ if(ch === '"'){ if(t[i + 1] === '"'){ c += '"'; i++; } else q = false; } else c += ch; }
     else if(ch === '"') q = true; else if(ch === sep){ r.push(c); c = ""; } else if(ch === "\n"){ r.push(c); rows.push(r); r = []; c = ""; } else if(ch !== "\r") c += ch; }
-  r.push(c); rows.push(r);
-  rows = rows.filter(function(x){ return x.some(function(v){ return String(v).trim(); }); });
+  r.push(c); rows.push(r); return rows;
+}
+function rowsToItems(rows, defCar){
+  rows = rows.filter(function(x){ return x.some(function(v){ return String(v == null ? "" : v).trim(); }); });
   var ix = {o:0, c:1, t:2};
   if(rows.length && rows[0].some(function(v){ return /주문번호/.test(v); })){ var hd = rows.shift(); ix = {o:hd.findIndex(function(v){ return /주문번호/.test(v); }), c:hd.findIndex(function(v){ return /택배사/.test(v); }), t:hd.findIndex(function(v){ return /송장/.test(v); })}; }
-  return rows.map(function(x){ return {orderId:String(x[ix.o] || "").trim(), carrier:String(x[ix.c] || "").trim(), tracking:String(x[ix.t] || "").trim()}; }).filter(function(x){ return x.tracking || x.carrier; });
+  return rows.map(function(x){ var g = function(i){ return i < 0 ? "" : String(x[i] == null ? "" : x[i]).trim(); }; var car = g(ix.c); return {orderId:g(ix.o), carrier:car || defCar || "", tracking:g(ix.t)}; }).filter(function(x){ return x.tracking; });
 }
+/* .xlsx 읽기: 압축을 풀어 첫 시트의 칸을 표로 만든다 (외부 라이브러리 없이) */
+function u16(d, o){ return d[o] | (d[o + 1] << 8); } function u32(d, o){ return (d[o] | (d[o + 1] << 8) | (d[o + 2] << 16) | (d[o + 3] << 24)) >>> 0; }
+function unzip(buf){
+  var d = new Uint8Array(buf), e = d.length - 22, files = {};
+  while(e >= 0 && u32(d, e) !== 0x06054b50) e--;
+  if(e < 0) return Promise.reject(new Error("엑셀 파일이 아니에요"));
+  var n = u16(d, e + 10), p = u32(d, e + 16), jobs = [], dec = new TextDecoder("utf-8");
+  for(var i = 0; i < n; i++){
+    var meth = u16(d, p + 10), csz = u32(d, p + 20), nl = u16(d, p + 28), el = u16(d, p + 30), cl = u16(d, p + 32), lo = u32(d, p + 42), name = dec.decode(d.subarray(p + 46, p + 46 + nl));
+    p += 46 + nl + el + cl;
+    if(!/^xl\/(sharedStrings\.xml|worksheets\/sheet\d+\.xml|workbook\.xml)$/.test(name)) continue;
+    (function(name, meth, csz, lo){
+      var st = lo + 30 + u16(d, lo + 26) + u16(d, lo + 28), raw = d.subarray(st, st + csz);
+      if(meth === 0) jobs.push(Promise.resolve(dec.decode(raw)).then(function(t){ files[name] = t; }));
+      else if(meth === 8 && window.DecompressionStream) jobs.push(new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer().then(function(b){ files[name] = dec.decode(b); }));
+      else jobs.push(Promise.reject(new Error("이 브라우저에서는 엑셀 파일을 읽을 수 없어요. CSV로 저장하거나 붙여넣기를 써주세요")));
+    })(name, meth, csz, lo);
+  }
+  return Promise.all(jobs).then(function(){ return files; });
+}
+function xlsxRows(buf){
+  return unzip(buf).then(function(f){
+    var names = Object.keys(f).filter(function(k){ return /worksheets\/sheet\d+/.test(k); }).sort(function(a, b){ return parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]); });
+    if(!names.length) throw new Error("시트를 찾지 못했어요");
+    var P = new DOMParser(), ss = [];
+    if(f["xl/sharedStrings.xml"]) [].forEach.call(P.parseFromString(f["xl/sharedStrings.xml"], "text/xml").getElementsByTagName("si"), function(si){ ss.push([].map.call(si.getElementsByTagName("t"), function(t){ return t.textContent; }).join("")); });
+    var rows = [];
+    [].forEach.call(P.parseFromString(f[names[0]], "text/xml").getElementsByTagName("row"), function(r){
+      var row = [];
+      [].forEach.call(r.getElementsByTagName("c"), function(c){
+        var ref = (c.getAttribute("r") || "").replace(/\d+/g, ""), col = 0, k, v = c.getElementsByTagName("v")[0], t = c.getAttribute("t");
+        for(k = 0; k < ref.length; k++) col = col * 26 + ref.charCodeAt(k) - 64;
+        var val = t === "inlineStr" ? [].map.call(c.getElementsByTagName("t"), function(x){ return x.textContent; }).join("") : v ? (t === "s" ? ss[+v.textContent] : v.textContent) : "";
+        row[col - 1] = val == null ? "" : val;
+      });
+      rows.push(row);
+    });
+    return rows;
+  });
+}
+function parseRows(t, defCar){ return rowsToItems(textRows(t), defCar); }
 function bulkInit(){
   var bf = document.getElementById("bf"), bp = document.getElementById("bp"), res = document.getElementById("bres"); if(!bf) return;
-  bf.onchange = function(){ var f = bf.files[0]; if(!f) return; f.arrayBuffer().then(function(buf){ var t = new TextDecoder("utf-8").decode(buf); if(t.indexOf("\ufffd") >= 0) try{ t = new TextDecoder("euc-kr").decode(buf); }catch(e){} bp.value = t.replace(/^\ufeff/, ""); show(); }); };
+  var RAW = null;
+  bf.onchange = function(){ var f = bf.files[0]; if(!f) return;
+    f.arrayBuffer().then(function(buf){
+      if(/\.xlsx$/i.test(f.name) || new Uint8Array(buf)[0] === 0x50){ return xlsxRows(buf).then(function(rows){ RAW = rows; bp.value = ""; show(); }); }
+      if(/\.xls$/i.test(f.name)) throw new Error("예전 형식(.xls)은 읽을 수 없어요. 엑셀에서 .xlsx 또는 CSV로 저장해주세요");
+      var t = new TextDecoder("utf-8").decode(buf); if(t.indexOf("\ufffd") >= 0) try{ t = new TextDecoder("euc-kr").decode(buf); }catch(e){} bp.value = t.replace(/^\ufeff/, ""); RAW = null; show();
+    }).catch(function(e){ res.innerHTML = '<div class="msg e">' + esc(e.message || "파일을 읽지 못했어요") + '</div>'; });
+    bf.value = ""; };
+  bp.oninput = function(){ RAW = null; };
   document.getElementById("bgo").onclick = show;
   function show(){
-    var rows = parseRows(bp.value);
+    var dc = document.getElementById("bc").value, rows = RAW ? rowsToItems(RAW.map(function(r){ return r.slice(); }), dc) : parseRows(bp.value, dc);
     if(!rows.length){ res.innerHTML = '<div class="msg e">송장이 채워진 줄이 없어요. 택배사와 송장번호 칸을 확인해주세요.</div>'; return; }
-    res.innerHTML = '<p class="sub" style="margin-top:12px">' + rows.length + '건을 읽었어요. 맞으면 입력하세요.</p>' + rows.slice(0, 8).map(function(x){ return '<div class="rw"><span>' + esc(x.orderId) + ' · ' + esc(x.carrier) + '</span><b>' + esc(x.tracking) + '</b></div>'; }).join("") + (rows.length > 8 ? '<div class="s">외 ' + (rows.length - 8) + '건</div>' : '') + '<div class="f"><button class="sv" id="bok">' + rows.length + '건 입력하기</button></div>';
+    res.innerHTML = '<p class="sub" style="margin-top:12px">' + rows.length + '건을 읽었어요. 맞으면 입력하세요.</p>' + rows.slice(0, 8).map(function(x){ return '<div class="rw"><span>' + esc(x.orderId) + ' · ' + esc(CAR[x.carrier] || x.carrier || '택배사 없음') + '</span><b>' + esc(x.tracking) + '</b></div>'; }).join("") + (rows.length > 8 ? '<div class="s">외 ' + (rows.length - 8) + '건</div>' : '') + '<div class="f"><button class="sv" id="bok">' + rows.length + '건 입력하기</button></div>';
     document.getElementById("bok").onclick = function(){ this.disabled = true;
       api("/api/partner/ship-bulk", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({rows:rows})}).then(function(j){
         var bad = j.results.map(function(r, i){ return r.ok ? null : (rows[i].orderId || "(번호 없음)") + ": " + r.error; }).filter(Boolean);

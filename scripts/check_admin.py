@@ -125,6 +125,14 @@ with sync_playwright() as p:
             if "2건을 읽었어요" not in P.locator("#bres").inner_text(): err.append("엑셀 붙여넣기 미리보기가 달라요")
             P.locator("#bok").click(); pg.wait_for_timeout(500)
             if "1건 입력했어요" not in P.locator("#bres").inner_text() or "내 브랜드" not in P.locator("#bres").inner_text(): err.append("엑셀 일괄 입력 결과가 달라요")
+        # 실제 .xlsx 파일 올리기 (사용자가 만든 파일: C9 칸부터 시작, 택배사 비어 있음)
+        P.locator("#tb button[data-t=orders]").click(); pg.wait_for_timeout(300)
+        P.locator("#bc").select_option("cj"); P.locator("#bf").set_input_files(os.path.join(R, "scripts/fixtures/ship_sample.xlsx")); pg.wait_for_timeout(900)
+        rt = P.locator("#bres").inner_text()
+        if "2건을 읽었어요" not in rt or "SK2610180003" not in rt or "CJ대한통운" not in rt or "�" in rt: err.append("엑셀(.xlsx) 파일을 읽지 못해요: " + rt[:80])
+        else:
+            P.locator("#bok").click(); pg.wait_for_timeout(500)
+            if "건 입력했어요" not in P.locator("#bres").inner_text(): err.append("엑셀(.xlsx) 일괄 입력이 안 돼요")
         for tab, sel in (("stock", ".o"), ("cs", ".o"), ("settle", ".card")):
             P.locator("#tb button[data-t=%s]" % tab).click(); pg.wait_for_timeout(400)
             if P.locator(sel).count() < 1: err.append("파트너 %s 탭이 비어 있어요 (%dpx)" % (tab, w))
