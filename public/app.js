@@ -5,7 +5,13 @@ var $app = document.getElementById("app"), $nv = document.getElementById("nv"), 
 
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function won(n){ return Number(n).toLocaleString("ko-KR") + "원"; }
-var MEM = {}, HM = "#/", HS = [], DEMO = !!CFG.DEMO, SORT = "rec";
+var MEM = {}, HM = "#/", HS = [], DEMO = !!CFG.DEMO, SORT = "pop", POP = {}, TOP = {}, SEEN = {};
+function sc(p){ var s = POP[p.id]; return s ? s.v + 5 * s.c + 20 * s.b : 0; }
+function buys(p){ return POP[p.id] ? POP[p.id].b : 0; }
+function byPop(ps){ var ix = {}; D.products.forEach(function(p, i){ ix[p.id] = i; }); return ps.slice().sort(function(a, b){ return sc(b) - sc(a) || ix[a.id] - ix[b.id]; }); }
+function rank(){ TOP = {}; byPop(D.products).slice(0, 3).forEach(function(p){ if(sc(p) > 0) TOP[p.id] = 1; }); }
+function track(id, e){ if(e === "v"){ if(SEEN[id]) return; SEEN[id] = 1; } var s = POP[id] = POP[id] || {v:0, c:0, b:0}; s[e]++; try{ fetch("/api/track", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({id:id, e:e}), keepalive:true}).catch(function(){}); }catch(x){} }
+function catOrder(){ var ks = Object.keys(D.categories), tot = {}; ks.forEach(function(k){ tot[k] = 0; }); D.products.forEach(function(p){ tot[p.cat] = (tot[p.cat] || 0) + sc(p); }); return ks.map(function(k, i){ return [k, i]; }).sort(function(a, b){ return tot[b[0]] - tot[a[0]] || a[1] - b[1]; }).map(function(x){ return x[0]; }); }
 function ls(k, v){ try{ if(v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); }catch(e){ if(v === undefined) return MEM[k] === undefined ? null : MEM[k]; MEM[k] = v; return null; } }
 function getH(){ return DEMO ? HM : location.hash; }
 function setH(v){ if(DEMO){ HS.push(HM); HM = v; route(); } else location.hash = v; }
@@ -41,13 +47,13 @@ function totals(ls_){
 function img(p){ return p.img ? '<img src="' + esc(p.img) + '" alt="' + esc(p.name) + '" loading="lazy">' : '<div class="ph">' + esc(p.brandName) + '</div>'; }
 function card(p){
   var d = disc(p);
-  return '<a class="pc" href="#/p/' + esc(p.id) + '"><div class="im">' + img(p) + (p.hot ? '<span class="tag">인기</span>' : '') + '</div>'
+  return '<a class="pc" href="#/p/' + esc(p.id) + '"><div class="im">' + img(p) + (TOP[p.id] ? '<span class="tag">인기</span>' : '') + '</div>'
     + '<div class="br">' + esc(p.brandName) + '</div><div class="nm">' + esc(p.name) + '</div>'
     + '<div class="pr">' + (d ? '<span class="d">' + d + '%</span>' : '') + '<span class="p">' + won(pr(p)) + (p.options ? '~' : '') + '</span>' + (d ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div></a>';
 }
 function chips(cur){
   var h = '<div class="chips"><a class="chip' + (!cur ? ' on' : '') + '" href="#/">전체</a>';
-  Object.keys(D.categories).forEach(function(k){ h += '<a class="chip' + (cur === k ? ' on' : '') + '" href="#/c/' + k + '">' + esc(D.categories[k]) + '</a>'; });
+  catOrder().forEach(function(k){ h += '<a class="chip' + (cur === k ? ' on' : '') + '" href="#/c/' + k + '">' + esc(D.categories[k]) + '</a>'; });
   return h + '</div>';
 }
 function drawTabs(){
@@ -66,22 +72,21 @@ function soon(){
 
 /* 홈 */
 function home(){
-  var best = D.products.filter(function(p){ return disc(p) > 0 && !p.soldOut; }).sort(function(a, b){ return saved(b) - saved(a); })[0];
-  var hot = D.products.filter(function(p){ return p.hot; });
+  var best = D.products.filter(function(p){ return !p.soldOut; }).sort(function(x, y){ return buys(y) - buys(x) || sc(y) - sc(x); })[0];
   var h = '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
   h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
-    h += '<div class="band"></div><div class="sec"><h2>지금 가장 많이 아끼는 제품</h2><a class="best" href="#/p/' + esc(best.id) + '"><div class="im">' + img(best) + '</div><div><div class="em">최대 ' + disc(best) + '% 할인</div><div class="nm">' + esc(best.name) + '</div><div class="big">' + won(best.price) + '</div></div></a></div>';
+    var em = [buys(best) > 0 ? '이번 주 ' + buys(best) + '개 구매' : '', disc(best) ? '최대 ' + disc(best) + '% 할인' : ''].filter(Boolean).join(' · ');
+    h += '<div class="band"></div><div class="sec"><h2>지금 가장 많이 구매하는 제품</h2><a class="best" href="#/p/' + esc(best.id) + '"><div class="im">' + img(best) + '</div><div>' + (em ? '<div class="em">' + em + '</div>' : '') + '<div class="nm">' + esc(best.name) + '</div><div class="big">' + won(best.price) + '</div></div></a></div>';
   }
-  h += '<div class="band"></div><div class="sec"><h2>문장군이 자주 추천하는 제품</h2><div class="grid">' + hot.map(card).join("") + '</div></div>';
-  h += '<div class="band"></div><div class="sec"><h2>전체 제품</h2><div class="grid">' + D.products.map(card).join("") + '</div></div>';
+  h += '<div class="band"></div><div class="sec"><h2>인기 제품</h2><div class="grid">' + byPop(D.products).map(card).join("") + '</div></div>';
   h += foot();
   $app.innerHTML = h;
   bindSearch();
 }
 function foot(){ return '<div class="foot">스킨인사이드 마켓<br>제품은 각 브랜드에서 직접 발송합니다. 교환과 반품은 브랜드 기준을 따릅니다.<br><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener" style="text-decoration:underline">카카오톡 채널 문의</a></div>'; }
-function sortBar(){ return '<div class="chips" style="margin-top:10px">' + [["rec","추천순"],["disc","할인율순"],["low","낮은 가격순"]].map(function(x){ return '<button class="chip' + (SORT === x[0] ? ' on' : '') + '" data-sort="' + x[0] + '">' + x[1] + '</button>'; }).join("") + '</div>'; }
-function sorted(ps){ var a = ps.slice(); if(SORT === "disc") a.sort(function(x, y){ return disc(y) - disc(x); }); else if(SORT === "low") a.sort(function(x, y){ return pr(x) - pr(y); }); return a; }
+function sortBar(){ return '<div class="chips" style="margin-top:10px">' + [["pop","인기순"],["disc","할인율순"],["low","낮은 가격순"]].map(function(x){ return '<button class="chip' + (SORT === x[0] ? ' on' : '') + '" data-sort="' + x[0] + '">' + x[1] + '</button>'; }).join("") + '</div>'; }
+function sorted(ps){ var a = byPop(ps); if(SORT === "disc") a.sort(function(x, y){ return disc(y) - disc(x); }); else if(SORT === "low") a.sort(function(x, y){ return pr(x) - pr(y); }); return a; }
 function list(title, ps, cur, q){ ps = sorted(ps);
   $app.innerHTML = '<div class="sec"><h1>' + esc(title) + '</h1><p class="sub" style="margin-bottom:16px">' + ps.length + '개 제품</p>' + searchForm(q) + chips(cur) + sortBar() + '<div style="height:16px"></div>'
     + (ps.length ? '<div class="grid">' + ps.map(card).join("") + '</div>' : '<div class="empty">찾는 제품이 없어요.</div>') + '</div>' + foot();
@@ -111,9 +116,11 @@ function detail(id){
     $app.innerHTML = h;
     [].forEach.call($app.querySelectorAll("[data-o]"), function(b){ b.onclick = function(){ oi = +b.dataset.o; draw(); }; });
     var ad = document.getElementById("ad"), by = document.getElementById("by");
-    if(ad) ad.onclick = function(){ addCart(p.id, oi, 1); toast("장바구니에 담았어요"); };
-    if(by) by.onclick = function(){ ls("sk_direct", [{id:p.id, opt:oi, q:1}]); setH("#/checkout/direct"); };
+    var gl = document.getElementById("go"); if(gl) gl.onclick = function(){ track(p.id, "c"); };
+    if(ad) ad.onclick = function(){ track(p.id, "c"); addCart(p.id, oi, 1); toast("장바구니에 담았어요"); };
+    if(by) by.onclick = function(){ track(p.id, "c"); ls("sk_direct", [{id:p.id, opt:oi, q:1}]); setH("#/checkout/direct"); };
   }
+  track(p.id, "v");
   draw();
 }
 
@@ -257,7 +264,8 @@ if(DEMO) document.addEventListener("click", function(e){
 
 fetch("data/products.json").then(function(r){ return r.json(); }).then(function(j){
   D = j; j.products.forEach(function(p){ P[p.id] = p; });
-  var go = function(){ route(); };
+  var go0 = function(){ route(); };
+  var go = function(){ fetch("/api/popular").then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(pp){ POP = (pp && pp.stats) || {}; rank(); go0(); }); };
   if(CFG.LOGIN || CHECKOUT) fetch("/api/me").then(function(r){ return r.ok ? r.json() : null; }).then(function(u){ user = u && u.user; go(); }).catch(go); else go();
 }).catch(function(){ $app.innerHTML = '<div class="empty">제품 정보를 불러오지 못했어요.</div>'; });
 })();

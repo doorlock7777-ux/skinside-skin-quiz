@@ -1,4 +1,4 @@
-import { json, getUser, orders, BRANDS, mail, esc, tossAuth } from "./_lib.mjs";
+import { json, getUser, orders, BRANDS, mail, esc, tossAuth, addStat } from "./_lib.mjs";
 
 async function notify(o) {
   const by = {};
@@ -41,6 +41,7 @@ export default async (req) => {
   }
   o.status = "paid"; o.paidAt = new Date().toISOString(); o.paymentKey = j.paymentKey; o.method = j.method || "";
   await st.setJSON(o.id, o);
+  try { await addStat(o.items.map((l) => [l.id, "b", l.q])); } catch {}
   try { o.notified = await notify(o); await st.setJSON(o.id, o); } catch {}
   return json({ ok: true, orderId: o.id });
 };

@@ -2,7 +2,9 @@
 (function(){
 var P = window.__PRODUCTS, MAP = {}, FEE = 15;
 P.products.forEach(function(p){ MAP[p.id] = p; });
-var state = {user:null, orders:[]};
+var state = {user:null, orders:[], stats:{}};
+/* 미리보기용 예시 집계: 실제 사이트에서는 방문자 행동으로 쌓인다 */
+var SEED = {"bonkorea-cl":[420,70,31],"minic-allinone":[380,66,27],"bonkorea-vit":[350,52,22],"mediheal-sun":[300,48,19],"livna-calm":[260,40,15],"minic-cream":[240,35,12],"citirover-retinol":[210,30,11],"grafen-patch":[190,34,13],"numbuzin-4":[150,22,8],"hwapasa-shampoo":[140,20,7],"grafen-wax":[130,19,6],"torriden-cica":[120,15,5],"jmw-iron":[110,14,3],"grafen-sunstick":[100,16,4],"brdy-powder":[80,9,2]};
 try{ var s = JSON.parse(localStorage.getItem("skd")); if(s) state = s; }catch(e){}
 function save(){ try{ localStorage.setItem("skd", JSON.stringify(state)); }catch(e){} }
 function res(o, st){ return Promise.resolve(new Response(JSON.stringify(o), {status: st || 200, headers:{"content-type":"application/json"}})); }
@@ -14,6 +16,8 @@ window.fetch = function(u, o){
   u = String(u); o = o || {}; var m = (o.method || "GET").toUpperCase(), b = {};
   try{ b = o.body ? JSON.parse(o.body) : {}; }catch(e){}
   if(/data\/products\.json/.test(u)) return res(P);
+  if(u === "/api/popular"){ var out = {}; Object.keys(SEED).forEach(function(k){ out[k] = {v:SEED[k][0], c:SEED[k][1], b:SEED[k][2]}; }); Object.keys(state.stats || {}).forEach(function(k){ var s = state.stats[k], t = out[k] = out[k] || {v:0, c:0, b:0}; t.v += s.v; t.c += s.c; t.b += s.b; }); return res({stats: out}); }
+  if(u === "/api/track"){ state.stats = state.stats || {}; var s0 = state.stats[b.id] = state.stats[b.id] || {v:0, c:0, b:0}; if(b.e === "v" || b.e === "c") s0[b.e]++; save(); return res({ok:true}); }
   if(u === "/api/me") return res({user: state.user});
   if(u === "/api/demo-login"){ state.user = {id:"n_demo", name:"홍길동", email:"demo@example.com", phone:"010-1234-5678"}; save(); return res({user: state.user}); }
   if(u === "/api/logout"){ state.user = null; save(); return res({ok:true}); }
@@ -40,7 +44,7 @@ window.fetch = function(u, o){
     var o2 = state.orders.filter(function(x){ return x.id === b.orderId; })[0];
     if(!o2) return res({error:"주문을 찾을 수 없어요"}, 404);
     if(Number(b.amount) !== o2.total) return res({error:"결제 금액이 달라요"}, 400);
-    o2.status = "paid"; o2.paidAt = new Date().toISOString(); save();
+    o2.status = "paid"; o2.paidAt = new Date().toISOString(); state.stats = state.stats || {}; o2.items.forEach(function(l){ var s1 = state.stats[l.id] = state.stats[l.id] || {v:0, c:0, b:0}; s1.b += l.q; }); save();
     return res({ok:true, orderId:o2.id});
   }
   return realFetch ? realFetch(u, o) : res({error:"offline"}, 404);
