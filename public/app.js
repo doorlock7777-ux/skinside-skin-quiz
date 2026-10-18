@@ -74,10 +74,24 @@ function soon(){
 }
 
 /* 홈 */
+function myResult(){ try{ var r = JSON.parse(localStorage.getItem("skinside_result") || "null"); return r && r.key && r.p ? r : null; }catch(e){ return null; } }
+function myCard(r){
+  var cx = 60, cy = 60, R = 38, ks = ["od","sr","pn","wt"], nm = ["피지","민감","색소","주름"];
+  function P(f){ return ks.map(function(k, i){ var a = -Math.PI / 2 + i * Math.PI / 2, v = typeof f === "number" ? f : Math.max(8, r.p[k] || 0), rr = R * v / 100; return (cx + rr * Math.cos(a)).toFixed(1) + "," + (cy + rr * Math.sin(a)).toFixed(1); }).join(" "); }
+  var g = '<svg viewBox="0 0 120 120" width="140" height="140" role="img" aria-label="피부 레이더 차트">';
+  [50, 100].forEach(function(l){ g += '<polygon points="' + P(l) + '" fill="none" stroke="rgba(255,255,255,.35)"/>'; });
+  g += '<polygon points="' + P(100) + '" fill="none" stroke="none"/>';
+  P(100).split(" ").forEach(function(q){ g += '<line x1="60" y1="60" x2="' + q.split(",")[0] + '" y2="' + q.split(",")[1] + '" stroke="rgba(255,255,255,.35)"/>'; });
+  g += '<polygon points="' + P() + '" fill="rgba(255,255,255,.4)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>';
+  [[60, 12], [112, 63], [60, 117], [8, 63]].forEach(function(q, i){ g += '<text x="' + q[0] + '" y="' + q[1] + '" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">' + nm[i] + '</text>'; });
+  g += '</svg>';
+  return '<div class="sec" style="padding-bottom:8px"><a class="hero my" href="' + QZ + '"' + QT + '><div><span>나의 피부타입</span><b class="cd">' + esc(r.key) + '</b><span>' + esc(r.desc || "") + '</span></div>' + g + '</a></div>';
+}
 function quizDone(){ try{ return JSON.parse(localStorage.getItem("skinside_quiz_v2") || "{}").screen === "result"; }catch(e){ return false; } }
 function home(){
   var best = D.products.filter(function(p){ return !p.soldOut; }).sort(function(x, y){ return buys(y) - buys(x) || sc(y) - sc(x); })[0];
-  var h = quizDone() ? '' : '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
+  var mr = quizDone() ? myResult() : null;
+  var h = mr ? myCard(mr) : quizDone() ? '' : '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
   h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
     var em = [buys(best) > 0 ? '이번 주 ' + buys(best).toLocaleString("ko-KR") + '개 구매' : '', disc(best) ? '최대 ' + disc(best) + '% 할인' : ''].filter(Boolean).join(' · ');

@@ -425,6 +425,7 @@ function result(){
   pg(100);
   var R = calc(!S.simple), key = R.label, L = R.code.split("");
   record(key);
+  try{ localStorage.setItem("skinside_result", JSON.stringify({key:key, desc:lineDesc(R), p:R.p, t:Date.now()})); }catch(e){}
   if(!S.shown){ S.shown = true; track("quiz_complete", {type:key, simple:S.simple ? 1 : 0}); }
   var tsum = 0; for(var k2 in ST.types) tsum += ST.types[k2];
   var same = (tsum >= 10 && ST.types[key]) ? Math.round(ST.types[key] / tsum * 100) : 0;

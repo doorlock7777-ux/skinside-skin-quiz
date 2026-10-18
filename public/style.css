@@ -105,3 +105,9 @@ label.f{display:block;font-size:13px;color:var(--mute);font-weight:600;margin:14
 
 .tabs .bd{position:absolute;top:4px;left:calc(50% + 6px)}
 [hidden]{display:none!important}
+
+.hero.my{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px 12px 16px 20px}
+.hero.my b.cd{font-size:38px;font-weight:800;letter-spacing:.04em;line-height:1.15;margin:2px 0 4px}
+.hero.my span{display:block}
+.hero.my svg{flex:none;max-width:42%;height:auto}
+.hero.my{min-height:176px}

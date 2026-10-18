@@ -22,7 +22,7 @@ html = """<title>스킨인사이드 스토어 미리보기</title>
 <style>%s
 .demo{background:#fff8e6;color:#8a5a00;font-size:12.5px;text-align:center;padding:8px 16px;line-height:1.5}
 :root{color-scheme:light}</style>
-<div class="demo">미리보기 화면이에요. 제품을 누르면 족보템 스토어로 이동하고, 누른 만큼 인기순이 바뀌어요. 새로고침하면 처음 배치로 돌아와요.</div>
+<div class="demo" id="dm">미리보기 화면이에요. 제품을 누르면 족보템 스토어로 이동하고, 누른 만큼 인기순이 바뀌어요. 새로고침하면 처음 배치로 돌아와요.</div>
 <header id="top"><button class="back" id="bk" hidden aria-label="뒤로">&#8249;</button><a href="#/"><img src="%s" alt="Skinside.co.kr"></a></header>
 <main id="app"></main>
 <nav class="tabs"><div class="in" id="nv"></div></nav>
