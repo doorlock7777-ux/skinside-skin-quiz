@@ -6,7 +6,7 @@ var state = {user:null, orders:[], stats:{}};
 /* 미리보기용 예시 집계: 실제 사이트에서는 방문자 행동으로 쌓인다 */
 var SEED = {"bonkorea-cl":[420,70,31],"minic-allinone":[380,66,27],"bonkorea-vit":[350,52,22],"mediheal-sun":[300,48,19],"livna-calm":[260,40,15],"minic-cream":[240,35,12],"citirover-retinol":[210,30,11],"grafen-patch":[190,34,13],"numbuzin-4":[150,22,8],"hwapasa-shampoo":[140,20,7],"grafen-wax":[130,19,6],"torriden-cica":[120,15,5],"jmw-iron":[110,14,3],"grafen-sunstick":[100,16,4],"brdy-powder":[80,9,2]};
 if(window.__NOSEED) SEED = {};
-try{ var s = JSON.parse(localStorage.getItem("skd")); if(s) state = s; }catch(e){}
+try{ var s = JSON.parse(localStorage.getItem("skd")); if(s) state = s; }catch(e){} state.stats = {};  /* 인기 집계는 새로고침하면 초기화: 처음 열면 항상 기본 카테고리 순서 */
 function save(){ try{ localStorage.setItem("skd", JSON.stringify(state)); }catch(e){} }
 function res(o, st){ return Promise.resolve(new Response(JSON.stringify(o), {status: st || 200, headers:{"content-type":"application/json"}})); }
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
