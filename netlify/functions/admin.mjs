@@ -18,12 +18,6 @@ const csv = (rows) => "﻿" + rows.map((r) => r.map((c) => `"${String(c ?? "").r
 
 export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, "");
-  /* 임시 점검(원인 확인 후 삭제): 환경변수 값은 노출하지 않고 길이와 일치 여부만 알려준다 */
-  if (p === "/api/admin/envcheck") {
-    const { createHash } = await import("node:crypto"), d = (v) => createHash("sha256").update(String(v)).digest("hex").slice(0, 10), e = process.env;
-    const t = (k, want) => { const v = e[k]; return { set: v !== undefined, len: v ? v.length : 0, ok: v ? d(v) === want : false, okTrimmed: v ? d(v.trim()) === want : false, okNoQuote: v ? d(v.replace(/^[`"' ]+|[`"' ]+$/g, "")) === want : false, head: v ? v.slice(0, 7).replace(/[A-Za-z0-9]/g, (c, i) => (i < 6 ? c : "*")) : "" }; };
-    return json({ ADMIN_ID: t("ADMIN_ID", "84efb794fd"), ADMIN_PW_HASH: t("ADMIN_PW_HASH", "3b3379fea9"), ADMIN_PW2_HASH: t("ADMIN_PW2_HASH", "ba6fdb4acd"), SESSION_SECRET: { set: !!e.SESSION_SECRET, len: (e.SESSION_SECRET || "").length } });
-  }
   if (p === "/api/admin/login" && req.method === "POST") return adminLogin(req);
   if (p === "/api/admin/logout" && req.method === "POST") return adminLogout();
   if (!isAdmin(req)) return json({ error: "unauthorized" }, 401);
