@@ -89,6 +89,13 @@ with sync_playwright() as p:
         else:
             F.locator("[data-be=grafen]").fill("gf@brand.example"); F.locator("[data-bf=grafen]").fill("18"); F.locator("[data-bs=grafen]").click(); pg.wait_for_timeout(1200)
             if F.locator("[data-be=grafen]").input_value() != "gf@brand.example" or F.locator("[data-bf=grafen]").input_value() != "18": err.append("저장한 이메일/수수료율이 다시 열었을 때 안 보여요")
+            F.locator("nav button[data-t=settle]").click(); pg.wait_for_timeout(500)
+            if "18%" not in F.locator("#mn").inner_text() and "18" not in F.locator("#mn .tbl").first.inner_text(): err.append("정산 화면에 바꾼 수수료율이 반영되지 않아요")
+            F.locator("nav button[data-t=brands]").click(); pg.wait_for_timeout(500)
+            F.locator("#nbn").fill("NEWB"); F.locator("#nbe").fill("n@b.example"); F.locator("#nbf").fill("20"); F.locator("#nba").click(); pg.wait_for_timeout(800)
+            if F.locator("[data-be=newb]").count() != 1 or F.locator("[data-bf=newb]").input_value() != "20": err.append("브랜드 추가가 안 돼요")
+            F.locator("#nbn").fill("newb"); F.locator("#nba").click(); pg.wait_for_timeout(400)
+            if "이미" not in F.locator("#nbm").inner_text(): err.append("같은 브랜드 이름이 또 추가돼요")
             F.locator("[data-bf=grafen]").fill("0.15"); F.locator("[data-bs=grafen]").click(); pg.wait_for_timeout(500)
             if "15로" not in F.locator("[data-bm=grafen]").inner_text(): err.append("0.15 입력 경고가 안 떠요")
         # 정산: 확정 -> 송금 표시

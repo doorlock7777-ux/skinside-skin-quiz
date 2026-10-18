@@ -137,11 +137,25 @@ export async function loadBrands(force) {
   if (!force && Date.now() - _bc.at < 5000) return;
   try {
     const cfg = (await brandCfg().get("all", { type: "json" })) || {};
+    for (const k of Object.keys(cfg)) if (cfg[k] && cfg[k].added && !BRANDS[k]) BRANDS[k] = { name: cfg[k].name, email: "", fee: 0 };
     for (const k of Object.keys(BRANDS)) if (cfg[k]) { BRANDS[k].email = cfg[k].email || ""; BRANDS[k].fee = Number(cfg[k].fee) || 0; }
     _bc = { at: Date.now() };
   } catch { /* 읽기에 실패하면 설정 파일 값으로 계속 동작 */ }
 }
 export async function saveBrand(key, email, fee) {
   const cfg = (await brandCfg().get("all", { type: "json" })) || {};
-  cfg[key] = { email, fee }; await brandCfg().setJSON("all", cfg); await loadBrands(true);
+  cfg[key] = { ...(cfg[key] || {}), email, fee }; await brandCfg().setJSON("all", cfg); await loadBrands(true);
+}
+
+/* 관리자 화면에서 브랜드 추가: 이름으로 주소용 키를 만들고, 이미 있는 이름·키와 겹치면 거부한다 */
+export async function addBrand(name, email, fee) {
+  await loadBrands(true);
+  const nm = String(name || "").trim().slice(0, 30);
+  if (nm.length < 1) return { error: "브랜드 이름을 입력해주세요" };
+  if (Object.values(BRANDS).some((b) => String(b.name).toLowerCase() === nm.toLowerCase())) return { error: "이미 있는 브랜드예요" };
+  let key = nm.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20) || "b" + Date.now().toString(36);
+  while (BRANDS[key] || key === "etc") key += Math.floor(Math.random() * 10);
+  const cfg = (await brandCfg().get("all", { type: "json" })) || {};
+  cfg[key] = { added: true, name: nm, email, fee }; await brandCfg().setJSON("all", cfg); await loadBrands(true);
+  return { key };
 }

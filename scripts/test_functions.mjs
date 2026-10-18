@@ -557,6 +557,18 @@ const paidOrder = async (U, body) => { const [s1, o] = await mkOrder(U, body); i
   [s, j] = await call(adminApi, "/api/admin/partners/save", "POST", { brand: "bonkorea", email: "cs@bonkorea.test", fee: 12.5 }, A); ok(s === 200 && j.fee === 12.5, "브랜드 정보 저장 실패 " + JSON.stringify(j));
   [s, j] = await call(adminApi, "/api/admin/partners", "GET", null, A); const pb = j.partners.find((x) => x.key === "bonkorea"); ok(pb.email === "cs@bonkorea.test" && pb.fee === 12.5 && j.partners.find((x) => x.key === "minic").fee === 0, "저장한 값이 목록에 안 보이거나 다른 브랜드가 바뀌어요");
   [s, j] = await call(brand, "/api/partner/home", "GET", null, BH); ok(j.month.feeRate === 12.5, "파트너 정산 화면에 새 수수료율이 안 보여요 " + j.month.feeRate);
+  [s, j] = await call(adminApi, "/api/admin/settlement?format=json&month=" + month, "GET", null, A); const sr = j.rows.find((x) => x.brand === "bonkorea"); ok(sr && (j.confirmed ? sr.feeRate === 10 : sr.feeRate === 12.5 && sr.fee === Math.round(((sr.sales - (sr.refund || 0)) * 12.5) / 100)), "정산 화면 수수료율이 달라요(확정 전이면 새 값, 확정 뒤엔 확정 당시 값) " + JSON.stringify(sr));
+  [s, j] = await call(adminApi, "/api/admin/home", "GET", null, A); ok(s === 200, "관리자 홈이 안 열려요");
+  // 브랜드 추가
+  [s, j] = await call(adminApi, "/api/admin/partners/add", "POST", { name: "NEWBRAND", email: "n@b.co", fee: 20 }); ok(s === 401, "로그인 없이 브랜드가 추가돼요");
+  [s, j] = await call(adminApi, "/api/admin/partners/add", "POST", { name: "", fee: 20 }, A); ok(s === 400, "이름 없는 브랜드가 추가돼요");
+  [s, j] = await call(adminApi, "/api/admin/partners/add", "POST", { name: "minic", fee: 20 }, A); ok(s === 400 && /이미/.test(j.error), "이미 있는 브랜드가 또 추가돼요");
+  [s, j] = await call(adminApi, "/api/admin/partners/add", "POST", { name: "새브랜드", email: "bad", fee: 20 }, A); ok(s === 400, "잘못된 이메일로 브랜드가 추가돼요");
+  [s, j] = await call(adminApi, "/api/admin/partners/add", "POST", { name: "NEWBRAND", email: "n@b.co", fee: 20 }, A); ok(s === 200 && j.key === "newbrand", "브랜드 추가 실패 " + JSON.stringify(j));
+  [s, j] = await call(adminApi, "/api/admin/partners", "GET", null, A); const nb = j.partners.find((x) => x.key === "newbrand"); ok(nb && nb.name === "NEWBRAND" && nb.email === "n@b.co" && nb.fee === 20, "추가한 브랜드가 목록에 없어요");
+  [s, j] = await call(adminApi, "/api/admin/partners/save", "POST", { brand: "newbrand", email: "n2@b.co", fee: 18 }, A); [s, j] = await call(adminApi, "/api/admin/partners", "GET", null, A); ok(j.partners.find((x) => x.key === "newbrand").fee === 18 && j.partners.find((x) => x.key === "newbrand").name === "NEWBRAND", "추가한 브랜드 수정이 안 돼요");
+  [s, j] = await call(adminApi, "/api/admin/partners/issue", "POST", { brand: "newbrand" }, A); ok(s === 200 && /^[A-Z0-9-]+$/.test(j.code), "추가한 브랜드 코드 발급 실패");
+  [s, j] = await call(adminApi, "/api/admin/partners/add", "POST", { name: "newbrand", fee: 1 + 0 }, A); ok(s === 400, "같은 이름이 또 추가돼요");
   await call(adminApi, "/api/admin/partners/save", "POST", { brand: "bonkorea", email: "", fee: 0 }, A);
   [s, j] = await call(adminApi, "/api/admin/partners", "GET", null, A); ok(j.partners.find((x) => x.key === "bonkorea").fee === 0, "수수료율을 0으로 되돌릴 수 없어요");
 }

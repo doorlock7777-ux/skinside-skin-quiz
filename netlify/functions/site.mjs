@@ -1,10 +1,10 @@
 import { runBrandBatch } from "./_batch.mjs";
 import { isAdmin } from "./_auth.mjs";
-import { BRANDS, json, loadStock, isSoldOut, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
+import { loadBrands, BRANDS, json, loadStock, isSoldOut, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
 
 const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done"];
 
-export default async (req) => {
+export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, "");
 
   /* 공개: 진단 페이지 이벤트 집계, 추가 제품 목록, 제품 이미지, 카카오 채널 친구 수 */
@@ -72,9 +72,10 @@ export default async (req) => {
     if (!/^https?:\/\/\S+$/.test(url)) return json({ error: "바로가기 링크는 http(s)로 시작해야 해요" }, 400);
     const im = String(b.img || "");
     if (!/^data:image\/(webp|jpeg|png);base64,/.test(im) || im.length > 900000) return json({ error: "이미지를 확인해주세요 (900KB 이하)" }, 400);
+    const bk = Object.keys(BRANDS).find((k) => String(BRANDS[k].name).toLowerCase() === brandName.toLowerCase()), brandKey = bk || "etc";
     const id = "x" + Date.now().toString(36);
     await extraImg().set(id, im);
-    const prod = { id, cat: b.cat, name, brand: "etc", brandName, price, list: list > price ? list : undefined, img: "/api/extra-img?id=" + id, url, directUrl: url, soldOut: false, note: "" };
+    const prod = { id, cat: b.cat, name, brand: brandKey, brandName, price, list: list > price ? list : undefined, img: "/api/extra-img?id=" + id, url, directUrl: url, soldOut: false, note: "" };
     const cur = await loadExtra();
     cur.push(prod);
     await extraStore().setJSON("list", cur);

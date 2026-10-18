@@ -1,4 +1,4 @@
-import { loadBrands, saveBrand } from "./_lib.mjs";
+import { loadBrands, saveBrand, addBrand } from "./_lib.mjs";
 import { json, orders, BRANDS, tossAuth, setShipment, notifyShipped, adjustStock, normCarrier } from "./_lib.mjs";
 import { isAdmin, adminLogin, adminLogout, partnerIdx, issueCode, revokeCode, PARTNER_DIR } from "./_auth.mjs";
 import { monthSettle } from "./_home.mjs";
@@ -34,13 +34,21 @@ export default async (req) => { await loadBrands();
     return json({ dir: PARTNER_DIR, partners: Object.keys(BRANDS).map((k) => ({ key: k, name: BRANDS[k].name, email: BRANDS[k].email || "", fee: BRANDS[k].fee || 0, issuedAt: (idx[k] || {}).issuedAt || null, lastLogin: (idx[k] || {}).lastLogin || null })) });
   }
   const b = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  const brandInput = () => {
+    const email = String(b.email || "").trim().slice(0, 120), fee = Number(b.fee === "" || b.fee == null ? 0 : b.fee);
+    if (email && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(email)) return { error: "이메일 형식을 확인해주세요" };
+    if (!Number.isFinite(fee) || fee < 0 || fee > 100) return { error: "수수료율은 0~100 사이 숫자로 적어주세요 (15% = 15)" };
+    if (fee > 0 && fee < 1) return { error: "15%면 15로 적어주세요. 0.15는 0.15%로 계산돼요" };
+    return { email, fee: Math.round(fee * 100) / 100 };
+  };
+  if (p === "/api/admin/partners/add" && req.method === "POST") {
+    const v = brandInput(); if (v.error) return json({ error: v.error }, 400);
+    const r = await addBrand(b.name, v.email, v.fee); return r.error ? json({ error: r.error }, 400) : json({ ok: true, key: r.key });
+  }
   if (p === "/api/admin/partners/save" && req.method === "POST") {
     if (!BRANDS[b.brand]) return json({ error: "브랜드를 찾을 수 없어요" }, 404);
-    const email = String(b.email || "").trim().slice(0, 120), fee = Number(b.fee);
-    if (email && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(email)) return json({ error: "이메일 형식을 확인해주세요" }, 400);
-    if (!Number.isFinite(fee) || fee < 0 || fee > 100) return json({ error: "수수료율은 0~100 사이 숫자로 적어주세요 (15% = 15)" }, 400);
-    if (fee > 0 && fee < 1) return json({ error: "15%면 15로 적어주세요. 0.15는 0.15%로 계산돼요" }, 400);
-    await saveBrand(b.brand, email, Math.round(fee * 100) / 100); return json({ ok: true, email, fee: BRANDS[b.brand].fee });
+    const v = brandInput(); if (v.error) return json({ error: v.error }, 400);
+    await saveBrand(b.brand, v.email, v.fee); return json({ ok: true, email: v.email, fee: BRANDS[b.brand].fee });
   }
   if (p === "/api/admin/partners/issue" && req.method === "POST") {
     if (!BRANDS[b.brand]) return json({ error: "브랜드를 찾을 수 없어요" }, 404);
