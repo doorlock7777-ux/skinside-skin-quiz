@@ -1,4 +1,5 @@
-import { orders, BRANDS, mail, esc, brandToken } from "./_lib.mjs";
+import { orders, BRANDS, mail, esc } from "./_lib.mjs";
+import { PARTNER_DIR } from "./_auth.mjs";
 
 /* 브랜드에 전달하는 주문 정보 (통상 플랫폼이 브랜드에 주는 항목)
    주문번호, 주문일시, 상품명/옵션/수량, 판매단가, 상품금액, 수령인, 연락처, 우편번호/주소, 배송메모, 주문 배송비, 정산 예정금액 */
@@ -7,7 +8,7 @@ const won = (n) => Number(n || 0).toLocaleString("ko-KR");
 const SITE = () => process.env.SITE_URL || process.env.URL || "https://skinside.co.kr";
 const csvCell = (c) => `"${String(c ?? "").replace(/"/g, '""')}"`;
 
-export const brandLink = (key) => SITE() + "/brand/#k=" + brandToken(key);
+export const brandLink = () => SITE() + "/" + PARTNER_DIR + "/";
 
 function lines(o, brand) { return o.items.filter((l) => l.brand === brand); }
 function settle(brand, amount) { const fee = (BRANDS[brand] && BRANDS[brand].fee) || 0; return amount - Math.round((amount * fee) / 100); }
@@ -36,7 +37,7 @@ function html(brand, news, cancels) {
   if (cancels.length) {
     h += `<p style="color:#f04452"><b>주문 취소 안내</b> (이미 전달드린 주문입니다. 발송 전이라면 발송을 멈춰주세요.)</p><ul>${cancels.map(({ o }) => `<li>${esc(o.id)} · ${esc((o.ship || {}).name)} 님</li>`).join("")}</ul>`;
   }
-  h += `<p><a href="${esc(brandLink(brand))}" style="display:inline-block;background:#4E57A2;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700">송장번호 입력하러 가기</a></p>`
+  h += `<p><a href="${esc(brandLink())}" style="display:inline-block;background:#4E57A2;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700">송장번호 입력하러 가기</a></p><p style="color:#6b7684;font-size:13px">접속할 때는 스킨인사이드가 따로 안내드린 브랜드 접속 코드를 입력해주세요.</p>`
     + `<p style="color:#6b7684;font-size:13px">개인정보(수령인, 연락처, 주소)는 배송 목적으로만 사용하고 발송 후 안전하게 폐기해주세요.</p></div>`;
   return h;
 }

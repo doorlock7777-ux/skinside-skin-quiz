@@ -13,12 +13,12 @@ function sign(v) {
   if (!k || k.length < 16) throw new Error("SESSION_SECRET 환경변수가 필요합니다");
   return createHmac("sha256", k).update(v).digest("base64url");
 }
-export function makeCookie(name, obj, maxAge) {
+export function makeCookie(name, obj, maxAge, same = "Lax") {
   const v = Buffer.from(JSON.stringify(obj)).toString("base64url");
-  return `${name}=${v}.${sign(v)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+  return `${name}=${v}.${sign(v)}; Path=/; HttpOnly; Secure; SameSite=${same}; Max-Age=${maxAge}`;
 }
-export function clearCookie(name) {
-  return `${name}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+export function clearCookie(name, same = "Lax") {
+  return `${name}=; Path=/; HttpOnly; Secure; SameSite=${same}; Max-Age=0`;
 }
 export function readCookie(req, name) {
   const m = (req.headers.get("cookie") || "").split(/;\s*/).find((c) => c.startsWith(name + "="));
@@ -33,13 +33,6 @@ export function readCookie(req, name) {
   } catch { return null; }
 }
 export const getUser = (req) => readCookie(req, "sk_s");
-
-export function isAdmin(req) {
-  const t = process.env.ADMIN_TOKEN || "";
-  const h = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  const a = Buffer.from(t), b = Buffer.from(h);
-  return t.length >= 12 && a.length === b.length && timingSafeEqual(a, b);
-}
 
 /* 관리자 페이지에서 추가한 제품(blob "extra")과 설정(blob "settings"), 이벤트 집계(blob "events") */
 export const extraStore = () => getStore({ name: "extra", consistency: "strong" });
@@ -93,21 +86,6 @@ export async function addEvent(name, n = 1) {
   await st.setJSON(k, o);
 }
 
-/* 브랜드 전용 링크 토큰: 브랜드키.서명 (저장 없이 서버 비밀키로 검증) */
-export function brandToken(key) {
-  const k = process.env.SESSION_SECRET;
-  if (!k || k.length < 16) throw new Error("SESSION_SECRET 환경변수가 필요합니다");
-  return key + "." + createHmac("sha256", k).update("brand:" + key).digest("base64url").slice(0, 32);
-}
-export function brandFromReq(req) {
-  const t = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  const key = t.split(".")[0];
-  if (!key || !BRANDS[key]) return null;
-  try {
-    const a = Buffer.from(brandToken(key)), b = Buffer.from(t);
-    return a.length === b.length && timingSafeEqual(a, b) ? key : null;
-  } catch { return null; }
-}
 /* 송장 저장 + 주문 상태 갱신 (관리자, 브랜드 화면 공통) */
 export function setShipment(o, brand, carrier, tracking) {
   o.shipments = o.shipments || {};

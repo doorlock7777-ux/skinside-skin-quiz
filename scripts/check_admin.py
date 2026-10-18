@@ -4,45 +4,102 @@ R = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 T = tempfile.gettempdir(); err = []
 def build(s, o): subprocess.run([sys.executable, os.path.join(R, "scripts", s), o], check=True, stdout=subprocess.DEVNULL)
 a, q = os.path.join(T, "chk_admin.html"), os.path.join(T, "chk_quiz.html"); build("build_admin_demo.py", a); build("build_quiz_demo.py", q)
-adm = open(os.path.join(R, "public/admin/index.html"), encoding="utf-8").read(); qz = open(os.path.join(R, "public/quiz/index.html"), encoding="utf-8").read()
+AD, PD = "public/admin-answkdrnschkfdudth/index.html", "public/partner-k3x9m2/index.html"
+adm = open(os.path.join(R, AD), encoding="utf-8").read(); par = open(os.path.join(R, PD), encoding="utf-8").read(); qz = open(os.path.join(R, "public/quiz/index.html"), encoding="utf-8").read()
+au = open(os.path.join(R, "netlify/functions/_auth.mjs"), encoding="utf-8").read()
 ca = re.search(r'COUNTER_API = "([^"]+)"', adm).group(1); cq = re.search(r'COUNTER_API = "([^"]+)"', qz).group(1)
 if ca != cq: err.append("관리자와 진단 페이지의 통계 주소가 달라요")
-if 'name="robots" content="noindex' not in adm: err.append("관리자 페이지에 noindex가 없어요")
+dirs = dict(re.findall(r'export const (ADMIN_DIR|PARTNER_DIR) = "([^"]+)"', au))
+if dirs.get("ADMIN_DIR") != "admin-answkdrnschkfdudth" or "answkdrnschkfdudth" not in dirs.get("ADMIN_DIR", ""): err.append("관리자 주소에 지정한 문자열이 없어요")
+if "partner" not in dirs.get("PARTNER_DIR", ""): err.append("파트너 주소에 partner가 없어요")
+for k, v in dirs.items():
+    if not os.path.isdir(os.path.join(R, "public", v)): err.append("%s 폴더가 없어요: %s" % (k, v))
+for old in ("public/admin", "public/brand"):
+    if os.path.exists(os.path.join(R, old)): err.append("예전 주소 폴더가 남아 있어요: " + old)
+for f, t in ((adm, "관리자"), (par, "파트너")):
+    if 'name="robots" content="noindex,nofollow' not in f: err.append(t + " 페이지에 noindex가 없어요")
+    if "Bearer" in f or "sessionStorage" in f: err.append(t + " 페이지가 예전 토큰 방식을 써요")
+toml = open(os.path.join(R, "netlify.toml"), encoding="utf-8").read()
+for v in dirs.values():
+    if '"/%s/*"' % v not in toml: err.append("netlify.toml에 검색 차단 헤더가 없어요: " + v)
+if os.path.exists(os.path.join(R, "public/robots.txt")) and any(v in open(os.path.join(R, "public/robots.txt"), encoding="utf-8").read() for v in dirs.values()): err.append("robots.txt에 비공개 주소가 적혀 있어요(주소가 노출돼요)")
+for root, _, fs in os.walk(os.path.join(R, "public")):
+    for f in fs:
+        if f.endswith((".html", ".js", ".json", ".txt", ".xml")) and not any(d in root for d in dirs.values()):
+            t = open(os.path.join(root, f), encoding="utf-8", errors="ignore").read()
+            if any(v in t for v in dirs.values()): err.append("공개 파일에 비공개 주소가 적혀 있어요: " + os.path.join(root, f))
 from playwright.sync_api import sync_playwright
 from PIL import Image
 Image.new("RGB", (300, 400), (200, 120, 90)).save(os.path.join(T, "chk_prod.png"))
+READ_ONLY = "document.querySelectorAll('#mn input, #mn select, #mn textarea, #mn button, #m input, #m select, #m textarea, #m button').length"
 with sync_playwright() as p:
     b = p.chromium.launch()
     for w in (390, 1000):
         pg = b.new_page(viewport={"width": w, "height": 900}); errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.goto("file://" + a); pg.wait_for_timeout(900)
-        if errs: err.append("관리자 페이지 오류: %s" % errs)
-        if pg.locator(".bars li").count() != 10: err.append("TOP 10이 10개가 아니에요 (%dpx)" % w)
-        if pg.locator(".tp").count() < 5 or pg.locator(".seg").count() != 4: err.append("피부타입 통계가 안 보여요")
-        if "8,144" not in pg.inner_text("#dv"): err.append("카카오 채널 현황이 안 보여요")
-        if pg.evaluate("document.documentElement.scrollWidth") > w: err.append("관리자 페이지가 가로로 넘쳐요 (%dpx)" % w)
-        for t in pg.locator(".tp span").all_inner_texts():
-            pass
-        if pg.evaluate("[...document.querySelectorAll('.tp span')].some(e=>e.scrollWidth>e.clientWidth+1)"): err.append("피부타입 통계 글자가 잘려요 (%dpx)" % w)
-        pg.click("nav button[data-t=add]"); pg.wait_for_timeout(200)
+        fa = pg.locator("#fa").element_handle().content_frame(); F = pg.frame_locator("#fa")
+        # --- 로그인 ---
+        if F.locator("#li").count() != 1 or F.locator("#lp").count() != 1 or F.locator("#l2").count() != 1: err.append("관리자 로그인에 아이디/비밀번호/2차 비밀번호 칸이 없어요")
+        F.locator("#lgo").click(); pg.wait_for_timeout(300)
+        if "맞지 않아요" not in F.locator("#lm").inner_text(): err.append("빈 값으로 관리자 로그인이 통과하거나 안내가 없어요")
+        F.locator("#li").fill("a"); F.locator("#lp").fill("b"); F.locator("#l2").fill("c"); F.locator("#l2").press("Enter"); pg.wait_for_timeout(700)
+        # --- 홈: 읽기 전용 대시보드 ---
+        if F.locator(".todo").count() != 1 or F.locator(".kpi div").count() < 4 or F.locator(".flow i").count() < 3 or F.locator(".bt").count() < 3: err.append("관리자 홈 요약이 부족해요 (%dpx)" % w)
+        if fa.evaluate(READ_ONLY) != 0: err.append("관리자 홈에 입력/버튼이 있어요(읽기 전용이어야 해요)")
+        if fa.evaluate("document.querySelectorAll('[data-go]').length") < 4: err.append("관리자 홈에서 각 탭으로 가는 링크가 없어요")
+        if fa.evaluate("document.documentElement.scrollWidth") > w: err.append("관리자 홈이 가로로 넘쳐요 (%dpx)" % w)
+        for tab, sel in (("orders", ".o2"), ("brands", "table.tbl"), ("settle", "table.tbl")):
+            F.locator("nav button[data-t=%s]" % tab).click(); pg.wait_for_timeout(500)
+            if F.locator(sel).count() < 1: err.append("관리자 %s 탭이 비어 있어요 (%dpx)" % (tab, w))
+            if fa.evaluate("document.documentElement.scrollWidth") > w: err.append("관리자 %s 탭이 가로로 넘쳐요 (%dpx)" % (tab, w))
+        # 브랜드: 코드 발급 -> 코드가 한 번 보인다
+        F.locator("nav button[data-t=brands]").click(); pg.wait_for_timeout(400)
+        F.locator("[data-i=grafen]").click(); pg.wait_for_timeout(400)
+        if "K7QM-X2PD-R9WT-H4NB" not in F.locator("#nc").inner_text(): err.append("파트너 접속 코드 발급이 보이지 않아요")
+        # 홈의 항목을 눌러 해당 탭으로
+        F.locator("nav button[data-t=home]").click(); pg.wait_for_timeout(500); F.locator(".todo a").first.click(); pg.wait_for_timeout(500)
+        if not F.locator("nav button.on").first.get_attribute("data-t") in ("orders", "brands"): err.append("홈 항목을 눌러도 해당 탭으로 가지 않아요")
+        # 통계
+        F.locator("nav button[data-t=stats]").click(); pg.wait_for_timeout(900)
+        if F.locator(".bars li").count() != 10: err.append("TOP 10이 10개가 아니에요 (%dpx)" % w)
+        if F.locator(".tp").count() < 5 or F.locator(".seg").count() != 4: err.append("피부타입 통계가 안 보여요")
+        if "8,144" not in F.locator("#dv").inner_text(): err.append("카카오 채널 현황이 안 보여요")
+        if fa.evaluate("[...document.querySelectorAll('.tp span')].some(e=>e.scrollWidth>e.clientWidth+1)"): err.append("피부타입 통계 글자가 잘려요 (%dpx)" % w)
+        # 제품 추가
+        F.locator("nav button[data-t=add]").click(); pg.wait_for_timeout(300)
         for lab in ["제품 이미지", "제품명", "브랜드명", "정가", "할인가", "카테고리", "바로가기 링크"]:
-            if lab not in pg.inner_text("#mn"): err.append("제품 추가 입력칸이 없어요: " + lab)
-        pg.set_input_files("#fi", os.path.join(T, "chk_prod.png")); pg.wait_for_timeout(500)
-        pg.fill("#fn", "검사 제품"); pg.fill("#fb", "CHK"); pg.fill("#fl", "30000"); pg.fill("#fp", "21000"); pg.select_option("#fc", "sk"); pg.fill("#fu", "https://example.com/x")
-        pg.click("#fs"); pg.wait_for_timeout(500)
-        if "검사 제품" not in pg.inner_text("#pl"): err.append("제품 추가가 동작하지 않아요")
-        pg.fill("#fp", "50000"); pg.set_input_files("#fi", os.path.join(T, "chk_prod.png")); pg.wait_for_timeout(400); pg.fill("#fn", "x"); pg.fill("#fb", "x"); pg.fill("#fu", "https://e.com"); pg.fill("#fl", "30000"); pg.click("#fs"); pg.wait_for_timeout(400)
-        if "정가" not in pg.inner_text("#fm"): err.append("할인가가 정가보다 커도 등록돼요")
-    pg = b.new_page(viewport={"width": 900, "height": 900}); pg.goto("file://" + a); pg.wait_for_timeout(700)
-    pg.click("#ordl"); pg.wait_for_timeout(1000)
-    if pg.frame_locator("#ordf").locator(".o").count() != 3: err.append("미리보기에서 주문 관리가 열리지 않아요")
-    pg.frame_locator("#ordf").locator("a:has-text('관리자 홈')").click(); pg.wait_for_timeout(300)
-    if not pg.locator("#ordf").is_hidden(): err.append("주문 관리에서 관리자 홈으로 돌아가지 않아요")
-    for l in pg.locator("header a").all(): 
-        if (l.get_attribute("href") or "").startswith("/"): err.append("관리자 헤더에 미리보기에서 열리지 않는 링크가 있어요: " + (l.get_attribute("href") or ""))
-    # 로그인 없이 열면 막혀야 한다 (미리보기가 아닌 실제 페이지)
-    pg = b.new_page(); pg.goto("file://" + os.path.join(R, "public/admin/index.html")); pg.wait_for_timeout(500)
-    if pg.locator("#tk").count() != 1: err.append("토큰 없이 관리자 화면이 열려요")
+            if lab not in F.locator("#mn").inner_text(): err.append("제품 추가 입력칸이 없어요: " + lab)
+        F.locator("#fi").set_input_files(os.path.join(T, "chk_prod.png")); pg.wait_for_timeout(600)
+        F.locator("#fn").fill("검사 제품"); F.locator("#fb").fill("CHK"); F.locator("#fl").fill("30000"); F.locator("#fp").fill("21000"); F.locator("#fc").select_option("sk"); F.locator("#fu").fill("https://example.com/x")
+        F.locator("#fs").click(); pg.wait_for_timeout(500)
+        if "검사 제품" not in F.locator("#pl").inner_text(): err.append("제품 추가가 동작하지 않아요")
+        F.locator("#fp").fill("50000"); F.locator("#fi").set_input_files(os.path.join(T, "chk_prod.png")); pg.wait_for_timeout(500); F.locator("#fn").fill("x"); F.locator("#fb").fill("x"); F.locator("#fu").fill("https://e.com"); F.locator("#fl").fill("30000"); F.locator("#fs").click(); pg.wait_for_timeout(400)
+        if "정가" not in F.locator("#fm").inner_text(): err.append("할인가가 정가보다 커도 등록돼요")
+        # 로그아웃 -> 로그인 화면
+        F.locator("#lo").click(); pg.wait_for_timeout(400)
+        if F.locator("#li").count() != 1: err.append("로그아웃해도 관리자 화면이 남아요")
+        # --- 파트너 페이지 ---
+        pg.click("#sw button[data-v=fp]"); pg.wait_for_timeout(500)
+        pf = pg.locator("#fp").element_handle().content_frame(); P = pg.frame_locator("#fp")
+        if P.locator("#cd").count() != 1: err.append("파트너 로그인에 코드 입력칸이 없어요")
+        P.locator("#cd").fill("1234"); P.locator("#go").click(); pg.wait_for_timeout(400)
+        if "맞지 않아요" not in P.locator("#lm").inner_text(): err.append("짧은 코드가 통과하거나 안내가 없어요")
+        P.locator("#cd").fill("K7QM-X2PD-R9WT-H4NB"); P.locator("#go").click(); pg.wait_for_timeout(700)
+        if P.locator(".big").count() != 1 or P.locator(".kpi div").count() < 4 or P.locator(".wk div").count() != 7: err.append("파트너 홈 요약이 부족해요 (%dpx)" % w)
+        if pf.evaluate(READ_ONLY) > 2: err.append("파트너 홈에 입력/버튼이 있어요(읽기 전용이어야 해요)")
+        if pf.evaluate("document.documentElement.scrollWidth") > w: err.append("파트너 홈이 가로로 넘쳐요 (%dpx)" % w)
+        P.locator("[data-go=orders]").first.click(); pg.wait_for_timeout(500)
+        n0 = P.locator(".o").count(); todo0 = P.locator("[data-s]").count()
+        P.locator("[data-n]").first.fill("555566667777"); P.locator("[data-s]").first.click(); pg.wait_for_timeout(500)
+        if P.locator("#m .tabs button").first.inner_text().split()[-1] != str(int(todo0) - 1): err.append("파트너가 송장을 입력해도 발송 대기가 줄지 않아요")
+        P.locator("#tb button[data-t=home]").click(); pg.wait_for_timeout(500)
+        if errs: err.append("페이지 오류: %s" % errs)
+        pg.close()
+    # 로그인 없이 실제 페이지를 열면 로그인 화면만 보인다 (서버 응답이 없으면 로그인으로)
+    pg = b.new_page(); pg.goto("file://" + os.path.join(R, AD)); pg.wait_for_timeout(700)
+    if pg.locator("#li").count() != 1 or pg.locator("nav").count(): err.append("로그인 없이 관리자 화면이 열려요")
+    pg = b.new_page(); pg.goto("file://" + os.path.join(R, PD)); pg.wait_for_timeout(700)
+    if pg.locator("#cd").count() != 1 or pg.locator(".big").count(): err.append("로그인 없이 파트너 화면이 열려요")
     # 진단: 분석 중 4초 -> 카카오 화면
     pg = b.new_page(viewport={"width": 400, "height": 800})
     st = {"screen": "result", "i": 0, "a": [random.randint(0, 3) for _ in range(29)], "c": [random.randint(0, 3) for _ in range(5)], "start": 0, "simple": False, "notify": False, "recorded": False}

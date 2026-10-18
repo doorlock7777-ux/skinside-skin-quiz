@@ -1,6 +1,5 @@
-"""관리자 페이지 미리보기(단일 HTML). 실제 public/admin/index.html에 가짜 서버(예시 데이터)만 덧붙인다.  사용: python3 scripts/build_admin_demo.py <출력경로>"""
-import json, os, sys
-import re
+"""관리자·파트너 페이지 미리보기(단일 HTML). 실제 페이지에 가짜 서버(예시 데이터)만 덧붙여 iframe 두 개로 보여준다.  사용: python3 scripts/build_admin_demo.py <출력경로>"""
+import json, os, sys, re
 def frag(h):
     """아티팩트는 <html>/<head>/<body>를 직접 쓰지 않으므로 안쪽 내용만 꺼낸다."""
     hd = re.search(r"<head[^>]*>(.*?)</head>", h, re.S).group(1)
@@ -9,20 +8,22 @@ def frag(h):
     return hd + "\n" + bd
 R = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 rd = lambda p: open(os.path.join(R, p), encoding="utf-8").read()
+ADMIN, PARTNER = "public/admin-answkdrnschkfdudth/index.html", "public/partner-k3x9m2/index.html"
 d = json.loads(rd("public/data/products.json"))
-h = rd("public/admin/index.html")
-mock = "<script>window.__CATS=%s;\n%s</script>\n" % (json.dumps(d["categories"], ensure_ascii=False), rd("scripts/admin_mock.js"))
-h = h.replace('<div id="dm" class="demo" hidden></div>', '<div id="dm" class="demo">미리보기 화면이에요. 숫자는 예시 값이고, 제품 추가는 이 화면 안에서만 저장돼요.</div>')
-h = h.replace("<script>\nvar COUNTER_API", mock + "<script>\nvar COUNTER_API", 1)
-# 주문 관리 화면: 같은 화면 안에서 열리는 iframe (가짜 주문 데이터)
-od = rd("public/admin/orders.html").replace("<script>\nvar T =", "<script>window.__ORDERS_MOCK=1;</script><script>" + rd("scripts/admin_mock.js") + "</script><script>\nvar T =", 1)
-assert "__ORDERS_MOCK" in od
-h = h.replace('<a href="/admin/orders.html">주문 관리</a><a href="/store">스토어 보기</a>', '<a href="#orders" id="ordl">주문 관리</a><a href="#brand" id="brl">브랜드 화면 보기</a>')
-bd = rd("public/brand/index.html").replace("<script>\nvar T =", "<script>" + rd("scripts/brand_mock.js") + "</script><script>\nvar T =", 1)
-assert "brand_mock" in bd or "/api/brand/orders" in bd
-ov = '<iframe id="ordf" title="주문 관리" style="display:none;position:fixed;inset:0;width:100%;height:100%;border:0;background:#f2f4f6;z-index:50"></iframe>'
-bjs = '<iframe id="brdf" title="브랜드 화면" style="display:none;position:fixed;inset:0;width:100%;height:100%;border:0;background:#f2f4f6;z-index:50"></iframe><button id="brx" style="display:none;position:fixed;right:12px;bottom:12px;z-index:60;font:inherit;font-weight:700;background:#191f28;color:#fff;border:0;border-radius:999px;padding:11px 18px;cursor:pointer">관리자 화면으로 돌아가기</button><script>var brdf=document.getElementById("brdf"),brx=document.getElementById("brx");document.getElementById("brl").onclick=function(e){e.preventDefault();if(!brdf.srcdoc)brdf.srcdoc=' + json.dumps(bd, ensure_ascii=False).replace("</", "<\\/") + ';brdf.style.display="block";brx.style.display="block"};brx.onclick=function(){brdf.style.display="none";brx.style.display="none"};</script>'
-js = '<script>var ordf=document.getElementById("ordf");document.getElementById("ordl").onclick=function(e){e.preventDefault();if(!ordf.srcdoc)ordf.srcdoc=' + json.dumps(od, ensure_ascii=False).replace("</", "<\\/") + ';ordf.style.display="block"};addEventListener("message",function(e){if(e.data&&e.data.skadm)ordf.style.display="none"});</script>'
-h = h.replace("</body>", ov + js + bjs + "</body>", 1)
-assert "__CATS" in h
-open(sys.argv[1], "w", encoding="utf-8").write(frag(h)); print(len(h))
+mockA = "<script>window.__CATS=%s;\n%s</script>\n" % (json.dumps(d["categories"], ensure_ascii=False), rd("scripts/admin_mock.js"))
+a = rd(ADMIN)
+a = a.replace('<div id="dm" class="demo" hidden></div>', '<div id="dm" class="demo">미리보기예요. 아이디와 비밀번호 칸에 아무 값이나 입력하면 들어가져요. 숫자는 예시 값이에요.</div>')
+a = a.replace("<script>\nvar AV", mockA + "<script>\nvar AV", 1)
+assert "__CATS" in a
+p = rd(PARTNER)
+p = p.replace("<body>", '<body>\n<div style="background:#fff8e6;color:#8a5a00;font-size:12.5px;text-align:center;padding:8px 16px">미리보기예요. 접속 코드 칸에 16자리 아무 코드(예: K7QM-X2PD-R9WT-H4NB)를 입력하면 들어가져요.</div>', 1)
+p = p.replace("<script>\nvar M =", "<script>" + rd("scripts/brand_mock.js") + "</script><script>\nvar M =", 1)
+assert "/api/partner/login" in p
+bar = '''<div id="sw" style="position:sticky;top:0;z-index:5;display:flex;gap:8px;padding:10px 16px;background:#191f28"><button data-v="fa" class="on">관리자 페이지</button><button data-v="fp">파트너 브랜드 페이지</button></div>
+<style>#sw button{font:inherit;font-weight:700;border:0;border-radius:999px;padding:8px 16px;background:#333b47;color:#cbd2d9;cursor:pointer}#sw button.on{background:#fff;color:#191f28}.pf{display:none;width:100%;height:calc(100vh - 56px);border:0;background:#f2f4f6}.pf.on{display:block}</style>
+<iframe id="fa" class="pf on" title="관리자 페이지"></iframe><iframe id="fp" class="pf" title="파트너 브랜드 페이지"></iframe>
+<script>document.getElementById("fa").srcdoc=@@A@@;document.getElementById("fp").srcdoc=@@P@@;
+[].forEach.call(document.querySelectorAll("#sw button"),function(b){b.onclick=function(){[].forEach.call(document.querySelectorAll("#sw button,.pf"),function(x){x.classList.remove("on")});b.classList.add("on");document.getElementById(b.dataset.v).classList.add("on")}})</script>'''
+bar = bar.replace("@@A@@", json.dumps(a, ensure_ascii=False).replace("</", "<\\/")).replace("@@P@@", json.dumps(p, ensure_ascii=False).replace("</", "<\\/"))
+out = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>관리자·파트너 미리보기</title><style>html,body{margin:0}</style></head><body>' + bar + '</body></html>'
+open(sys.argv[1], "w", encoding="utf-8").write(frag(out)); print(len(out))

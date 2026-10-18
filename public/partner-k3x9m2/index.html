@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="referrer" content="no-referrer"><title>파트너 브랜드</title>
+<style>
+:root{--pri:#4E57A2;--pri-soft:#eceef8;--ink:#191f28;--mute:#6b7684;--line:#e5e8eb;--bg:#f2f4f6;--card:#fff;--red:#f04452;--ok:#12b886}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+header{background:var(--pri);color:#fff;padding:16px max(16px,env(safe-area-inset-left,0px))}
+header b{font-size:17px;display:block}header span{opacity:.85;font-size:13px}
+main{max-width:760px;margin:0 auto;padding:14px 16px 60px}
+.help{background:#fff8e6;color:#8a5a00;border-radius:14px;padding:12px 14px;margin-bottom:12px;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{font:inherit;font-weight:700;border:0;background:var(--card);color:#4e5968;padding:9px 16px;border-radius:999px;cursor:pointer}
+.tabs button.on{background:var(--ink);color:#fff}
+.o{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px}
+.o.x{opacity:.65}
+.h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:700}
+.st{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--pri-soft);color:var(--pri)}
+.st.c{background:#fde8ea;color:var(--red)}.st.d{background:#e3f8f0;color:var(--ok)}
+.it{margin:10px 0;padding:10px 12px;background:#f9fafb;border-radius:10px}
+.s{color:var(--mute);font-size:13px}
+.f{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+select,input{font:inherit;padding:10px 11px;border:1px solid #d1d6db;border-radius:10px;background:#fff;color:var(--ink)}
+input{flex:1;min-width:150px}
+button.sv{font:inherit;font-weight:700;border:0;background:var(--pri);color:#fff;padding:10px 18px;border-radius:10px;cursor:pointer}
+.msg{margin-top:6px;font-size:13px;font-weight:700}.msg.e{color:var(--red)}.msg.o{color:var(--ok)}
+.empty{text-align:center;color:var(--mute);padding:40px 0}
+#lg{max-width:340px;margin:80px auto;padding:0 20px;text-align:center}
+
+header{display:flex;align-items:center;gap:12px}header>div{flex:1}
+header button{font:inherit;font-weight:700;border:0;background:rgba(255,255,255,.18);color:#fff;padding:7px 12px;border-radius:9px;cursor:pointer}
+.big{background:var(--pri);color:#fff;border-radius:18px;padding:20px;margin-bottom:12px}.big.late{background:#c92a2a}.big.zero{background:#12b886}
+.big small{opacity:.85;font-size:13px}.big b{display:block;font-size:34px;line-height:1.2}.big a{color:#fff;font-weight:700;text-decoration:underline;cursor:pointer}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.kpi div{background:var(--card);border-radius:16px;padding:14px}.kpi small{display:block;color:var(--mute);font-size:12.5px}.kpi b{font-size:24px;font-variant-numeric:tabular-nums}
+.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px}.card h2{margin:0 0 4px;font-size:16px}.sub{color:var(--mute);font-size:13px;margin:0 0 10px}
+.go{float:right;font-size:13px;font-weight:700;color:var(--pri);text-decoration:none;cursor:pointer}
+.wk{display:flex;align-items:flex-end;gap:8px;height:110px;margin-top:8px}.wk div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:11.5px;color:var(--mute)}.wk i{display:block;width:100%;background:var(--pri);border-radius:6px 6px 0 0;min-height:3px}.wk b{font-size:12px;color:var(--ink);margin-bottom:2px}
+.rw{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.rw:first-of-type{border-top:0}.rw b{font-variant-numeric:tabular-nums}
+.lgp{max-width:360px;margin:70px auto;padding:20px;background:var(--card);border-radius:18px}.lgp h2{margin:0 0 4px;text-align:center}
+.lgp input{width:100%;text-align:center;font-size:18px;letter-spacing:.08em;margin-top:12px}.lgp button{width:100%;margin-top:12px;padding:13px}
+</style></head>
+<body>
+<header id="hd"></header>
+<div id="tb"></div>
+<main id="m"></main>
+<script>
+var M = document.getElementById("m"), HD = document.getElementById("hd"), TAB = "home", DATA = null, BN = "";
+var CAR = {cj:"CJ대한통운", lotte:"롯데택배", hanjin:"한진택배", post:"우체국", logen:"로젠택배"};
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function n(v){ return Number(v || 0).toLocaleString("ko-KR"); }
+function api(p, o){ o = o || {}; o.credentials = "same-origin"; return fetch(p, o).then(function(r){ return r.json().then(function(j){ if(r.status === 401){ login(true); throw new Error("auth"); } if(!r.ok) throw new Error(j.error || "오류"); return j; }); }); }
+function kst(iso){ var d = new Date(new Date(iso).getTime() + 9 * 36e5); return d.toISOString().slice(0, 16).replace("T", " "); }
+
+/* ---------- 로그인: 브랜드별 접속 코드 ---------- */
+function boot(){ api("/api/partner/me").then(function(j){ BN = j.brand; shell(); }).catch(function(e){ if(e.message !== "auth") login(false); }); }
+function login(bad){
+  HD.innerHTML = ""; document.getElementById("tb").innerHTML = "";
+  M.innerHTML = '<div class="lgp"><h2>파트너 브랜드</h2><p class="s" style="text-align:center;margin:0">스킨인사이드가 알려드린 접속 코드를 입력해주세요.</p><input id="cd" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="sv" id="go">들어가기</button><div class="msg e" id="lm">' + (bad ? "다시 로그인해주세요." : "") + '</div></div>';
+  var go = function(){ var b = document.getElementById("go"), m = document.getElementById("lm"); b.disabled = true; m.textContent = "";
+    fetch("/api/partner/login", {method:"POST", credentials:"same-origin", headers:{"content-type":"application/json"}, body:JSON.stringify({code:document.getElementById("cd").value})})
+      .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "오류"); return j; }); }).then(function(j){ BN = j.brand; shell(); }).catch(function(e){ b.disabled = false; m.textContent = e.message; }); };
+  document.getElementById("go").onclick = go; document.getElementById("cd").onkeydown = function(e){ if(e.key === "Enter") go(); };
+}
+function shell(){
+  HD.innerHTML = '<div><b>' + esc(BN) + '</b><span>파트너 브랜드 페이지</span></div><button id="lo">로그아웃</button>';
+  document.getElementById("lo").onclick = function(){ fetch("/api/partner/logout", {method:"POST", credentials:"same-origin"}).then(function(){ login(false); }); };
+  document.getElementById("tb").innerHTML = '<div class="tabs" style="max-width:760px;margin:12px auto 0;padding:0 16px">' + [["home", "홈"], ["orders", "발송"]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
+  [].forEach.call(document.querySelectorAll("#tb button"), function(b){ b.onclick = function(){ go(b.dataset.t); }; });
+  (TAB === "home" ? home : orders)();
+}
+function go(t){ TAB = t; try{ history.replaceState(null, "", "#" + t); }catch(e){} shell(); window.scrollTo(0, 0); }
+function links(){ [].forEach.call(M.querySelectorAll("[data-go]"), function(a){ a.onclick = function(e){ e.preventDefault(); go(a.dataset.go); }; }); }
+
+/* ---------- 홈: 읽기 전용 요약 ---------- */
+function home(){
+  M.innerHTML = '<div class="empty">불러오는 중...</div>';
+  api("/api/partner/home").then(function(d){
+    var c = d.counts, mx = Math.max.apply(null, d.week.map(function(x){ return x.n; }).concat([1]));
+    var h = c.todo ? '<div class="big' + (d.late ? " late" : "") + '"><small>오늘 발송할 주문</small><b>' + c.todo + '건</b><small>' + (d.late ? "발송이 늦어진 주문 " + d.late + "건이 있어요. 가장 오래된 주문은 " + d.oldestHours + "시간째 기다려요. " : "") + '<a data-go="orders">발송하러 가기 →</a></small></div>'
+      : '<div class="big zero"><small>오늘 발송할 주문</small><b>없어요</b><small>들어온 주문을 모두 발송했어요.</small></div>';
+    h += '<div class="kpi"><div><small>발송 대기</small><b>' + c.todo + '</b></div><div><small>오늘 발송 완료</small><b>' + c.doneToday + '</b></div><div><small>누적 발송 완료</small><b>' + c.done + '</b></div><div><small>취소</small><b>' + c.canceled + '</b></div></div>';
+    h += '<div class="card"><h2>최근 7일 주문</h2><div class="wk">' + d.week.map(function(x){ return '<div><b>' + x.n + '</b><i style="height:' + Math.round(x.n / mx * 70) + 'px"></i>' + x.d.replace("-", "/") + '</div>'; }).join("") + '</div></div>';
+    h += '<div class="card"><h2>이번 달 베스트 제품</h2>' + (d.top.length ? d.top.map(function(x, i){ return '<div class="rw"><span>' + (i + 1) + '. ' + esc(x.name) + '</span><b>' + x.q + '개</b></div>'; }).join("") : '<div class="s" style="padding:8px 0">아직 판매가 없어요.</div>') + '</div>';
+    h += '<div class="card"><h2>' + d.month.m.slice(5) + '월 정산 예정</h2><p class="sub">이번 달 누적 기준이에요. 확정 금액은 정산일에 안내돼요.</p><div class="rw"><span>판매 금액</span><b>' + n(d.month.sales) + '원</b></div><div class="rw"><span>수수료 (' + d.month.feeRate + '%)</span><b>-' + n(d.month.fee) + '원</b></div><div class="rw"><span><b>지급 예정</b></span><b>' + n(d.month.payout) + '원</b></div></div>';
+    M.innerHTML = h; links();
+  }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+
+/* ---------- 발송: 송장 입력 ---------- */
+var OT = "todo";
+function orders(){
+  M.innerHTML = '<div class="empty">불러오는 중...</div>';
+  api("/api/partner/orders").then(function(j){ DATA = j; draw(); }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+function draw(){
+  var os = DATA.orders, todo = os.filter(function(o){ return !o.canceled && !(o.shipment && o.shipment.tracking); }), done = os.filter(function(o){ return o.shipment && o.shipment.tracking; }), cx = os.filter(function(o){ return o.canceled; });
+  var list = OT === "todo" ? todo : OT === "done" ? done : cx;
+  var h = '<div class="help"><b>송장번호란?</b> 택배사에 물건을 접수하면 받는 운송장 번호예요. 번호를 입력하면 고객이 배송 조회를 할 수 있어요. 발송 후 택배사와 번호를 입력해주세요.</div>'
+    + '<div class="tabs">' + [["todo", "발송 대기 " + todo.length], ["done", "발송 완료 " + done.length], ["cx", "취소 " + cx.length]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (OT === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
+  h += list.length ? list.map(function(o){
+    var a = o.ship || {}, sh = o.shipment || {};
+    return '<div class="o' + (o.canceled ? " x" : "") + '"><div class="h"><span>' + esc(o.id) + ' · ' + esc(kst(o.at)) + '</span><span class="st ' + (o.canceled ? "c" : sh.tracking ? "d" : "") + '">' + (o.canceled ? "취소됨 · 발송 중지" : sh.tracking ? "발송 완료" : "발송 대기") + '</span></div>'
+      + '<div class="it">' + o.items.map(function(l){ return '<b>' + esc(l.name) + '</b>' + (l.optName ? ' (' + esc(l.optName) + ')' : '') + ' × ' + l.q; }).join("<br>") + '</div>'
+      + '<div class="s">받는 분 ' + esc(a.name) + ' / ' + esc(a.phone) + '<br>(' + esc(a.zip) + ') ' + esc(a.addr1) + ' ' + esc(a.addr2) + (a.memo ? '<br>배송 메모: ' + esc(a.memo) : '') + '</div>'
+      + (o.canceled ? '' : '<div class="f"><select data-c="' + esc(o.id) + '">' + Object.keys(CAR).map(function(c){ return '<option value="' + c + '"' + (sh.carrier === c ? " selected" : "") + '>' + CAR[c] + '</option>'; }).join("") + '</select><input data-n="' + esc(o.id) + '" placeholder="송장번호" inputmode="numeric" value="' + esc(sh.tracking || "") + '"><button class="sv" data-s="' + esc(o.id) + '">' + (sh.tracking ? "수정" : "저장") + '</button></div><div class="msg" data-m="' + esc(o.id) + '"></div>') + '</div>';
+  }).join("") : '<div class="empty">' + (OT === "todo" ? "발송할 주문이 없어요." : OT === "done" ? "발송 완료한 주문이 없어요." : "취소된 주문이 없어요.") + '</div>';
+  M.innerHTML = h;
+  [].forEach.call(M.querySelectorAll(".tabs button"), function(b){ b.onclick = function(){ OT = b.dataset.t; draw(); }; });
+  [].forEach.call(M.querySelectorAll("[data-s]"), function(b){ b.onclick = function(){
+    var id = b.dataset.s, msg = M.querySelector('[data-m="' + id + '"]');
+    api("/api/partner/ship", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({orderId:id, carrier:M.querySelector('[data-c="' + id + '"]').value, tracking:M.querySelector('[data-n="' + id + '"]').value})})
+      .then(orders).catch(function(e){ if(e.message !== "auth"){ msg.className = "msg e"; msg.textContent = e.message; } });
+  }; });
+}
+if(location.hash === "#orders") TAB = "orders";
+boot();
+</script></body></html>

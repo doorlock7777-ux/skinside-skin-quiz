@@ -74,7 +74,7 @@ window.TossPayments = function(){
   }}; }};
 };
 
-/* 관리자 화면 (실제로는 /admin/ + 관리자 토큰) */
+/* 관리자 화면 (실제로는 비공개 주소 + 3단 로그인) */
 var CARR = {cj:"CJ대한통운", lotte:"롯데택배", hanjin:"한진택배", post:"우체국", logen:"로젠택배"};
 var STL = {paid:"결제 완료", partial:"일부 발송", shipped:"발송 완료", canceled:"취소됨"};
 window.DEMO_ADMIN = function(el, toast){

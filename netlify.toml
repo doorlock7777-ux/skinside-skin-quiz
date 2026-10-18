@@ -6,16 +6,20 @@
   node_bundler = "esbuild"
 
 [[headers]]
-  for = "/admin/*"
+  for = "/admin-answkdrnschkfdudth/*"
   [headers.values]
-    X-Robots-Tag = "noindex"
+    X-Robots-Tag = "noindex, nofollow, noarchive"
     Cache-Control = "no-store"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "DENY"
 
 [[headers]]
-  for = "/brand/*"
+  for = "/partner-k3x9m2/*"
   [headers.values]
-    X-Robots-Tag = "noindex"
+    X-Robots-Tag = "noindex, nofollow, noarchive"
     Cache-Control = "no-store"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "DENY"
 
 [[headers]]
   for = "/pay/*"
