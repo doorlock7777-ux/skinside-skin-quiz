@@ -15,6 +15,14 @@ function catOrder(){ var ks = Object.keys(D.categories), tot = {}; ks.forEach(fu
 function ls(k, v){ try{ if(v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); }catch(e){ if(v === undefined) return MEM[k] === undefined ? null : MEM[k]; MEM[k] = v; return null; } }
 function getH(){ return DEMO ? HM : location.hash; }
 function setH(v){ if(DEMO){ HS.push(HM); HM = v; route(); } else location.hash = v; }
+/* 카테고리 칩 이동: 칩끼리 옮겨 다녀도 기록을 쌓지 않아서, 뒤로가기 한 번이면 칩을 누르기 전 화면(전체)으로 간다 */
+var CHIPBASE = false;
+function chipGo(v){
+  var onCat = /^#\/c\//.test(getH() || "");
+  if(!onCat){ CHIPBASE = true; return setH(v); }
+  if(v === "#/" && CHIPBASE){ CHIPBASE = false; if(DEMO){ HM = HS.pop() || "#/"; return route(); } return history.back(); }
+  if(DEMO){ HM = v; route(); } else location.replace(v);
+}
 if(DEMO) window.__goto = setH;
 var QZ = DEMO ? "#quiz" : "/", QT = ""; /* 미리보기에서는 같은 화면 안에서 진단으로 전환 */
 function toast(t){ var e = document.createElement("div"); e.className = "toast"; e.textContent = t; document.body.appendChild(e); setTimeout(function(){ e.remove(); }, 1800); }
@@ -273,7 +281,7 @@ function route(){
   if(h === "#/me") return me();
   home();
 }
-document.addEventListener("click", function(e){ var a = e.target.closest && e.target.closest("[data-pid]"); if(a) track(a.getAttribute("data-pid"), "c"); });
+document.addEventListener("click", function(e){ var c = e.target.closest && e.target.closest("a.chip"); if(c && !c.classList.contains("on") && (c.getAttribute("href") || "").indexOf("#/") === 0){ e.preventDefault(); chipGo(c.getAttribute("href")); return; } var a = e.target.closest && e.target.closest("[data-pid]"); if(a) track(a.getAttribute("data-pid"), "c"); });
 $bk.onclick = function(){ if(DEMO){ HM = HS.pop() || "#/"; route(); } else history.length > 1 ? history.back() : (location.hash = "#/"); };
 window.addEventListener("hashchange", route);
 window.__skRoute = route;
@@ -281,7 +289,7 @@ if(DEMO) document.addEventListener("click", function(e){
   var dl = e.target.closest && e.target.closest("[data-demo-login]");
   if(dl){ fetch("/api/demo-login", {method:"POST"}).then(function(r){ return r.json(); }).then(function(j){ user = j.user; route(); }); return; }
   var a = e.target.closest && e.target.closest("a"), hr = a && a.getAttribute("href");
-  if(hr && hr.indexOf("#/") === 0){ e.preventDefault(); setH(hr); }
+  if(hr && hr.indexOf("#/") === 0 && !(a.classList.contains("chip"))){ e.preventDefault(); setH(hr); }
 });
 
 fetch("data/products.json").then(function(r){ return r.json(); }).then(function(j){
