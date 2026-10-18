@@ -74,9 +74,10 @@ function soon(){
 }
 
 /* 홈 */
+function quizDone(){ try{ return JSON.parse(localStorage.getItem("skinside_quiz_v2") || "{}").screen === "result"; }catch(e){ return false; } }
 function home(){
   var best = D.products.filter(function(p){ return !p.soldOut; }).sort(function(x, y){ return buys(y) - buys(x) || sc(y) - sc(x); })[0];
-  var h = '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
+  var h = quizDone() ? '' : '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
   h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
     var em = [buys(best) > 0 ? '이번 주 ' + buys(best).toLocaleString("ko-KR") + '개 구매' : '', disc(best) ? '최대 ' + disc(best) + '% 할인' : ''].filter(Boolean).join(' · ');
