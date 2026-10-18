@@ -1,13 +1,12 @@
-import { json, orders, BRANDS, tossAuth, setShipment } from "./_lib.mjs";
+import { json, orders, BRANDS, tossAuth, setShipment, notifyShipped, adjustStock, normCarrier } from "./_lib.mjs";
 import { isAdmin, adminLogin, adminLogout, partnerIdx, issueCode, revokeCode, PARTNER_DIR } from "./_auth.mjs";
-import { adminHome, monthSettle } from "./_home.mjs";
+import { monthSettle } from "./_home.mjs";
+import { notifyCancel } from "./_batch.mjs";
+import { adminSummary, allOrders } from "./_ctx.mjs";
+import { allTickets, getTicket, addMessage, close, receiveAndRefund } from "./_cs.mjs";
+import { confirmSettlement, markPaid, getSettlement, listSettlements } from "./_settle.mjs";
 
-async function all() {
-  const st = orders();
-  const { blobs } = await st.list();
-  const os = (await Promise.all(blobs.map((b) => st.get(b.key, { type: "json" })))).filter(Boolean);
-  return os.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-}
+const all = allOrders;
 const csv = (rows) => "﻿" + rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
 
 export default async (req) => {
@@ -18,7 +17,7 @@ export default async (req) => {
   const st = orders();
   if (p === "/api/admin/me") return json({ ok: true });
 
-  if (p === "/api/admin/home") return json(adminHome((await all()).filter((o) => o.status !== "pending"), await partnerIdx()));
+  if (p === "/api/admin/home") return json(await adminSummary());
   if (p === "/api/admin/orders") {
     return json({ orders: (await all()).filter((o) => o.status !== "pending"), brands: BRANDS });
   }
@@ -40,7 +39,8 @@ export default async (req) => {
   if (p === "/api/admin/ship" && req.method === "POST") {
     const o = await st.get(String(b.orderId || ""), { type: "json" });
     if (!o || !o.items.some((l) => l.brand === b.brand)) return json({ error: "주문 없음" }, 404);
-    setShipment(o, b.brand, b.carrier, b.tracking);
+    setShipment(o, b.brand, normCarrier(b.carrier) || b.carrier, b.tracking);
+    await notifyShipped(o, b.brand);
     await st.setJSON(o.id, o);
     return json({ ok: true, status: o.status });
   }
@@ -55,16 +55,45 @@ export default async (req) => {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) return json({ error: j.message || "취소 실패" }, 400);
     o.status = "canceled"; o.canceledAt = new Date().toISOString();
+    try { await adjustStock(o.items.map((l) => [l.id, l.q])); } catch {}
+    try { await notifyCancel(o); } catch {}
     await st.setJSON(o.id, o);
     return json({ ok: true });
   }
 
+  /* ---- CS ---- */
+  if (p === "/api/admin/cs") {
+    const [tickets, os] = await Promise.all([allTickets(), all()]), byId = Object.fromEntries(os.map((o) => [o.id, o]));
+    return json({ tickets: tickets.slice(0, 300).map((t) => { const o = byId[t.orderId] || {}; const { userId, ...pub } = t; return { ...pub, brandName: (BRANDS[t.brand] || {}).name || t.brand, customer: { name: (o.ship || {}).name || t.userName, phone: (o.ship || {}).phone || "" } }; }) });
+  }
+  if (p.startsWith("/api/admin/cs/") && req.method === "POST") {
+    const t = await getTicket(b.id); if (!t) return json({ error: "요청을 찾을 수 없어요" }, 404);
+    const act = p.slice("/api/admin/cs/".length);
+    let r;
+    if (act === "reply") r = await addMessage(t, "admin", b.text);
+    else if (act === "close") r = await close(t, "admin");
+    else if (act === "refund") r = await receiveAndRefund(t);
+    else return json({ error: "not found" }, 404);
+    return r.error ? json({ error: r.error }, 400) : json({ ok: true, ticket: r.ticket });
+  }
+
+  /* ---- 정산 ---- */
+  if (p === "/api/admin/settlement/confirm" && req.method === "POST") {
+    if (!/^\d{4}-\d{2}$/.test(String(b.month || ""))) return json({ error: "월을 확인해주세요" }, 400);
+    const { s, created } = await confirmSettlement((await all()).filter((o) => o.status !== "pending"), b.month);
+    return json({ ok: true, created, settlement: s });
+  }
+  if (p === "/api/admin/settlement/paid" && req.method === "POST") {
+    const s = await markPaid(String(b.month || ""), String(b.brand || ""));
+    return s ? json({ ok: true, settlement: s }) : json({ error: "확정된 정산이 아니에요" }, 400);
+  }
   if (p === "/api/admin/settlement") {
     const m = u.searchParams.get("month") || new Date().toISOString().slice(0, 7);
-    const rows = monthSettle(await all(), m);
-    if (u.searchParams.get("format") === "json") return json({ month: m, rows });
-    const out = [["월", "브랜드", "판매수량", "판매금액", "수수료율(%)", "수수료(우리 수익)", "브랜드 정산금"]];
-    rows.forEach((r) => out.push([m, r.name, r.n, r.sales, r.feeRate, r.fee, r.payout]));
+    const conf = await getSettlement(m);
+    const rows = conf ? conf.rows : monthSettle(await all(), m);
+    if (u.searchParams.get("format") === "json") return json({ month: m, rows, confirmed: conf ? { at: conf.confirmedAt, paid: conf.paid || {} } : null });
+    const out = [["월", "브랜드", "판매수량", "판매금액", "환불금액", "수수료율(%)", "수수료(우리 수익)", "브랜드 정산금", "송금 완료"]];
+    rows.forEach((r) => out.push([m, r.name, r.n, r.sales, r.refund || 0, r.feeRate, r.fee, r.payout, conf && (conf.paid || {})[r.brand] ? "완료" : ""]));
     return new Response(csv(out), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="settlement-${m}.csv"` } });
   }
   return json({ error: "not found" }, 404);

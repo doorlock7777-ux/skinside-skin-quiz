@@ -1,6 +1,6 @@
 import { runBrandBatch } from "./_batch.mjs";
 import { isAdmin } from "./_auth.mjs";
-import { BRANDS, json, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
+import { BRANDS, json, loadStock, isSoldOut, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
 
 const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done"];
 
@@ -13,6 +13,10 @@ export default async (req) => {
     if (!EVENTS.includes(b.e)) return json({ error: "bad event" }, 400);
     await addEvent(b.e);
     return json({ ok: true });
+  }
+  if (p === "/api/stock") {
+    const st = await loadStock();
+    return json({ soldOut: Object.keys(st).filter((id) => isSoldOut({ id }, st)) }, 200, { "cache-control": "public, max-age=20" });
   }
   if (p === "/api/extra") return json({ products: await loadExtra() }, 200, { "cache-control": "public, max-age=30" });
   if (p === "/api/extra-img") {
@@ -85,4 +89,4 @@ export default async (req) => {
   return json({ error: "not found" }, 404);
 };
 
-export const config = { path: ["/api/event", "/api/extra", "/api/extra-img", "/api/kakao", "/api/manage/*"] };
+export const config = { path: ["/api/event", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/manage/*"] };

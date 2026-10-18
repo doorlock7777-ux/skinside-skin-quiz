@@ -42,15 +42,35 @@ export const events = () => getStore({ name: "events", consistency: "strong" });
 export async function loadExtra() {
   try { return (await extraStore().get("list", { type: "json" })) || []; } catch { return []; }
 }
+/* 재고/품절: 파트너가 관리. {제품id: {soldOut: 품절 표시, qty: 남은 수량(없으면 null)}} */
+export const stockStore = () => getStore({ name: "stock", consistency: "strong" });
+export async function loadStock() {
+  try { return (await stockStore().get("all", { type: "json" })) || {}; } catch { return {}; }
+}
+export const isSoldOut = (p, st) => !!(p.soldOut || (st[p.id] && (st[p.id].soldOut || (st[p.id].qty !== null && st[p.id].qty !== undefined && st[p.id].qty <= 0))));
 export async function loadProducts(req) {
   const r = await fetch(new URL("/data/products.json", req.url));
   const d = await r.json();
-  const extra = await loadExtra();
+  const extra = await loadExtra(), st = await loadStock();
   d.products = d.products.concat(extra);
   const map = {};
-  d.products.forEach((p) => (map[p.id] = p));
+  d.products.forEach((p) => {
+    p.soldOut = isSoldOut(p, st);
+    p.stockQty = st[p.id] && st[p.id].qty !== undefined ? st[p.id].qty : null;
+    map[p.id] = p;
+  });
   return { data: d, map };
 }
+/* 재고 수량 증감 (수량을 관리 중인 제품만). 0이 되면 자동으로 품절 */
+export async function adjustStock(list) {
+  const st = await loadStock();
+  list.forEach(([id, n]) => { const s = st[id]; if (s && s.qty !== null && s.qty !== undefined) s.qty = Math.max(0, s.qty + n); });
+  await stockStore().setJSON("all", st);
+}
+
+export const CARRIERS = { cj: "CJ대한통운", lotte: "롯데택배", hanjin: "한진택배", post: "우체국", logen: "로젠택배" };
+const CAR_ALIAS = { cj: "cj", cj대한통운: "cj", 대한통운: "cj", cj택배: "cj", 롯데: "lotte", 롯데택배: "lotte", 롯데글로벌로지스: "lotte", lotte: "lotte", 한진: "hanjin", 한진택배: "hanjin", hanjin: "hanjin", 우체국: "post", 우체국택배: "post", post: "post", 로젠: "logen", 로젠택배: "logen", logen: "logen" };
+export const normCarrier = (v) => CAR_ALIAS[String(v || "").replace(/\s/g, "").toLowerCase()] || "";
 
 export function shipFee(shipping, sub) {
   return sub >= (shipping.freeOver || 0) || !sub ? 0 : shipping.fee || 0;
@@ -87,6 +107,7 @@ export async function addEvent(name, n = 1) {
 }
 
 /* 송장 저장 + 주문 상태 갱신 (관리자, 브랜드 화면 공통) */
+export const TRACK_RE = /^[0-9A-Za-z\-]{6,30}$/;
 export function setShipment(o, brand, carrier, tracking) {
   o.shipments = o.shipments || {};
   o.shipments[brand] = { carrier: String(carrier || ""), tracking: String(tracking || "").replace(/[^0-9A-Za-z\-]/g, ""), at: new Date().toISOString() };
@@ -94,4 +115,17 @@ export function setShipment(o, brand, carrier, tracking) {
   const n = brands.filter((x) => o.shipments[x] && o.shipments[x].tracking).length;
   o.status = n === brands.length ? "shipped" : n ? "partial" : "paid";
   return o;
+}
+
+/* 발송 안내 메일(고객): 브랜드가 송장을 입력하면 한 번만 보낸다 */
+export async function notifyShipped(o, brand) {
+  o.shipNotified = o.shipNotified || {};
+  const sh = (o.shipments || {})[brand];
+  if (!sh || !sh.tracking || !o.userEmail) return false;
+  const key = sh.carrier + ":" + sh.tracking;
+  if (o.shipNotified[brand] === key) return false;
+  const ls = o.items.filter((l) => l.brand === brand);
+  const ok = await mail(o.userEmail, "[스킨인사이드] 주문하신 상품이 발송됐어요", `<div style="font-family:sans-serif;max-width:560px;color:#191f28"><p>${esc(o.userName || "고객")}님, 주문하신 상품이 발송됐어요.</p><p>주문번호 <b>${esc(o.id)}</b><br>${ls.map((l) => esc(l.name) + (l.optName ? " (" + esc(l.optName) + ")" : "") + " x " + l.q).join("<br>")}</p><p>택배사 <b>${esc(CARRIERS[sh.carrier] || sh.carrier)}</b><br>송장번호 <b>${esc(sh.tracking)}</b></p><p style="color:#6b7684;font-size:13px">택배사 사이트에서 송장번호로 배송 상황을 확인할 수 있어요.</p></div>`);
+  if (ok) o.shipNotified[brand] = key;
+  return ok;
 }

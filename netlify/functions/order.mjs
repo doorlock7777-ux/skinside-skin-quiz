@@ -21,6 +21,7 @@ export default async (req) => {
     const p = map[x.id];
     const q = Math.floor(Number(x.q));
     if (!p || p.soldOut || !(q >= 1 && q <= 20)) return json({ error: "주문할 수 없는 제품이 있어요" }, 400);
+    if (p.stockQty !== null && p.stockQty !== undefined && q > p.stockQty) return json({ error: `${p.name}의 재고가 ${p.stockQty}개만 남았어요` }, 400);
     const oi = p.options ? Math.floor(Number(x.opt) || 0) : 0;
     if (p.options && !p.options[oi]) return json({ error: "옵션을 확인해주세요" }, 400);
     items.push({ id: p.id, brand: p.brand, name: p.name, optName: p.options ? p.options[oi].n : p.option || "", opt: oi, q, unit: p.options ? p.options[oi].price : p.price });
