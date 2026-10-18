@@ -3,6 +3,7 @@
   var now = Date.now(), O = [
     {id:"SK2610180003", at:new Date(now - 3 * 3600e3).toISOString(), canceled:false, ship:{name:"김민수", phone:"010-1234-5678", zip:"06236", addr1:"서울 강남구 테헤란로 123", addr2:"456호", memo:"문 앞에 놓아주세요"}, items:[{name:"퍼펙트 콜라드그린 진정 올인원", optName:"1개", q:1}], shipment:null},
     {id:"SK2610170011", at:new Date(now - 26 * 3600e3).toISOString(), canceled:false, ship:{name:"이준호", phone:"010-9876-5432", zip:"13529", addr1:"경기 성남시 분당구 판교로 1", addr2:"", memo:""}, items:[{name:"퍼펙트 콜라드그린 장벽 크림", optName:"2개", q:1}], shipment:null},
+    {id:"SK2610180099", at:new Date(now - 1 * 3600e3).toISOString(), canceled:false, ship:{name:"정하늘", phone:"010-7777-8888", zip:"04799", addr1:"서울 성동구 왕십리로 1", addr2:"", memo:""}, items:[{name:"퍼펙트 콜라드그린 진정 올인원", optName:"1개", q:1}], shipment:null},
     {id:"SK2610170002", at:new Date(now - 30 * 3600e3).toISOString(), canceled:false, ship:{name:"박서준", phone:"010-5555-0000", zip:"04524", addr1:"서울 중구 세종대로 110", addr2:"", memo:""}, items:[{name:"퍼펙트 콜라드그린 올인원·장벽크림 세트", optName:"", q:1}], shipment:{carrier:"cj", tracking:"123456789012"}},
     {id:"SK2610160005", at:new Date(now - 50 * 3600e3).toISOString(), canceled:true, ship:{name:"최유진", phone:"010-2222-3333", zip:"03001", addr1:"서울 종로구 사직로 1", addr2:"", memo:""}, items:[{name:"퍼펙트 콜라드그린 진정 올인원", optName:"1개", q:1}], shipment:null}];
   function res(o, s){ return Promise.resolve(new Response(JSON.stringify(o), {status:s || 200, headers:{"content-type":"application/json"}})); }
@@ -20,7 +21,7 @@
     if(u.indexOf("/api/partner/cs/") >= 0){ TK.forEach(function(t){ if(t.id === b.id){ if(u.indexOf("reply") >= 0) t.messages.push({from:"partner", text:b.text, at:new Date().toISOString()}); if(u.indexOf("decide") >= 0) t.status = b.action === "approve" ? "approved" : "rejected"; if(u.indexOf("received") >= 0) t.status = "refunded"; } }); return res({ok:true}); }
     if(u.indexOf("/api/partner/cs") >= 0) return res({tickets:TK});
     if(u.indexOf("/api/partner/settlements") >= 0) return res({settlements:[{month:"2026-09", n:58, sales:640000, refund:0, feeRate:15, fee:96000, payout:544000, paidAt:new Date(now - 10 * 864e5).toISOString()}]});
-    if(u.indexOf("/api/partner/ship-bulk") >= 0){ var d = 0, rs = (b.rows || []).map(function(r){ var o = O.filter(function(x){ return x.id === r.orderId; })[0]; if(!o) return {ok:false, error:"내 브랜드 주문이 아니에요"}; o.shipment = {carrier:r.carrier, tracking:r.tracking}; d++; return {ok:true}; }); return res({ok:true, done:d, results:rs}); }
+    if(u.indexOf("/api/partner/ship-bulk") >= 0){ var d = 0, rs = (b.rows || []).map(function(r){ var o = O.filter(function(x){ return x.id === r.orderId; })[0]; if(!o) return {ok:false, error:"내 브랜드 주문이 아니에요"}; var tk = String(r.tracking || "").replace(/\s/g, ""); if(!/^[0-9A-Za-z\-]{6,30}$/.test(tk)) return {ok:false, error:"송장번호는 숫자·영문 6자 이상이에요 (입력값: " + (tk || "비어 있음") + ")"}; if(!r.carrier) return {ok:false, error:"택배사를 알 수 없어요 (비어 있음)"}; o.shipment = {carrier:r.carrier, tracking:r.tracking}; d++; return {ok:true}; }); return res({ok:true, done:d, results:rs}); }
     return null;
   }
   window.fetch = function(u, o){

@@ -178,7 +178,7 @@ function home(){
 }
 
 /* ---------- 발송: 송장 입력 ---------- */
-var OT = "todo";
+var OT = "todo", BRES = "";
 function orders(){
   M.innerHTML = '<div class="empty">불러오는 중...</div>';
   api("/api/partner/orders").then(function(j){ DATA = j; draw(); }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
@@ -199,6 +199,7 @@ function draw(){
   M.innerHTML = h;
   [].forEach.call(M.querySelectorAll(".tabs button"), function(b){ b.onclick = function(){ OT = b.dataset.t; draw(); }; });
   bulkInit(); csvInit();
+  if(BRES){ document.getElementById("bres").innerHTML = BRES; BRES = ""; }
   [].forEach.call(M.querySelectorAll("[data-s]"), function(b){ b.onclick = function(){
     var id = b.dataset.s, msg = M.querySelector('[data-m="' + id + '"]');
     api("/api/partner/ship", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({orderId:id, carrier:M.querySelector('[data-c="' + id + '"]').value, tracking:M.querySelector('[data-n="' + id + '"]').value})})
@@ -279,8 +280,8 @@ function bulkInit(){
     document.getElementById("bok").onclick = function(){ this.disabled = true;
       api("/api/partner/ship-bulk", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({rows:rows})}).then(function(j){
         var bad = j.results.map(function(r, i){ return r.ok ? null : (rows[i].orderId || "(번호 없음)") + ": " + r.error; }).filter(Boolean);
-        res.innerHTML = '<div class="msg ' + (bad.length ? "e" : "o") + '">' + j.done + '건 입력했어요.' + (bad.length ? " " + bad.length + "건은 확인이 필요해요." : "") + '</div>' + bad.map(function(x){ return '<div class="s">' + esc(x) + '</div>'; }).join("") + '<div class="f"><button class="bt2" id="brl">목록 새로고침</button></div>';
-        document.getElementById("brl").onclick = orders;
+        BRES = '<div class="msg ' + (bad.length ? "e" : "o") + '">' + j.done + '건 입력했어요.' + (bad.length ? " " + bad.length + "건은 확인이 필요해요." : "") + '</div>' + bad.map(function(x){ return '<div class="s">' + esc(x) + '</div>'; }).join("");
+        orders();
       }).catch(function(e){ if(e.message !== "auth") res.innerHTML = '<div class="msg e">' + esc(e.message) + '</div>'; });
     };
   }

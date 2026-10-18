@@ -42,7 +42,7 @@ export default async (req) => {
   if (p === "/api/partner/ship" && req.method === "POST") {
     const o = await st.get(String(b.orderId || ""), { type: "json" });
     if (!o || !o.items.some((l) => l.brand === brand) || o.status === "canceled" || !["paid", "partial", "shipped"].includes(o.status)) return json({ error: "처리할 수 없는 주문이에요" }, 400);
-    if (!TRACK_RE.test(String(b.tracking || "").trim())) return json({ error: "송장번호를 확인해주세요" }, 400);
+    if (!TRACK_RE.test(String(b.tracking || "").trim())) return json({ error: "송장번호는 숫자·영문 6자 이상이에요" }, 400);
     setShipment(o, brand, normCarrier(b.carrier) || b.carrier, String(b.tracking).trim());
     await notifyShipped(o, brand);
     await st.setJSON(o.id, o);
@@ -56,7 +56,7 @@ export default async (req) => {
       const res = { orderId: id, ok: false, error: "" };
       if (!id) res.error = "주문번호가 없어요";
       else if (!car) res.error = "택배사를 알 수 없어요 (" + (r.carrier || "비어 있음") + ")";
-      else if (!TRACK_RE.test(tracking)) res.error = "송장번호를 확인해주세요";
+      else if (!TRACK_RE.test(tracking)) res.error = "송장번호는 숫자·영문 6자 이상이에요 (입력값: " + (tracking || "비어 있음") + ")";
       else {
         const o = await st.get(id, { type: "json" });
         if (!o || !o.items.some((l) => l.brand === brand)) res.error = "내 브랜드 주문이 아니에요";

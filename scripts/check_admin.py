@@ -132,7 +132,13 @@ with sync_playwright() as p:
         if "2건을 읽었어요" not in rt or "SK2610180003" not in rt or "CJ대한통운" not in rt or "�" in rt: err.append("엑셀(.xlsx) 파일을 읽지 못해요: " + rt[:80])
         else:
             P.locator("#bok").click(); pg.wait_for_timeout(500)
-            if "건 입력했어요" not in P.locator("#bres").inner_text(): err.append("엑셀(.xlsx) 일괄 입력이 안 돼요")
+            rt2 = P.locator("#bres").inner_text()
+            if "0건 입력했어요" not in rt2 or "6자 이상" not in rt2: err.append("송장번호 '22'는 거절되고 이유가 보여야 해요: " + rt2[:80])
+            # 올바른 송장번호로 고친 파일을 올리면 발송 대기에서 빠지고 결과가 남아 있어야 한다
+            before = int(P.locator("#m .tabs button").first.inner_text().split()[-1])
+            P.locator("#bp").fill("주문번호\t택배사\t송장번호\nSK2610180099\tCJ대한통운\t900011112222"); P.locator("#bgo").click(); pg.wait_for_timeout(300); P.locator("#bok").click(); pg.wait_for_timeout(700)
+            after = int(P.locator("#m .tabs button").first.inner_text().split()[-1])
+            if "1건 입력했어요" not in P.locator("#bres").inner_text() or after != before - 1: err.append("일괄 입력 뒤 목록이 갱신되지 않아요 (%d -> %d)" % (before, after))
         for tab, sel in (("stock", ".o"), ("cs", ".o"), ("settle", ".card")):
             P.locator("#tb button[data-t=%s]" % tab).click(); pg.wait_for_timeout(400)
             if P.locator(sel).count() < 1: err.append("파트너 %s 탭이 비어 있어요 (%dpx)" % (tab, w))
