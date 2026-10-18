@@ -68,12 +68,12 @@ export async function mail(to, subject, html) {
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const tossAuth = () => "Basic " + Buffer.from((process.env.TOSS_SECRET_KEY || "") + ":").toString("base64");
 
-/* 실시간 인기 집계: 날짜별 {제품id:{v:조회, c:담기/구매클릭, b:구매수량}} */
+/* 실시간 인기 집계: 날짜별 {제품id:{v:조회, c:담기/구매클릭, b:구매수량, d:화면에 표시하는 구매 수}} */
 export const stats = () => getStore({ name: "stats", consistency: "strong" });
 export const kday = (off = 0) => new Date(Date.now() + 9 * 36e5 - off * 864e5).toISOString().slice(0, 10);
 export async function addStat(list) {
   const st = stats(), k = kday();
   const o = (await st.get(k, { type: "json" })) || {};
-  list.forEach(([id, e, n]) => { const s = (o[id] = o[id] || { v: 0, c: 0, b: 0 }); s[e] += n; });
+  list.forEach(([id, e, n]) => { const s = (o[id] = o[id] || { v: 0, c: 0, b: 0, d: 0 }); s[e] = (s[e] || 0) + n; });
   await st.setJSON(k, o);
 }
