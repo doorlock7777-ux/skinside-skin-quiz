@@ -239,13 +239,15 @@ function boot(){
 function login(bad){
   A.innerHTML = '<div class="lgp card"><h2>관리자 로그인</h2><p class="sub" style="text-align:center">' + (bad ? '다시 로그인해주세요.' : '아이디와 비밀번호 두 개를 모두 입력해주세요.') + '</p>'
     + '<label>아이디</label><input id="li" autocomplete="username" autocapitalize="none" spellcheck="false">'
-    + '<label>비밀번호</label><input id="lp" type="password" autocomplete="current-password">'
-    + '<label>2차 비밀번호</label><input id="l2" type="password" autocomplete="off" inputmode="numeric">'
+    + '<label>비밀번호</label><input id="lp" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false">'
+    + '<label>2차 비밀번호</label><input id="l2" type="password" autocomplete="off" inputmode="numeric" autocapitalize="none" autocorrect="off" spellcheck="false">'
+    + '<label style="display:flex;gap:6px;align-items:center;font-weight:500;margin-top:10px"><input type="checkbox" id="lsh" style="width:auto;margin:0"> 입력한 비밀번호 보기</label>'
     + '<button class="pri" id="lgo">로그인</button><div class="msg e" id="lm"></div></div>';
   var go = function(){ var b = document.getElementById("lgo"), m = document.getElementById("lm"); b.disabled = true; m.textContent = "";
     fetch("/api/admin/login", {method:"POST", credentials:"same-origin", headers:{"content-type":"application/json"}, body:JSON.stringify({id:document.getElementById("li").value.trim(), pw:document.getElementById("lp").value, pw2:document.getElementById("l2").value})})
       .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "오류"); }); }).then(boot).catch(function(e){ b.disabled = false; m.textContent = e.message; document.getElementById("lp").value = ""; document.getElementById("l2").value = ""; }); };
   document.getElementById("lgo").onclick = go;
+  document.getElementById("lsh").onchange = function(){ var t = this.checked ? "text" : "password"; document.getElementById("lp").type = t; document.getElementById("l2").type = t; };
   [].forEach.call(A.querySelectorAll("input"), function(i){ i.onkeydown = function(e){ if(e.key === "Enter") go(); }; });
 }
 
