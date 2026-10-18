@@ -91,8 +91,8 @@ function myCard(r){
 function quizDone(){ try{ return JSON.parse(localStorage.getItem("skinside_quiz_v2") || "{}").screen === "result"; }catch(e){ return false; } }
 function home(){
   var best = D.products.filter(function(p){ return !p.soldOut; }).sort(function(x, y){ return buys(y) - buys(x) || sc(y) - sc(x); })[0];
-  var mr = quizDone() ? myResult() : null;
-  var h = mr ? myCard(mr) : quizDone() ? '' : '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
+  var mr = myResult(); /* 다시 진단하는 중이어도 가장 최근 결과를 보여준다 */
+  var h = mr ? myCard(mr) : quizDone() ? '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 진단 결과를<br>다시 확인해보세요</b><span class="go">결과 보기</span></a></div>' : '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
   h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
     var em = [buys(best) > 100 ? '지금 ' + buys(best).toLocaleString("ko-KR") + '명이 구매 중' : '', disc(best) ? '최대 ' + disc(best) + '% 할인' : ''].filter(Boolean).join(' · ');
@@ -276,6 +276,7 @@ function route(){
 document.addEventListener("click", function(e){ var a = e.target.closest && e.target.closest("[data-pid]"); if(a) track(a.getAttribute("data-pid"), "c"); });
 $bk.onclick = function(){ if(DEMO){ HM = HS.pop() || "#/"; route(); } else history.length > 1 ? history.back() : (location.hash = "#/"); };
 window.addEventListener("hashchange", route);
+window.__skRoute = route;
 if(DEMO) document.addEventListener("click", function(e){
   var dl = e.target.closest && e.target.closest("[data-demo-login]");
   if(dl){ fetch("/api/demo-login", {method:"POST"}).then(function(r){ return r.json(); }).then(function(j){ user = j.user; route(); }); return; }

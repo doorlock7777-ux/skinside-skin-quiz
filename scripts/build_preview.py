@@ -16,7 +16,7 @@ html = '''<title>스킨인사이드 미리보기</title>
 <script>
 var fs = document.getElementById("fs"), fq = document.getElementById("fq"), loaded = false;
 fs.srcdoc = @@STORE@@;
-function go(w){ if(w === "quiz" && !loaded){ fq.srcdoc = @@QUIZ@@; loaded = true; } fq.hidden = w !== "quiz"; fs.hidden = w === "quiz"; }
+function go(w){ if(w === "quiz" && !loaded){ fq.srcdoc = @@QUIZ@@; loaded = true; } fq.hidden = w !== "quiz"; fs.hidden = w === "quiz"; if(w !== "quiz"){ try{ fs.contentWindow.postMessage({skrefresh:1}, "*"); }catch(e){} } }
 addEventListener("message", function(e){ if(e.data && e.data.skgo) go(e.data.skgo); });
 </script>'''.replace("@@STORE@@", j(store)).replace("@@QUIZ@@", j(quiz))
 open(sys.argv[1], "w", encoding="utf-8").write(html); print(len(html))
