@@ -1,13 +1,14 @@
 (function(){
 var CFG = window.SK || {}, CHECKOUT = CFG.MODE === "checkout";
 var D = null, P = {}, user = null;
-var $app = document.getElementById("app"), $tabs = document.getElementById("tabs"), $bk = document.getElementById("bk");
+var $app = document.getElementById("app"), $nv = document.getElementById("nv"), $bk = document.getElementById("bk");
 
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function won(n){ return Number(n).toLocaleString("ko-KR") + "원"; }
 function ls(k, v){ try{ if(v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
 function toast(t){ var e = document.createElement("div"); e.className = "toast"; e.textContent = t; document.body.appendChild(e); setTimeout(function(){ e.remove(); }, 1800); }
 
+var KO = {MINIC:"미닉", LIVNA:"리브나", GRAFEN:"그라펜", MEDIHEAL:"메디힐", TORRIDEN:"토리든", NUMBUZIN:"넘버즈인", HWAPASA:"화파사", BRDY:"브르디", ETUDE:"에뛰드", Lindsay:"린제이", "Medi Flower":"메디플라워", JMW:"제이엠더블유"};
 /* 가격 */
 function pr(p, oi){ return p.options && p.options[oi || 0] ? p.options[oi || 0].price : p.price; }
 function disc(p){ return p.list && p.list > p.price ? Math.round((p.list - p.price) / p.list * 100) : 0; }
@@ -37,7 +38,6 @@ function card(p){
   var d = disc(p);
   return '<a class="pc" href="#/p/' + esc(p.id) + '"><div class="im">' + img(p) + (p.hot ? '<span class="tag">인기</span>' : '') + '</div>'
     + '<div class="br">' + esc(p.brandName) + '</div><div class="nm">' + esc(p.name) + '</div>'
-    + (p.option ? '<div class="opt">' + esc(p.option) + '</div>' : '')
     + '<div class="pr">' + (d ? '<span class="d">' + d + '%</span>' : '') + '<span class="p">' + won(pr(p)) + (p.options ? '~' : '') + '</span>' + (d ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div></a>';
 }
 function chips(cur){
@@ -46,12 +46,22 @@ function chips(cur){
   return h + '</div>';
 }
 function drawTabs(){
-  var h = location.hash || "#/", n = cartCount();
-  function t(href, label, on, extra){ return '<a href="' + href + '" class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
-  $tabs.innerHTML = t("#/", "홈", /^#\/?$|^#\/p\/|^#\/search/.test(h))
-    + t("#/cat", "카테고리", /^#\/c/.test(h))
-    + (CHECKOUT ? t("#/cart", "장바구니", /^#\/cart|^#\/checkout/.test(h), n ? '<span class="bd">' + n + '</span>' : '') : t("quiz/", "피부진단", false))
-    + t("#/me", "내 정보", /^#\/me|^#\/orders|^#\/done/.test(h));
+  var h = location.hash || "#/", n = cartCount(), open = CFG.STORE_OPEN;
+  function t(href, label, on, extra){ return '<a href="' + href + '" class="' + (on ? 'on' : '') + '">' + label + (extra || '') + '</a>'; }
+  $nv.innerHTML = t("#/store", "스토어", /^#\/(store|p\/|c\/|search|cat)/.test(h)) + t("quiz/", "피부 진단", false)
+    + (open && CHECKOUT ? t("#/cart", "장바구니", /^#\/(cart|checkout)/.test(h), n ? '<span class="bd">' + n + '</span>' : '') + t("#/me", "내 정보", /^#\/(me|orders|done)/.test(h)) : '');
+}
+function searchForm(q){ return '<form class="search" id="sf"><input id="q" value="' + esc(q || "") + '" placeholder="제품이나 브랜드 검색" enterkeyhint="search"></form>'; }
+function bindSearch(){ var f = document.getElementById("sf"); if(f) f.onsubmit = function(e){ e.preventDefault(); var q = document.getElementById("q").value.trim(); if(q) location.hash = "#/search/" + encodeURIComponent(q); }; }
+function soon(){
+  $app.innerHTML = '<div class="soon"><span class="pill">COMING SOON</span><h1>스토어 오픈 준비 중이에요</h1><p>문장군이 고른 제품을 더 좋은 가격으로<br>곧 만나보실 수 있게 준비하고 있어요.</p></div>'
+    + '<div class="cta"><div class="in"><a class="btn" href="quiz/">피부 진단 먼저 해보기</a></div></div>';
+}
+function landing(){
+  var items = [["나만의 피부타입 코드", "피지, 민감도, 색소, 탄력 네 가지를 한 번에 확인해요."], ["내 피부 성향 분석", "왜 그런 타입인지 쉽게 풀어서 알려드려요."], ["타입별 맞춤 루틴", "내 피부에 맞는 제품만 골라서 추천해요."], ["피부 진단 결과 카드", "이미지로 저장하고 공유할 수 있어요."]];
+  $app.innerHTML = '<div class="sec"><a class="hero" href="quiz/"><b>헷갈리는 내 피부타입<br>5분이면 알 수 있어요</b><span>세안 후 대기 테스트까지 더한 진단</span><br><span class="go">피부 진단 시작하기</span></a></div>'
+    + '<div class="band"></div><div class="sec"><h2>진단이 끝나면 받는 것</h2>' + items.map(function(x, i){ return '<div class="row"><div class="im" style="font-weight:800;color:var(--pri);font-size:20px">' + (i + 1) + '</div><div class="t"><div class="nm">' + x[0] + '</div><div class="s">' + x[1] + '</div></div></div>'; }).join("") + '</div>' + foot()
+    + '<div class="cta"><div class="in"><a class="btn" href="quiz/">피부 진단 시작하기</a></div></div>';
 }
 
 /* 홈 */
@@ -59,7 +69,7 @@ function home(){
   var best = D.products.filter(function(p){ return disc(p) > 0 && !p.soldOut; }).sort(function(a, b){ return saved(b) - saved(a); })[0];
   var hot = D.products.filter(function(p){ return p.hot; });
   var h = '<div class="sec" style="padding-bottom:8px"><a class="hero" href="quiz/"><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
-  h += '<div class="sec" style="padding-top:16px"><form class="search" id="sf"><input id="q" placeholder="제품이나 브랜드 검색" enterkeyhint="search"></form>' + chips("") + '</div>';
+  h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
     h += '<div class="band"></div><div class="sec"><h2>지금 가장 많이 아끼는 제품</h2><a class="best" href="#/p/' + esc(best.id) + '"><div class="im">' + img(best) + '</div><div><div class="em">최대 ' + disc(best) + '% 할인</div><div class="nm">' + esc(best.name) + '</div><div class="big">' + won(best.price) + '</div></div></a></div>';
   }
@@ -67,12 +77,13 @@ function home(){
   h += '<div class="band"></div><div class="sec"><h2>전체 제품</h2><div class="grid">' + D.products.map(card).join("") + '</div></div>';
   h += foot();
   $app.innerHTML = h;
-  document.getElementById("sf").onsubmit = function(e){ e.preventDefault(); var q = document.getElementById("q").value.trim(); if(q) location.hash = "#/search/" + encodeURIComponent(q); };
+  bindSearch();
 }
 function foot(){ return '<div class="foot">스킨인사이드 마켓<br>제품은 각 브랜드에서 직접 발송합니다. 교환과 반품은 브랜드 기준을 따릅니다.<br><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener" style="text-decoration:underline">카카오톡 채널 문의</a></div>'; }
-function list(title, ps, cur){
-  $app.innerHTML = '<div class="sec"><h1>' + esc(title) + '</h1><p class="sub" style="margin-bottom:16px">' + ps.length + '개 제품</p>' + chips(cur) + '<div style="height:16px"></div>'
+function list(title, ps, cur, q){
+  $app.innerHTML = '<div class="sec"><h1>' + esc(title) + '</h1><p class="sub" style="margin-bottom:16px">' + ps.length + '개 제품</p>' + searchForm(q) + chips(cur) + '<div style="height:16px"></div>'
     + (ps.length ? '<div class="grid">' + ps.map(card).join("") + '</div>' : '<div class="empty">찾는 제품이 없어요.</div>') + '</div>' + foot();
+  bindSearch();
 }
 
 /* 상세 */
@@ -82,7 +93,7 @@ function detail(id){
   function draw(){
     var price = pr(p, oi);
     var h = '<div class="pd"><div class="big">' + img(p) + '</div><div class="sec">'
-      + '<div class="sub">' + esc(p.brandName) + '</div><h1>' + esc(p.name) + (p.option ? ' <span class="sub">' + esc(p.option) + '</span>' : '') + '</h1>'
+      + '<div class="sub">' + esc(p.brandName) + '</div><h1>' + esc(p.name) + '</h1>'
       + '<div class="price">' + (d && !p.options ? '<span class="d">' + d + '%</span>' : '') + '<span class="p">' + won(price) + '</span>' + (d && !p.options ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div>';
     if(p.options) h += '<div class="seg">' + p.options.map(function(o, i){ return '<button data-o="' + i + '" class="' + (i === oi ? 'on' : '') + '">' + esc(o.n) + ' ' + won(o.price) + '</button>'; }).join("") + '</div>';
     if(p.note) h += '<div class="note"><b>문장군의 한마디</b><p>' + esc(p.note) + '</p></div>';
@@ -214,12 +225,14 @@ function me(){
 /* 라우터 */
 function route(){
   var h = location.hash || "#/", m;
-  $bk.hidden = !/^#\/(p|cart|checkout|orders|search|c\/)/.test(h);
+  $bk.hidden = !CFG.STORE_OPEN || !/^#\/(p|cart|checkout|orders|search|c\/)/.test(h);
   drawTabs(); window.scrollTo(0, 0);
+  if(!CFG.STORE_OPEN) return h === "#/" || h === "" ? landing() : soon();
+  if(h === "#/store") return list("스토어", D.products, "");
   if((m = h.match(/^#\/p\/(.+)/))) return detail(decodeURIComponent(m[1]));
   if((m = h.match(/^#\/c\/(.+)/))){ var k = decodeURIComponent(m[1]); return list(D.categories[k] || "제품", D.products.filter(function(p){ return p.cat === k; }), k); }
   if(h === "#/cat") return list("카테고리", D.products, "");
-  if((m = h.match(/^#\/search\/(.+)/))){ var q = decodeURIComponent(m[1]).toLowerCase(); return list("'" + q + "' 검색 결과", D.products.filter(function(p){ return (p.name + p.brandName + p.brand).toLowerCase().indexOf(q) >= 0; }), ""); }
+  if((m = h.match(/^#\/search\/(.+)/))){ var q0 = decodeURIComponent(m[1]), q = q0.toLowerCase(); return list("'" + q0 + "' 검색 결과", D.products.filter(function(p){ return (p.name + p.brandName + p.brand + (KO[p.brandName] || "")).toLowerCase().indexOf(q) >= 0; }), "", q0); }
   if(CHECKOUT && h === "#/cart") return cartPage();
   if(CHECKOUT && h === "#/checkout") return checkout(false);
   if(CHECKOUT && h === "#/checkout/direct") return checkout(true);
