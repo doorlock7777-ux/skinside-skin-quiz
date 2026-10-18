@@ -84,5 +84,13 @@ with sync_playwright() as p:
     if last is None: err.append("새로고침 후 스토어 카드가 사라졌어요")
     if last == "ORNT" and qn != "ORNT": err.append("새로고침하면 새 결과가 예시(ORNT)로 되돌아가요")
     if errs: err.append("미리보기 오류: %s" % errs)
+    # 통계: 결과 화면을 새로고침해도 '진단 완료'가 다시 집계되면 안 된다
+    ctx = b.new_context(viewport={"width": 400, "height": 900}); pe = ctx.new_page()
+    pe.add_init_script("""const f=window.fetch; window.fetch=function(u,o){ if(String(u).indexOf('/api/event')>=0){ try{ const a=JSON.parse(localStorage.getItem('__evl')||'[]'); a.push(JSON.parse(o.body).e); localStorage.setItem('__evl', JSON.stringify(a)); }catch(e){} return Promise.resolve(new Response('{}')); } return f.apply(this, arguments); };""")
+    pe.goto("file://" + os.path.join(R, "public/quiz/index.html") + "?t=3"); pe.wait_for_timeout(900)
+    pe.click("#go"); pe.wait_for_timeout(200); answer_all(pe, 0, pe); pe.click("#st"); pe.wait_for_timeout(4000); answer_all(pe, 0, pe); to_result(pe, pe, False)
+    pe.reload(); pe.wait_for_timeout(1200); pe.reload(); pe.wait_for_timeout(1200)
+    evs = json.loads(pe.evaluate("localStorage.getItem('__evl')") or "[]")
+    if evs.count("quiz_start") != 1 or evs.count("quiz_done") != 1: err.append("진단 한 번에 시작/완료가 1번씩만 집계돼야 해요 (새로고침 포함): %s" % evs)
     b.close()
 print("\n".join(err) if err else "OK: 진단 -> 결과 -> 다시 진단 -> 스토어 카드 연동 정상"); sys.exit(1 if err else 0)
