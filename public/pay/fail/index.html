@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>결제 실패</title>
+<style>body{margin:0;font-family:"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;background:#fff;color:#191f28;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px}b{font-size:20px}p{color:#6b7684}a{display:inline-block;margin-top:12px;background:#4E57A2;color:#fff;font-weight:700;padding:13px 24px;border-radius:14px;text-decoration:none}</style></head>
+<body><div><b>결제가 완료되지 않았어요</b><p id="r">다시 시도해주세요.</p><a href="/#/cart">장바구니로 돌아가기</a></div>
+<script>var m = new URLSearchParams(location.search).get("message"); if(m) document.getElementById("r").textContent = m;</script></body></html>

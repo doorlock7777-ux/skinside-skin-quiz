@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>결제 확인 중</title>
+<style>body{margin:0;font-family:"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;background:#fff;color:#191f28;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px}b{font-size:20px}p{color:#6b7684}a{color:#4E57A2;font-weight:700}</style></head>
+<body><div id="m"><b>결제를 확인하고 있어요</b><p>잠시만 기다려주세요. 창을 닫지 마세요.</p></div>
+<script>
+var q = new URLSearchParams(location.search);
+fetch("/api/confirm", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({paymentKey:q.get("paymentKey"), orderId:q.get("orderId"), amount:Number(q.get("amount"))})})
+  .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "결제 확인 실패"); return j; }); })
+  .then(function(j){ location.replace("/#/done/" + encodeURIComponent(j.orderId)); })
+  .catch(function(e){ document.getElementById("m").innerHTML = "<b>결제를 확인하지 못했어요</b><p></p><a href='/#/cart'>장바구니로 돌아가기</a>"; document.querySelector("#m p").textContent = e.message + " 결제가 되었다면 카카오톡 채널로 문의해주세요."; });
+</script></body></html>
