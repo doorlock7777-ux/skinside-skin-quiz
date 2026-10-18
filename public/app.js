@@ -56,9 +56,9 @@ function totals(ls_){
 /* 화면 조각 */
 function img(p){ return p.img ? '<img src="' + esc(p.img) + '" alt="' + esc(p.name) + '" loading="lazy">' : '<div class="ph">' + esc(p.brandName) + '</div>'; }
 function lnk(p){ return CHECKOUT ? 'href="#/p/' + esc(p.id) + '"' : 'href="' + esc(p.url || CFG.STORE_URL) + '" target="_blank" rel="noopener" data-pid="' + esc(p.id) + '"'; }
-function card(p){
+function card(p, i){
   var d = disc(p);
-  return '<a class="pc" ' + lnk(p) + '><div class="im">' + img(p) + (TOP[p.id] ? '<span class="tag">인기</span>' : '') + '</div>'
+  return '<a class="pc" ' + lnk(p) + '><div class="im">' + img(p) + '<span class="rk">' + (i + 1) + '</span>' + (TOP[p.id] ? '<span class="tag">인기</span>' : '') + '</div>'
     + '<div class="br">' + esc(p.brandName) + '</div><div class="nm">' + esc(p.name) + '</div>'
     + '<div class="pr">' + (d ? '<span class="d">' + (p.options ? '최대 ' : '') + d + '%</span>' : '') + '<span class="p">' + won(pr(p)) + (p.options ? '~' : '') + '</span>' + (d && !p.options ? '<span class="l">' + won(p.list) + '</span>' : '') + '</div></a>';
 }
