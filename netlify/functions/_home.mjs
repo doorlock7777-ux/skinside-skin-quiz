@@ -60,7 +60,9 @@ export function adminHome(os, ctx = {}, now = Date.now()) {
   const needConfirm = prevRows.length && !conf ? prevRows.length : 0;
   const unpaid = settles.reduce((a, x) => a + x.rows.filter((r) => r.payout > 0 && !(x.paid || {})[r.brand]).length, 0);
   const sum = (k) => settle.reduce((a, r) => a + r[k], 0);
+  const rv = ctx.reviews || { total: 0, new: 0, low: 0, delReq: 0 }, sk = ctx.stock || { selling: 0, soldOut: 0 };
   const todo = [
+    { k: "reviewDel", label: "리뷰 삭제 요청 승인·거부", n: rv.delReq, tab: "reviews" },
     { k: "late", label: "발송이 지연된 주문", n: late.length, tab: "orders" },
     { k: "escalated", label: "운영자 확인이 필요한 CS", n: cs.escalated, tab: "cs" },
     { k: "refundFail", label: "환불에 실패한 반품", n: cs.refundFail, tab: "cs" },
@@ -72,7 +74,7 @@ export function adminHome(os, ctx = {}, now = Date.now()) {
   return {
     today: { sales: sales(today), orders: cnt(today), yestSales: sales(yest), yestOrders: cnt(yest) },
     flow, late: late.slice(0, 20), cs, brands: Object.values(rows).sort((a, b) => b.today - a.today || b.open - a.open),
-    todo, month: { m, sales: sum("sales"), refund: sum("refund"), fee: sum("fee"), payout: sum("payout"), rows: settle.slice(0, 8) },
+    reviews: rv, stock: sk, todo, month: { m, sales: sum("sales"), refund: sum("refund"), fee: sum("fee"), payout: sum("payout"), rows: settle.slice(0, 8) },
   };
 }
 
@@ -99,7 +101,7 @@ export function partnerHome(os, brand, ctx = {}, now = Date.now()) {
   const alerts = stock.filter((x) => x.soldOut || (x.qty !== null && x.qty !== undefined && x.qty <= LOW_STOCK));
   const paid = settles.filter((x) => x.rows.some((r) => r.brand === brand)).slice(0, 3).map((x) => { const r = x.rows.find((y) => y.brand === brand); return { month: x.month, payout: r.payout, paidAt: (x.paid || {})[brand] || null }; });
   return {
-    counts: c, late, oldestHours: oldest === null ? 0 : Math.floor((now - oldest) / HOUR), cs, stock: { total: stock.length, alerts: alerts.slice(0, 6) },
+    counts: c, late, oldestHours: oldest === null ? 0 : Math.floor((now - oldest) / HOUR), cs, stock: { total: stock.length, selling: stock.filter((x) => !x.soldOut).length, soldOut: stock.filter((x) => x.soldOut).length, alerts: alerts.slice(0, 6) }, reviews: ctx.reviews || { total: 0, new: 0, low: 0, delReq: 0 },
     week: days.map((d) => ({ d: d.slice(5), n: per[d] })),
     top: Object.keys(top).sort((a, b) => top[b] - top[a]).slice(0, 5).map((n) => ({ name: n, q: top[n] })),
     month: { m, sales: st.sales, refund: st.refund, fee: st.fee, payout: st.payout, feeRate: st.feeRate, n: st.n }, history: paid,

@@ -222,6 +222,90 @@ const m2 = MAILS.length; [s, j] = await call(adminApi, "/api/admin/settlement/co
 // 아침 요약: 처리할 일이 있으면 대표님께 메일
 const mo = MAILS.length; await brandmail(); ok(MAILS.slice(mo).some((m) => m.to[0] === "me@x.test" && m.subject.includes("오늘 처리할 일")), "대표님 아침 요약 메일이 안 나가요");
 
+// 부가세 신고용 매출 자료
+const reviewsApi = (await import(pathToFileURL(path.join(T, "functions/reviews.mjs")))).default;
+await lib.orders().setJSON("O7", mk("O7", [BK(1)], "shipped", 3, { method: "간편결제", shipments: { bonkorea: { carrier: "cj", tracking: "700070007000", at: ago(2) } } }));
+await lib.orders().setJSON("O8", mk("O8", [BK(1)], "paid", 3, { method: "가상계좌" }));
+[s, j] = await call(brand, "/api/partner/vat?from=" + month + "&to=" + month); ok(s === 401, "로그인 없이 부가세 자료가 보여요");
+[s, j] = await call(brand, "/api/partner/vat?from=2026-10&to=2025-01", "GET", null, BH); ok(s === 400, "거꾸로 된 기간이 통과해요");
+[s, j] = await call(brand, "/api/partner/vat?from=2025-01&to=2026-10", "GET", null, BH); ok(s === 400, "12개월을 넘는 기간이 통과해요");
+[s, j] = await call(brand, "/api/partner/vat?from=" + month + "&to=" + month, "GET", null, BH);
+ok(s === 200 && j.rows.length === 1 && j.rows[0].gross === 119600 && j.rows[0].refund === 59800 && j.rows[0].net === 59800 && j.rows[0].card === 29900 && j.rows[0].other === 29900 && j.rows[0].supply === 54364 && j.rows[0].vat === 5436 && j.total.net === 59800, "부가세 월별 내역이 달라요 " + JSON.stringify(j.rows && j.rows[0]));
+[s, j] = await call(brand, "/api/partner/vat?from=2026-08&to=" + month, "GET", null, BH); ok(j.rows.length >= 3 && j.rows[0].net === 0 && j.total.net === 59800, "기간 안의 빈 달 처리가 달라요");
+{ const r = await brand(new Request(H + "/api/partner/vat.csv?from=" + month + "&to=" + month, { headers: BH })), t = await r.text(); ok(r.status === 200 && r.headers.get("content-type").includes("csv") && t.includes("부가세 신고기간") && t.includes(month) && t.includes("합계"), "부가세 월별 엑셀이 달라요 " + r.status + r.headers.get("content-type") + t.slice(0, 400)); }
+[s, j] = await call(brand, "/api/partner/vat-days?month=" + month, "GET", null, BH); ok(s === 200 && j.days.length >= 1 && j.days.reduce((a, d) => a + d.net, 0) === 59800, "일별 내역이 달라요 " + JSON.stringify(j));
+{ const r = await brand(new Request(H + "/api/partner/vat-orders.csv?month=" + month, { headers: BH })), t = await r.text(); ok(r.status === 200 && t.includes("환불") && t.includes("-59800") && t.includes("O7") && !t.includes("O2") && !t.includes("포어 올킬"), "건별 엑셀이 달라요(다른 브랜드 주문이 섞이면 안 돼요)"); }
+{ const r = await brand(new Request(H + "/api/partner/vat-days.csv?month=bad", { headers: BH })); ok(r.status === 400, "잘못된 월이 통과해요"); }
+[s, j] = await call(brand, "/api/partner/vat?from=" + month + "&to=" + month, "GET", null, gh); ok(j.rows[0].gross === 29700 && !JSON.stringify(j).includes("59800"), "다른 브랜드 매출이 섞여요 " + JSON.stringify(j.rows[0]));
+
+// 재고 실시간 현황 (판매중/품절 개수)
+[s, j] = await call(brand, "/api/partner/stock", "GET", null, BH); ok(j.selling + j.soldOut === j.products.length && j.selling >= 1 && j.at, "판매중/품절 개수가 달라요");
+await call(brand, "/api/partner/stock", "POST", { id: "bonkorea-vit", soldOut: true }, BH); [s, j] = await call(brand, "/api/partner/stock", "GET", null, BH); ok(j.soldOut === 1, "품절 개수가 바로 반영되지 않아요 " + j.soldOut);
+[s, j] = await call(brand, "/api/partner/home", "GET", null, BH); ok(j.stock.soldOut === 1 && j.stock.selling === j.stock.total - 1, "파트너 홈 재고 개수가 달라요");
+await call(brand, "/api/partner/stock", "POST", { id: "bonkorea-vit", soldOut: false }, BH);
+
+// 리뷰
+const rvNew = async (u, orderId, productId, rating, text) => call(reviewsApi, "/api/review/new", "POST", { orderId, productId, rating, text }, u);
+[s, j] = await rvNew({}, "O1", "bonkorea-cl", 5, "아주 좋아요 추천합니다"); ok(s === 401, "로그인 없이 리뷰가 써져요");
+[s, j] = await rvNew(U1, "O5", "grafen-patch", 5, "아직 안 받았는데"); ok(s === 400 && /배송/.test(j.error), "배송 전 주문에 리뷰가 써져요 " + JSON.stringify(j));
+[s, j] = await rvNew(U2, "O1", "bonkorea-cl", 5, "남의 주문이에요 리뷰"); ok(s === 400, "남의 주문에 리뷰가 써져요");
+[s, j] = await rvNew(U1, "O1", "bonkorea-vit", 5, "주문 안 한 제품이에요"); ok(s === 400, "주문하지 않은 제품에 리뷰가 써져요");
+[s, j] = await rvNew(U1, "O1", "bonkorea-cl", 0, "별점이 없는 리뷰예요"); ok(s === 400, "별점 0이 통과해요");
+[s, j] = await rvNew(U1, "O1", "bonkorea-cl", 5, "짧"); ok(s === 400, "너무 짧은 리뷰가 통과해요");
+[s, j] = await rvNew(U1, "O1", "bonkorea-cl", 5, "아주 좋아요 추천합니다"); ok(s === 200, "리뷰 작성 실패 " + JSON.stringify(j));
+[s, j] = await rvNew(U1, "O1", "bonkorea-cl", 4, "한 번 더 쓰려는 리뷰예요"); ok(s === 400 && /이미/.test(j.error), "같은 주문 제품에 리뷰가 두 번 써져요");
+const nm2 = MAILS.length;
+[s, j] = await rvNew(U1, "O6", "grafen-patch", 1, "품질이 너무 별로예요 실망"); ok(s === 200, "낮은 평점 리뷰 작성 실패");
+ok(MAILS.slice(nm2).some((m) => m.to[0] === "gf@x.test" && m.subject.includes("낮은 평점")), "낮은 평점 리뷰가 브랜드에 안 알려져요");
+for (let i = 0; i < 4; i++) { await lib.orders().setJSON("OR" + i, mk("OR" + i, [BK(1)], "shipped", 20 - i, { shipments: { bonkorea: { carrier: "cj", tracking: "81818181" + i + "0", at: ago(10) } } })); [s, j] = await rvNew(U1, "OR" + i, "bonkorea-cl", i === 3 ? 3 : 5 - (i % 2), "리뷰 내용 " + i + " 입니다 좋아요"); ok(s === 200, "리뷰 반복 작성 실패 " + i); }
+// 소비자 화면: 이름은 가려지고, 개인 식별 정보가 없다
+[s, j] = await call(reviewsApi, "/api/review?product=bonkorea-cl"); ok(s === 200 && j.count === 5 && j.avg > 0 && j.reviews[0].userName.includes("*") && !JSON.stringify(j).includes("u1") && !JSON.stringify(j).includes("userId"), "소비자 리뷰 목록이 달라요 " + JSON.stringify(j).slice(0, 200));
+[s, j] = await call(reviewsApi, "/api/review"); ok(s === 400, "제품 없이 리뷰 목록이 나와요");
+[s, j] = await call(reviewsApi, "/api/review/mine", "GET", null, U1); ok(j.done.includes("O1|bonkorea-cl"), "내가 쓴 리뷰 표시가 없어요");
+// 브랜드 화면
+[s, j] = await call(brand, "/api/partner/reviews", "GET", null, BH); const rv0 = j; ok(s === 200 && j.counts.total === 5 && j.counts.new === 5 && j.counts.low === 0 && j.reviews.length === 5 && j.reviews[0].createdAt >= j.reviews[4].createdAt, "브랜드 리뷰 요약이 달라요 " + JSON.stringify(j.counts));
+[s, j] = await call(brand, "/api/partner/reviews", "GET", null, gh); ok(j.counts.total === 1 && j.counts.low === 1 && j.counts.new === 1 && j.reviews[0].low, "다른 브랜드 리뷰가 섞이거나 낮은 평점 집계가 달라요");
+[s, j] = await call(brand, "/api/partner/reviews"); ok(s === 401, "로그인 없이 리뷰가 보여요");
+const ids = rv0.reviews.map((r) => r.id), hi = rv0.reviews.filter((r) => r.rating >= 4).map((r) => r.id), lowBk = rv0.reviews.find((r) => r.rating < 4);
+[s, j] = await call(brand, "/api/partner/reviews/read", "POST", { ids: [ids[0]] }, BH); [s, j] = await call(brand, "/api/partner/reviews", "GET", null, BH); ok(j.counts.new === 4, "개별 확인 처리가 달라요");
+await call(brand, "/api/partner/reviews/read", "POST", { ids: "all" }, BH); [s, j] = await call(brand, "/api/partner/reviews", "GET", null, BH); ok(j.counts.new === 0, "모두 확인 처리가 달라요");
+[s, j] = await call(brand, "/api/partner/reviews", "GET", null, gh); ok(j.counts.new === 1, "다른 브랜드의 확인 처리가 같이 바뀌어요");
+// 베스트 리뷰: 제품당 3개, 4점 이상만
+for (const id of hi.slice(0, 3)) { [s, j] = await call(brand, "/api/partner/reviews/best", "POST", { id, on: true }, BH); ok(s === 200, "베스트 선정 실패"); }
+[s, j] = await call(brand, "/api/partner/reviews/best", "POST", { id: hi[3], on: true }, BH); ok(s === 400 && /3개/.test(j.error), "베스트가 3개를 넘어요 " + JSON.stringify(j));
+[s, j] = await call(brand, "/api/partner/reviews/best", "POST", { id: lowBk.id, on: true }, BH); ok(s === 400, "낮은 점수 리뷰가 베스트가 돼요");
+[s, j] = await call(brand, "/api/partner/reviews/best", "POST", { id: rv0.reviews[0].id, on: true }, gh); ok(s === 404, "다른 브랜드 리뷰를 베스트로 고를 수 있어요");
+[s, j] = await call(reviewsApi, "/api/review?product=bonkorea-cl"); ok(j.reviews.slice(0, 3).every((r) => r.best) && !j.reviews[3].best && j.reviews.length === 5, "베스트 3개가 맨 위에 오지 않아요 " + JSON.stringify(j.reviews.map((r) => r.best)));
+{ const bests = j.reviews.slice(0, 3).map((r) => r.createdAt); ok(bests[0] >= bests[1] && bests[1] >= bests[2], "베스트 안에서 최신순이 아니에요"); const rest = j.reviews.slice(3).map((r) => r.createdAt); ok(rest.every((x, i) => i === 0 || rest[i - 1] >= x), "일반 리뷰가 최신순이 아니에요"); }
+// 삭제: 브랜드는 직접 못 지우고 요청만. 관리자가 승인해야 사라진다
+[s, j] = await call(brand, "/api/partner/reviews/delete", "POST", { id: lowBk.id }, BH); ok(s === 404, "브랜드가 리뷰를 직접 삭제할 수 있는 경로가 있어요");
+[s, j] = await call(brand, "/api/partner/reviews/delete-request", "POST", { id: lowBk.id, reason: "x" }, BH); ok(s === 400, "사유 없는 삭제 요청이 통과해요");
+const nm3 = MAILS.length;
+[s, j] = await call(brand, "/api/partner/reviews/delete-request", "POST", { id: lowBk.id, reason: "경쟁사의 악의적인 허위 리뷰예요" }, BH); ok(s === 200, "삭제 요청 실패 " + JSON.stringify(j));
+ok(MAILS.slice(nm3).some((m) => m.to[0] === "me@x.test" && m.subject.includes("삭제 요청")), "삭제 요청이 대표님께 안 알려져요");
+[s, j] = await call(brand, "/api/partner/reviews/delete-request", "POST", { id: lowBk.id, reason: "다시 요청합니다 제발" }, BH); ok(s === 400, "삭제 요청이 중복돼요");
+[s, j] = await call(reviewsApi, "/api/review?product=bonkorea-cl"); ok(j.count === 5, "승인 전에 리뷰가 사라져요");
+[s, j] = await call(brand, "/api/partner/reviews", "GET", null, BH); ok(j.counts.delReq === 1, "삭제 요청 개수가 달라요");
+// 관리자: 모든 브랜드 리뷰, 삭제 요청만 모아보기, 승인/거부
+[s, j] = await call(adminApi, "/api/admin/reviews"); ok(s === 401, "로그인 없이 관리자 리뷰가 보여요");
+[s, j] = await call(adminApi, "/api/admin/reviews", "GET", null, A); ok(s === 200 && j.counts.total === 6 && j.counts.delReq === 1 && j.reviews.some((r) => r.brand === "grafen") && j.reviews.every((r) => !("userId" in r)), "관리자 리뷰 목록이 달라요 " + JSON.stringify(j.counts));
+{ const h = await call(adminApi, "/api/admin/home", "GET", null, A); ok(h[1].reviews.delReq === 1 && h[1].reviews.total === 6 && h[1].todo.some((x) => x.k === "reviewDel") && h[1].stock.selling + h[1].stock.soldOut > 0, "관리자 홈에 리뷰/재고 요약이 없어요 " + JSON.stringify(h[1].reviews)); }
+[s, j] = await call(adminApi, "/api/admin/reviews/decide", "POST", { id: lowBk.id, action: "approve" }); ok(s === 401, "로그인 없이 삭제 승인이 돼요");
+[s, j] = await call(adminApi, "/api/admin/reviews/decide", "POST", { id: hi[0], action: "approve" }, A); ok(s === 400, "요청 없는 리뷰가 승인으로 지워져요 " + s + JSON.stringify(j));
+const nm4 = MAILS.length;
+[s, j] = await call(adminApi, "/api/admin/reviews/decide", "POST", { id: lowBk.id, action: "reject" }, A); ok(s === 200, "삭제 거부 실패");
+ok(MAILS.slice(nm4).some((m) => m.to[0] === "bk@x.test" && m.subject.includes("거부")), "거부 결과가 브랜드에 안 알려져요");
+[s, j] = await call(brand, "/api/partner/reviews/delete-request", "POST", { id: lowBk.id, reason: "거부당했지만 다시 요청해요" }, BH); ok(s === 400, "거부된 리뷰에 다시 삭제 요청이 돼요");
+[s, j] = await call(reviewsApi, "/api/review?product=bonkorea-cl"); ok(j.count === 5, "거부했는데 리뷰가 사라져요");
+const tgt = hi[3]; [s, j] = await call(brand, "/api/partner/reviews/delete-request", "POST", { id: tgt, reason: "광고성 악성 리뷰예요 확인 바랍니다" }, BH); ok(s === 200, "두 번째 삭제 요청 실패");
+[s, j] = await call(adminApi, "/api/admin/reviews/decide", "POST", { id: tgt, action: "approve" }, A); ok(s === 200, "삭제 승인 실패");
+[s, j] = await call(reviewsApi, "/api/review?product=bonkorea-cl"); ok(j.count === 4 && !j.reviews.some((r) => r.id === tgt), "승인했는데 소비자 화면에서 안 사라져요");
+[s, j] = await call(brand, "/api/partner/reviews", "GET", null, BH); ok(j.counts.total === 4 && !j.reviews.some((r) => r.id === tgt), "승인한 리뷰가 브랜드 화면에 남아요");
+[s, j] = await call(adminApi, "/api/admin/reviews/decide", "POST", { id: tgt, action: "approve" }, A); ok(s === 400, "이미 삭제한 리뷰가 다시 처리돼요");
+[s, j] = await call(adminApi, "/api/admin/reviews/best", "POST", { id: hi[1], on: false }, A); ok(s === 200, "관리자 베스트 해제 실패");
+[s, j] = await call(adminApi, "/api/admin/reviews/decide", "POST", { id: hi[2], action: "delete" }, A); ok(s === 200, "관리자 직접 삭제 실패");
+[s, j] = await call(brand, "/api/partner/home", "GET", null, BH); ok(j.reviews && j.reviews.total === 3 && j.reviews.delReq === 0 && j.reviews.low === 0, "파트너 홈 리뷰 요약이 달라요 " + JSON.stringify(j.reviews));
+
 // 코드 재발급/폐기/잠금
 [s, j] = await call(adminApi, "/api/admin/partners/issue", "POST", { brand: "bonkorea" }, A); const codeB2 = j.code;
 [s, j] = await call(brand, "/api/partner/orders", "GET", null, BH); ok(s === 401, "재발급 후에도 이전 로그인이 유지돼요");

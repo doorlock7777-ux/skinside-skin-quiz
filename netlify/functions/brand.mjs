@@ -5,6 +5,8 @@ import { shipCsv } from "./_batch.mjs";
 import { allTickets, getTicket, addMessage, decide, receiveAndRefund, markExchangeSent, escalate, close } from "./_cs.mjs";
 import { listSettlements } from "./_settle.mjs";
 import { allOrders } from "./_ctx.mjs";
+import { allReviews, getReview, summary as reviewSummary, manageView, markRead, setBest, requestDelete } from "./_reviews.mjs";
+import { monthsBetween, vatMonths, vatDays, txns, monthsCsv, daysCsv, ordersCsv } from "./_vat.mjs";
 
 /* 파트너 브랜드 전용 API: 브랜드 접속 코드로 로그인한 뒤, 자기 브랜드 제품이 든 주문만 보인다 */
 const mineOf = (os, brand) => os.filter((o) => ["paid", "partial", "shipped", "canceled"].includes(o.status) && o.items.some((l) => l.brand === brand));
@@ -24,8 +26,8 @@ export default async (req) => {
 
   if (p === "/api/partner/me") return json({ brand: BRANDS[brand].name });
   if (p === "/api/partner/home") {
-    const [os, tickets, settles, stock] = await Promise.all([allOrders(), allTickets(), listSettlements(), brandStock(req, brand)]);
-    return json({ brand: BRANDS[brand].name, ...partnerHome(os.filter((o) => o.status !== "pending"), brand, { tickets, settles, stock }) });
+    const [os, tickets, settles, stock, rv] = await Promise.all([allOrders(), allTickets(), listSettlements(), brandStock(req, brand), allReviews()]);
+    return json({ brand: BRANDS[brand].name, ...partnerHome(os.filter((o) => o.status !== "pending"), brand, { tickets, settles, stock, reviews: reviewSummary(rv, brand) }) });
   }
 
   /* ---- 발송 ---- */
@@ -69,7 +71,7 @@ export default async (req) => {
   }
 
   /* ---- 재고 ---- */
-  if (p === "/api/partner/stock" && req.method !== "POST") return json({ products: await brandStock(req, brand) });
+  if (p === "/api/partner/stock" && req.method !== "POST") { const products = await brandStock(req, brand); return json({ products, selling: products.filter((x) => !x.soldOut).length, soldOut: products.filter((x) => x.soldOut).length, at: new Date().toISOString() }); }
   if (p === "/api/partner/stock" && req.method === "POST") {
     const { map } = await loadProducts(req), prod = map[String(b.id || "")];
     if (!prod || prod.brand !== brand) return json({ error: "내 브랜드 제품이 아니에요" }, 400);
@@ -107,6 +109,34 @@ export default async (req) => {
   if (p === "/api/partner/settlements") {
     const list = (await listSettlements()).filter((x) => x.rows.some((r) => r.brand === brand)).map((x) => ({ month: x.month, confirmedAt: x.confirmedAt, paidAt: (x.paid || {})[brand] || null, ...x.rows.find((r) => r.brand === brand) }));
     return json({ settlements: list });
+  }
+  /* ---- 부가세 신고용 매출 자료 ---- */
+  if (p.startsWith("/api/partner/vat")) {
+    const os = (await allOrders()).filter((o) => o.status !== "pending"), me = u.searchParams;
+    const csvRes = (t, n) => toCsvResponse(t, n);
+    if (p === "/api/partner/vat" || p === "/api/partner/vat.csv") {
+      const ms = monthsBetween(String(me.get("from") || ""), String(me.get("to") || ""));
+      if (!ms) return json({ error: "기간을 확인해주세요 (최대 12개월)" }, 400);
+      const v = vatMonths(os, brand, ms);
+      return p.endsWith(".csv") ? csvRes(monthsCsv(v, brand), `vat-${ms[0]}_${ms[ms.length - 1]}.csv`) : json({ ...v, basis: "결제 완료일 기준, 환불·취소는 환불한 달에서 차감, 부가세 포함 금액" });
+    }
+    const m = String(me.get("month") || "");
+    if (!/^\d{4}-\d{2}$/.test(m)) return json({ error: "월을 확인해주세요" }, 400);
+    if (p === "/api/partner/vat-days") return json({ month: m, days: vatDays(os, brand, m) });
+    if (p === "/api/partner/vat-days.csv") return csvRes(daysCsv(vatDays(os, brand, m)), `vat-daily-${m}.csv`);
+    if (p === "/api/partner/vat-orders.csv") return csvRes(ordersCsv(txns(os, brand, m)), `vat-orders-${m}.csv`);
+  }
+
+  /* ---- 리뷰: 브랜드는 직접 삭제할 수 없고 삭제 요청만 가능 ---- */
+  if (p.startsWith("/api/partner/reviews")) {
+    const rv = await allReviews();
+    if (p === "/api/partner/reviews") return json(manageView(rv, brand));
+    if (p === "/api/partner/reviews/read") { await markRead(rv, "brand", b.ids === "all" ? "all" : b.ids, brand); return json({ ok: true }); }
+    const r = await getReview(b.id);
+    if (!r || r.brand !== brand) return json({ error: "리뷰를 찾을 수 없어요" }, 404);
+    const res = p === "/api/partner/reviews/best" ? await setBest(r, !!b.on) : p === "/api/partner/reviews/delete-request" ? await requestDelete(r, b.reason) : null;
+    if (!res) return json({ error: "not found" }, 404);
+    return res.error ? json({ error: res.error }, 400) : json({ ok: true });
   }
   return json({ error: "not found" }, 404);
 };

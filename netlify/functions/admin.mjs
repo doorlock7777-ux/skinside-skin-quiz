@@ -4,6 +4,7 @@ import { monthSettle } from "./_home.mjs";
 import { notifyCancel } from "./_batch.mjs";
 import { adminSummary, allOrders } from "./_ctx.mjs";
 import { allTickets, getTicket, addMessage, close, receiveAndRefund } from "./_cs.mjs";
+import { allReviews, getReview, manageView, markRead, setBest, decide as decideReview } from "./_reviews.mjs";
 import { confirmSettlement, markPaid, getSettlement, listSettlements } from "./_settle.mjs";
 
 const all = allOrders;
@@ -17,7 +18,7 @@ export default async (req) => {
   const st = orders();
   if (p === "/api/admin/me") return json({ ok: true });
 
-  if (p === "/api/admin/home") return json(await adminSummary());
+  if (p === "/api/admin/home") return json(await adminSummary(req));
   if (p === "/api/admin/orders") {
     return json({ orders: (await all()).filter((o) => o.status !== "pending"), brands: BRANDS });
   }
@@ -62,6 +63,18 @@ export default async (req) => {
   }
 
   /* ---- CS ---- */
+  /* ---- 리뷰 (모든 브랜드) ---- */
+  if (p.startsWith("/api/admin/reviews")) {
+    const rv = await allReviews();
+    if (p === "/api/admin/reviews") return json(manageView(rv));
+    const b2 = b;
+    if (p === "/api/admin/reviews/read") { await markRead(rv, "admin", b2.ids === "all" ? "all" : b2.ids); return json({ ok: true }); }
+    const r = await getReview(b2.id);
+    if (!r) return json({ error: "리뷰를 찾을 수 없어요" }, 404);
+    const res = p === "/api/admin/reviews/best" ? await setBest(r, !!b2.on) : p === "/api/admin/reviews/decide" ? await decideReview(r, String(b2.action || "")) : null;
+    if (!res) return json({ error: "not found" }, 404);
+    return res.error ? json({ error: res.error }, 400) : json({ ok: true });
+  }
   if (p === "/api/admin/cs") {
     const [tickets, os] = await Promise.all([allTickets(), all()]), byId = Object.fromEntries(os.map((o) => [o.id, o]));
     return json({ tickets: tickets.slice(0, 300).map((t) => { const o = byId[t.orderId] || {}; const { userId, ...pub } = t; return { ...pub, brandName: (BRANDS[t.brand] || {}).name || t.brand, customer: { name: (o.ship || {}).name || t.userName, phone: (o.ship || {}).phone || "" } }; }) });
