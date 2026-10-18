@@ -15,3 +15,20 @@
   for = "/pay/*"
   [headers.values]
     X-Robots-Tag = "noindex"
+
+[[redirects]]
+  from = "/"
+  to = "/quiz/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/store"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/quiz"
+  to = "/"
+  status = 301

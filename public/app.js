@@ -49,26 +49,21 @@ function drawTabs(){
   var h = location.hash || "#/", n = cartCount(), open = CFG.STORE_OPEN;
   function t(href, label, on, extra){ return '<a href="' + href + '" class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
   document.querySelector(".tabs").hidden = open && /^#\/(p\/|cart|checkout)/.test(h);
-  $nv.innerHTML = t("#/store", "스토어", /^#\/(store|p\/|c\/|search|cat)/.test(h)) + t("quiz/", "피부 진단", false)
+  $nv.innerHTML = t("/store", "스토어", /^#\/(store|p\/|c\/|search|cat)/.test(h)) + t("/", "피부 진단", false)
     + (open && CHECKOUT ? t("#/cart", "장바구니", /^#\/(cart|checkout)/.test(h), n ? '<span class="bd">' + n + '</span>' : '') + t("#/me", "내 정보", /^#\/(me|orders|done)/.test(h)) : '');
 }
 function searchForm(q){ return '<form class="search" id="sf"><input id="q" value="' + esc(q || "") + '" placeholder="제품이나 브랜드 검색" enterkeyhint="search"></form>'; }
 function bindSearch(){ var f = document.getElementById("sf"); if(f) f.onsubmit = function(e){ e.preventDefault(); var q = document.getElementById("q").value.trim(); if(q) location.hash = "#/search/" + encodeURIComponent(q); }; }
 function soon(){
   $app.innerHTML = '<div class="soon"><span class="pill">COMING SOON</span><h1>스토어 오픈 준비 중이에요</h1><p>문장군이 고른 제품을 더 좋은 가격으로<br>곧 만나보실 수 있게 준비하고 있어요.</p></div>'
-    + '<div style="padding:0 20px"><a class="btn" href="quiz/">피부 진단 먼저 해보기</a></div>';
-}
-function landing(){
-  var items = [["나만의 피부타입 코드", "피지, 민감도, 색소, 탄력 네 가지를 한 번에 확인해요."], ["내 피부 성향 분석", "왜 그런 타입인지 쉽게 풀어서 알려드려요."], ["타입별 맞춤 루틴", "내 피부에 맞는 제품만 골라서 추천해요."], ["피부 진단 결과 카드", "이미지로 저장하고 공유할 수 있어요."]];
-  $app.innerHTML = '<div class="sec"><a class="hero" href="quiz/"><b>헷갈리는 내 피부타입<br>5분이면 알 수 있어요</b><span>세안 후 대기 테스트까지 더한 진단</span><br><span class="go">피부 진단 시작하기</span></a></div>'
-    + '<div class="band"></div><div class="sec"><h2>진단이 끝나면 받는 것</h2>' + items.map(function(x, i){ return '<div class="row"><div class="im" style="font-weight:800;color:var(--pri);font-size:20px">' + (i + 1) + '</div><div class="t"><div class="nm">' + x[0] + '</div><div class="s">' + x[1] + '</div></div></div>'; }).join("") + '</div><div style="padding:0 20px 8px"><a class="btn" href="quiz/">피부 진단 시작하기</a></div>' + foot();
+    + '<div style="padding:0 20px"><a class="btn" href="/">피부 진단 먼저 해보기</a></div>';
 }
 
 /* 홈 */
 function home(){
   var best = D.products.filter(function(p){ return disc(p) > 0 && !p.soldOut; }).sort(function(a, b){ return saved(b) - saved(a); })[0];
   var hot = D.products.filter(function(p){ return p.hot; });
-  var h = '<div class="sec" style="padding-bottom:8px"><a class="hero" href="quiz/"><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
+  var h = '<div class="sec" style="padding-bottom:8px"><a class="hero" href="/"><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
   h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
     h += '<div class="band"></div><div class="sec"><h2>지금 가장 많이 아끼는 제품</h2><a class="best" href="#/p/' + esc(best.id) + '"><div class="im">' + img(best) + '</div><div><div class="em">최대 ' + disc(best) + '% 할인</div><div class="nm">' + esc(best.name) + '</div><div class="big">' + won(best.price) + '</div></div></a></div>';
@@ -216,7 +211,7 @@ function me(){
   var h = '<div class="sec"><h1>' + (user ? esc(user.name || "회원") + '님' : '내 정보') + '</h1></div>';
   if(!user && CFG.LOGIN) h += loginBox("#/me");
   else if(!user) h += '<div class="sec"><div class="ntc">로그인 기능은 준비 중이에요.</div></div>';
-  h += '<div class="sec menu" style="padding-top:0">' + (CHECKOUT ? '<a href="#/orders">주문 내역<span>&#8250;</span></a>' : '') + '<a href="quiz/">피부타입 진단<span>&#8250;</span></a><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener">카카오톡 채널 문의<span>&#8250;</span></a>' + (user ? '<a href="#/" id="lo">로그아웃<span>&#8250;</span></a>' : '') + '</div>' + foot();
+  h += '<div class="sec menu" style="padding-top:0">' + (CHECKOUT ? '<a href="#/orders">주문 내역<span>&#8250;</span></a>' : '') + '<a href="/">피부타입 진단<span>&#8250;</span></a><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener">카카오톡 채널 문의<span>&#8250;</span></a>' + (user ? '<a href="#/" id="lo">로그아웃<span>&#8250;</span></a>' : '') + '</div>' + foot();
   $app.innerHTML = h;
   var lo = document.getElementById("lo");
   if(lo) lo.onclick = function(e){ e.preventDefault(); fetch("/api/logout", {method:"POST"}).then(function(){ user = null; location.hash = "#/"; route(); }); };
@@ -227,7 +222,7 @@ function route(){
   var h = location.hash || "#/", m;
   $bk.hidden = !CFG.STORE_OPEN || !/^#\/(p|cart|checkout|orders|search|c\/)/.test(h);
   drawTabs(); window.scrollTo(0, 0);
-  if(!CFG.STORE_OPEN) return h === "#/" || h === "" ? landing() : soon();
+  if(!CFG.STORE_OPEN) return soon();
   if(h === "#/store") return list("스토어", D.products, "");
   if((m = h.match(/^#\/p\/(.+)/))) return detail(decodeURIComponent(m[1]));
   if((m = h.match(/^#\/c\/(.+)/))){ var k = decodeURIComponent(m[1]); return list(D.categories[k] || "제품", D.products.filter(function(p){ return p.cat === k; }), k); }
