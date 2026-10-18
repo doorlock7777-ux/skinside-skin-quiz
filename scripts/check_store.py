@@ -21,6 +21,16 @@ for p in d["products"]: got.setdefault(p["cat"], []).append(p["id"])
 for k in ORDER:
     if sorted(got.get(k, [])) != sorted(EXPECT[k]): err.append("%s 제품이 달라요: %s" % (k, got.get(k)))
 if [p["cat"] for p in d["products"]] != [c for c in ORDER for _ in EXPECT[c]]: err.append("제품 배열이 카테고리 순서로 정렬돼 있지 않아요")
+# 진단 결과의 추천 제품 이름/링크가 스토어와 같은지
+import re
+q = open(os.path.join(R, "public/quiz/index.html"), encoding="utf-8").read()
+byid = {p["id"]: p for p in d["products"]}
+LK = dict(re.findall(r'^\s*(\w+):\s*"(https?://[^"]+)"', q[q.index("var LINKS"):q.index("var PR")], re.M))
+for k, i in {"cl": "bonkorea-cl", "vit": "bonkorea-vit", "minic": "minic-set", "sun": "mediheal-sun", "patch": "grafen-patch", "calm": "livna-calm", "cream": "livna-cream"}.items():
+    p = byid[i]; m = re.search(r'\b%s:\s*\{n:"([^"]+)"' % k, q)
+    if not m or m.group(1) != p["brandName"] + " " + p["name"]: err.append("진단 추천 제품 이름이 스토어와 달라요: %s (%s)" % (k, m and m.group(1)))
+    if LK[k].split("?")[0] != p["directUrl"].split("?")[0] and "goodsNo" not in LK[k]: err.append("진단 추천 링크가 스토어와 달라요: " + k)
+    if "goodsNo" in LK[k] and re.search(r"goodsNo=(\w+)", LK[k]).group(1) != re.search(r"goodsNo=(\w+)", p["directUrl"]).group(1): err.append("진단 추천 링크가 스토어와 달라요: " + k)
 # 화면 확인
 from playwright.sync_api import sync_playwright
 out = os.path.join(tempfile.gettempdir(), "chk_demo.html")
@@ -34,6 +44,19 @@ with sync_playwright() as pw:
     if chips != want: err.append("칩 순서가 달라요: %s" % chips)
     wc = [names[i] for k in ORDER for i in EXPECT[k]]
     if cards != wc: err.append("처음 제품 배치 순서가 달라요")
+    # 검색: 결과가 나오고 검색창이 그대로 남아야 한다
+    pg.fill("#q", "팩"); pg.press("#q", "Enter"); pg.wait_for_timeout(400)
+    if pg.locator("#q").count() != 1 or pg.input_value("#q") != "팩" or pg.locator("#app .pc").count() < 5: err.append("검색 결과/검색창 유지가 동작하지 않아요")
+    pg.click(".chip:has-text('메이크업')"); pg.wait_for_timeout(300)
+    if pg.locator("#app .pc").count() != len(EXPECT["mk"]): err.append("카테고리 칩 이동이 동작하지 않아요")
+    # 금지 문구: 사용자가 없애라고 한 것들
+    import re as _re
+    pg.click(".chip:has-text('전체')"); pg.wait_for_timeout(300)
+    vis = pg.inner_text("body")
+    for bad in ["BRDY", "보떼", "아이팔레트", "자주 추천", "아끼는", "문장군이 자주"]:
+        if bad in vis: err.append("없애기로 한 문구가 보여요: " + bad)
+    if _re.search(r"\d\s?(ml|mL|g|ML)\b", vis): err.append("용량 표기가 보여요")
+    if "지금 가장 많이 구매하는 제품" not in vis: err.append("'지금 가장 많이 구매하는 제품' 구역이 없어요")
     # 결과 카드: 레이더 글자가 잘리지 않는지, 글자 비율, 가로 넘침
     for w in (360, 400, 560):
         pg.set_viewport_size({"width": w, "height": 900}); pg.wait_for_timeout(300)

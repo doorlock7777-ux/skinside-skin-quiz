@@ -25,11 +25,6 @@ export default {
   "email": "",
   "fee": 0
  },
- "botte": {
-  "name": "보떼",
-  "email": "",
-  "fee": 0
- },
  "mediflower": {
   "name": "Medi Flower",
   "email": "",
