@@ -26,8 +26,8 @@ html = """<title>스킨인사이드 스토어 미리보기</title>
 <header id="top"><button class="back" id="bk" hidden aria-label="뒤로">&#8249;</button><a href="#/"><img src="%s" alt="Skinside.co.kr"></a></header>
 <main id="app"></main>
 <nav class="tabs"><div class="in" id="nv"></div></nav>
-<script>window.SK=%s;window.__PRODUCTS=%s;</script>
+<script>window.SK=%s;window.__PRODUCTS=%s;%s</script>
 <script>%s</script>
 <script>%s</script>
-""" % (css, uri("images/logo.webp"), json.dumps(cfg), json.dumps(d, ensure_ascii=False), rd("scripts/demo.js"), rd("public/app.js"))
+""" % (css, uri("images/logo.webp"), json.dumps(cfg), json.dumps(d, ensure_ascii=False), "" if os.environ.get("DEMO_SEED") else "window.__NOSEED=1;", rd("scripts/demo.js"), rd("public/app.js"))
 open(sys.argv[1], "w", encoding="utf-8").write(html); print(len(html))

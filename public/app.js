@@ -63,7 +63,7 @@ function drawTabs(){
   var h = getH() || "#/", n = cartCount(), open = CFG.STORE_OPEN;
   function t(href, label, on, extra){ return '<a href="' + href + '"' + (/^http/.test(href) ? QT : '') + ' class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
   document.querySelector(".tabs").hidden = open && /^#\/(p\/|cart|checkout)/.test(h);
-  $nv.innerHTML = t(DEMO ? "#/store" : "/store", "스토어", /^#\/(store|p\/|c\/|search|cat)/.test(h)) + t(QZ, "피부 진단", false)
+  $nv.innerHTML = t(DEMO ? "#/" : "/store", "스토어", !/^#\/(cart|checkout|me|orders|done|admin)/.test(h)) + t(QZ, "피부 진단", false)
     + (open && CHECKOUT ? t("#/cart", "장바구니", /^#\/(cart|checkout)/.test(h), n ? '<span class="bd">' + n + '</span>' : '') + t("#/me", "내 정보", /^#\/(me|orders|done)/.test(h)) : '');
 }
 function searchForm(q){ return '<form class="search" id="sf"><input id="q" value="' + esc(q || "") + '" placeholder="제품이나 브랜드 검색" enterkeyhint="search"></form>'; }
@@ -242,7 +242,6 @@ function route(){
   $bk.hidden = !CFG.STORE_OPEN || !/^#\/(p|cart|checkout|orders|search|c\/)/.test(h);
   drawTabs(); window.scrollTo(0, 0);
   if(!CFG.STORE_OPEN) return soon();
-  if(h === "#/store") return list("스토어", D.products, "");
   if((m = h.match(/^#\/p\/(.+)/))) return detail(decodeURIComponent(m[1]));
   if((m = h.match(/^#\/c\/(.+)/))){ var k = decodeURIComponent(m[1]); return list(D.categories[k] || "제품", D.products.filter(function(p){ return p.cat === k; }), k); }
   if(h === "#/cat") return list("카테고리", D.products, "");
