@@ -115,3 +115,42 @@ label.f{display:block;font-size:13px;color:var(--mute);font-weight:600;margin:14
 .pay2 button.npay{flex:1 1 100%;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700}
 .pay2 button.npay i{display:inline-block;width:20px;height:20px;line-height:20px;border-radius:5px;background:#03C75A;color:#fff;font-style:normal;font-weight:800;font-size:13px}
 .pay2 button.npay.on{border-color:#03C75A;background:#e8f9ef;color:#02973f}
+
+/* 주문/배송내역 (네이버플러스스토어 스타일) */
+.oc-chips{display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto}
+.oc-chips button{flex:none;font:inherit;font-weight:700;font-size:14px;border:0;background:#fff;color:var(--ink);border-radius:999px;padding:10px 16px;box-shadow:inset 0 0 0 1px var(--line)}
+.oc-chips button.on{background:var(--ink);color:#fff;box-shadow:none}
+.oc-chips button b{color:var(--pri)}.oc-chips button.on b{color:#fff}
+.oc-list{padding:0 16px 24px;background:#f2f4f6;margin-top:0}
+.oc{background:#fff;border-radius:20px;padding:20px 16px 16px;margin:12px 0}
+.oc .st{display:flex;gap:10px;align-items:baseline;margin-bottom:14px}
+.oc .st b{font-size:19px;font-weight:800}.oc .st span{font-size:13px;color:var(--mute)}
+.oc .oi{display:flex;gap:12px;padding:6px 0}
+.oc .oi .im{width:84px;height:84px;flex:none;border-radius:14px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.oc .oi .im img{width:100%;height:100%;object-fit:contain}
+.oc .oi .t{flex:1;min-width:0}
+.oc .oi .d{font-size:13px;color:var(--mute)}
+.oc .oi .nm{font-size:15px;font-weight:600;line-height:1.35;margin:2px 0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.oc .oi .pr b{font-size:17px;font-weight:800}.oc .oi .pr span{font-size:13px;color:var(--mute)}
+.oc .oi .s{font-size:13px;color:var(--mute);margin-top:2px}
+.oc .oi .lk{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:13px}
+.oc .oi .lk a{cursor:pointer;color:var(--mute);font-weight:600}.oc .oi .lk a:first-child{color:var(--pri)}
+.obs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.obw{position:relative;flex:1 1 0;min-width:0;display:flex}
+.oc .ob{flex:1 1 0;min-width:0;font:inherit;font-weight:600;font-size:14px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:12px 6px;cursor:pointer}
+.oc .ob.pri{border-color:var(--pri);color:var(--pri);font-weight:800;box-shadow:inset 0 0 0 1px var(--pri)}
+.oc .ob.red{border-color:var(--red);color:var(--red)}
+.oc .ob:disabled{color:var(--mute);background:#f7f8fa;cursor:default}
+.bub{position:absolute;left:8px;top:-12px;font-style:normal;font-size:11px;font-weight:800;color:#fff;background:var(--pri);border-radius:999px;padding:2px 8px}
+.oc .det{background:#f7f8fa;border-radius:12px;padding:12px 14px;margin-top:10px;font-size:13.5px}
+.oc .det div{display:flex;justify-content:space-between;padding:3px 0}.oc .det .tot{font-weight:800;border-top:1px solid var(--line);margin-top:4px;padding-top:8px}
+.oc .cf{background:#f7f8fa;border-radius:12px;padding:14px;margin-top:10px}
+.oc .cf p{margin:6px 0 10px}.oc .cf select{width:100%;font:inherit;padding:11px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.oc .cf .row2{display:flex;gap:8px;margin-top:10px}.oc .cf .row2 .ob{flex:1}
+.ptb{background:#f7f8fa;border-radius:14px;padding:14px;margin-top:8px}
+.ptb .r1{display:flex;justify-content:space-between;margin-bottom:10px}.ptb .r1 b{color:var(--pri)}
+.ptb .r2{display:flex;gap:8px}.ptb .r2 .in2{flex:1;min-width:0}
+.ptb .s{margin:8px 0 0;font-size:12.5px;color:var(--mute)}
+.ptcard{background:var(--pri-soft);border-radius:16px;padding:20px;margin-top:12px}
+.ptcard span{font-size:13px;color:var(--mute)}.ptcard b{display:block;font-size:28px;font-weight:800;color:var(--pri);margin:4px 0}.ptcard p{margin:6px 0 0;font-size:13px;color:#4e5968}
+.oc>p.s{font-size:13px;color:var(--mute);line-height:1.5}

@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { getStore } from "@netlify/blobs";
 import { orders, BRANDS, mail, esc, tossAuth } from "./_lib.mjs";
-import { remaining } from "./_money.mjs";
+import { remaining, payOf } from "./_money.mjs";
+import { returnPoints } from "./_points.mjs";
+import { cashRefunded } from "./_cancel.mjs";
 
 /* CS(문의, 교환, 반품) 티켓. 상태:
    inquiry: open(고객 답변 대기 아님=브랜드 답변 대기) -> answered -> closed
@@ -80,18 +82,25 @@ export async function receiveAndRefund(t) {
   /* 환불 한도는 주문 전체가 아니라 그 브랜드 몫 기준: 이미 환불된 만큼은 빼고 남은 금액만 환불한다 */
   const amount = remaining(o, t.brand);
   if (!(amount > 0)) { t.refundError = "환불 금액을 확인해주세요"; await save(t); return { ticket: t, error: t.refundError }; }
-  if (!o.paymentKey) { t.refundError = "결제 정보가 없어요"; await save(t); return { ticket: t, error: t.refundError }; }
-  let r, j;
-  try {
-    r = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(o.paymentKey)}/cancel`, {
-      method: "POST", headers: { authorization: tossAuth(), "content-type": "application/json", "Idempotency-Key": t.id },
-      body: JSON.stringify({ cancelReason: "반품 환불 " + t.id, cancelAmount: amount }),
-    });
-    j = await r.json().catch(() => ({}));
-  } catch (e) { r = { ok: false }; j = { message: "결제사 연결 실패" }; }
-  if (!r.ok) { t.refundError = j.message || "환불 실패"; await save(t); return { ticket: t, error: t.refundError }; }
-  const tx = ((j.cancels || []).slice(-1)[0] || {}).transactionKey;
-  o.refunds.push({ ticketId: t.id, brand: t.brand, amount, at: new Date().toISOString(), ...(tx ? { tx } : {}) });
+  /* 포인트를 쓴 주문은 환불도 같은 비율로 나눠서: 포인트로 낸 몫은 포인트로, 나머지는 카드·계좌로 돌려준다 */
+  const P = o.pointsUsed || 0, pointsPart = P ? Math.max(0, Math.min(P - (o.pointsReturned || 0), Math.round((amount * P) / (o.total || 1)))) : 0;
+  const cash = Math.max(0, Math.min(amount - pointsPart, payOf(o) - cashRefunded(o)));
+  let tx;
+  if (cash > 0) {
+    if (!o.paymentKey) { t.refundError = "결제 정보가 없어요"; await save(t); return { ticket: t, error: t.refundError }; }
+    let r, j;
+    try {
+      r = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(o.paymentKey)}/cancel`, {
+        method: "POST", headers: { authorization: tossAuth(), "content-type": "application/json", "Idempotency-Key": t.id },
+        body: JSON.stringify({ cancelReason: "반품 환불 " + t.id, cancelAmount: cash }),
+      });
+      j = await r.json().catch(() => ({}));
+    } catch (e) { r = { ok: false }; j = { message: "결제사 연결 실패" }; }
+    if (!r.ok) { t.refundError = j.message || "환불 실패"; await save(t); return { ticket: t, error: t.refundError }; }
+    tx = ((j.cancels || []).slice(-1)[0] || {}).transactionKey;
+  }
+  o.refunds.push({ ticketId: t.id, brand: t.brand, amount, cash, ...(pointsPart ? { points: pointsPart } : {}), at: new Date().toISOString(), ...(tx ? { tx } : {}) });
+  if (pointsPart) await returnPoints(o, pointsPart, "반품 환불", "ret-" + t.id).catch(() => {});
   await st.setJSON(o.id, o);
   delete t.refundError; t.status = "refunded"; t.refundAmount = amount;
   t.messages.push({ from: "system", text: amount.toLocaleString("ko-KR") + "원이 환불됐어요.", at: new Date().toISOString() });

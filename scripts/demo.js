@@ -2,11 +2,13 @@
 (function(){
 var P = window.__PRODUCTS, MAP = {}, FEE = 15;
 P.products.forEach(function(p){ MAP[p.id] = p; });
-var state = {user:null, orders:[], stats:{}};
+var state = {user:null, orders:[], stats:{}, points:{balance:1200, log:[{type:"earn", amount:700, note:"리뷰 작성", at:"2026-10-12T03:00:00Z"}, {type:"earn", amount:500, note:"리뷰 작성", at:"2026-10-10T03:00:00Z"}]}};
 /* 미리보기용 예시 집계: 실제 사이트에서는 방문자 행동으로 쌓인다 */
 var SEED = {"bonkorea-cl":[420,70,31],"minic-allinone":[380,66,27],"bonkorea-vit":[350,52,22],"mediheal-sun":[300,48,19],"livna-calm":[260,40,15],"minic-cream":[240,35,12],"citirover-retinol":[210,30,11],"grafen-patch":[190,34,13],"numbuzin-4":[150,22,8],"hwapasa-shampoo":[140,20,7],"grafen-wax":[130,19,6],"torriden-cica":[120,15,5],"jmw-iron":[110,14,3],"grafen-sunstick":[100,16,4],"brdy-powder":[80,9,2]};
 if(window.__NOSEED) SEED = {};
 try{ var s = JSON.parse(localStorage.getItem("skd")); if(s) state = s; }catch(e){} state.stats = {};  /* 인기 집계는 새로고침하면 초기화: 처음 열면 항상 기본 카테고리 순서 */
+function pts(){ state.points = state.points || {balance:0, log:[]}; return state.points; }
+function pAdd(n, type, note){ var q = pts(); q.balance += n; q.log.unshift({type:type, amount:n, note:note, at:new Date().toISOString()}); }
 function save(){ try{ localStorage.setItem("skd", JSON.stringify(state)); }catch(e){} }
 function res(o, st){ return Promise.resolve(new Response(JSON.stringify(o), {status: st || 200, headers:{"content-type":"application/json"}})); }
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
@@ -31,10 +33,11 @@ window.fetch = function(u, o){
     if(u === "/api/review/mine") return res({done:state.reviews.filter(function(r){ return r.mine; }).map(function(r){ return r.orderId + "|" + r.productId; })});
     if(u === "/api/review/new"){
       var o3 = state.orders.filter(function(x){ return x.id === b.orderId; })[0], ln = o3 && o3.items.filter(function(l){ return l.id === b.productId; })[0];
-      if(!ln || !(o3.shipments && o3.shipments[ln.brand] && o3.shipments[ln.brand].tracking)) return res({error:"배송이 시작된 뒤에 작성할 수 있어요"}, 400);
+      if(!ln) return res({error:"주문한 제품이 아니에요"}, 400);
+      if(o3.status === "canceled") return res({error:"취소된 주문에는 리뷰를 쓸 수 없어요"}, 400);
       if(!(b.rating >= 1 && b.rating <= 5)) return res({error:"별점을 선택해주세요"}, 400);
       if(String(b.text || "").trim().length < 5) return res({error:"리뷰는 5자 이상 적어주세요"}, 400);
-      state.reviews.push({id:"R" + Date.now(), productId:b.productId, orderId:b.orderId, rating:b.rating, text:b.text, userName:"홍*동", createdAt:new Date().toISOString(), best:false, mine:true}); save(); return res({ok:true});
+      state.reviews.push({id:"R" + Date.now(), productId:b.productId, orderId:b.orderId, rating:b.rating, text:b.text, userName:"홍*동", createdAt:new Date().toISOString(), best:false, mine:true}); pAdd(500, "earn", "리뷰 작성"); save(); return res({ok:true, points:500});
     }
   }
   if(/^\/api\/cs\//.test(u)){
@@ -51,6 +54,16 @@ window.fetch = function(u, o){
     if(u === "/api/cs/escalate") t3.escalated = true;
     save(); return res({ticket:t3});
   }
+  if(u === "/api/points") return res({balance:pts().balance, log:pts().log.slice(0, 50)});
+  if(u === "/api/order/cancel" && m === "POST"){
+    var oc = state.orders.filter(function(x){ return x.id === b.orderId; })[0];
+    if(!oc) return res({error:"주문을 찾을 수 없어요"}, 404);
+    if(oc.status !== "paid" || Object.keys(oc.shipments || {}).some(function(k){ return oc.shipments[k] && oc.shipments[k].tracking; })) return res({error:"이미 발송이 시작돼서 직접 취소할 수 없어요. 아래 교환·반품을 신청해주세요"}, 400);
+    var cash = oc.payAmount !== undefined ? oc.payAmount : oc.total, back = oc.pointsUsed || 0;
+    oc.status = "canceled"; oc.canceledAt = new Date().toISOString(); if(back) pAdd(back, "return", "주문 취소");
+    (state.reviews || []).forEach(function(r){ if(r.orderId === oc.id && r.mine){ r.gone = true; pAdd(-500, "claw", "주문 취소"); } }); state.reviews = (state.reviews || []).filter(function(r){ return !r.gone; });
+    save(); return res({ok:true, refundedCash:cash, pointsBack:back});
+  }
   if(u === "/api/order" && m === "GET") return res({orders: state.orders.filter(function(x){ return x.status !== "pending" && x.status !== "failed"; }).slice().reverse()});
   if(u === "/api/order" && m === "POST"){
     var items = [];
@@ -65,14 +78,17 @@ window.fetch = function(u, o){
     if(!sh.name || !sh.addr1) return res({error:"배송지를 확인해주세요"}, 400);
     var sub = items.reduce(function(a, l){ return a + l.unit * l.q; }, 0), sp = P.shipping || {fee:0, freeOver:0};
     var fee = sub >= sp.freeOver ? 0 : sp.fee, id = "SK" + Date.now().toString(36).toUpperCase();
-    var order = {id:id, userId:state.user.id, items:items, ship:sh, sub:sub, shipFee:fee, total:sub + fee, status:"pending", createdAt:new Date().toISOString(), shipments:{}};
+    var want = Math.max(0, Math.floor(Number(b.usePoints) || 0)), cap = Math.max(0, Math.min(pts().balance, sub + fee - 100));
+    if(want > cap) return res({error:"사용할 수 있는 포인트는 최대 " + cap.toLocaleString("ko-KR") + "P예요"}, 400);
+    if(want) pAdd(-want, "use", "주문 결제");
+    var order = {id:id, userId:state.user.id, items:items, ship:sh, sub:sub, shipFee:fee, total:sub + fee, pointsUsed:want, payAmount:sub + fee - want, status:"pending", createdAt:new Date().toISOString(), shipments:{}};
     state.orders.push(order); save();
-    return res({orderId:id, amount:order.total, orderName: items[0].name + (items.length > 1 ? " 외 " + (items.length - 1) + "건" : "")});
+    return res({orderId:id, amount:order.payAmount, pointsUsed:want, orderName: items[0].name + (items.length > 1 ? " 외 " + (items.length - 1) + "건" : "")});
   }
   if(u === "/api/confirm"){
     var o2 = state.orders.filter(function(x){ return x.id === b.orderId; })[0];
     if(!o2) return res({error:"주문을 찾을 수 없어요"}, 404);
-    if(Number(b.amount) !== o2.total) return res({error:"결제 금액이 달라요"}, 400);
+    if(Number(b.amount) !== (o2.payAmount !== undefined ? o2.payAmount : o2.total)) return res({error:"결제 금액이 달라요"}, 400);
     o2.status = "paid"; o2.paidAt = new Date().toISOString(); state.stats = state.stats || {}; o2.items.forEach(function(l){ var s1 = state.stats[l.id] = state.stats[l.id] || {v:0, c:0, b:0}; s1.b += l.q; }); save();
     return res({ok:true, orderId:o2.id});
   }

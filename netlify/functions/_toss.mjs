@@ -1,5 +1,6 @@
 import { orders, tossAuth } from "./_lib.mjs";
-import { bookCancel, brandsOf, remaining, SHIP, UNASSIGNED, isSale } from "./_money.mjs";
+import { bookCancel, brandsOf, remaining, SHIP, UNASSIGNED, isSale, payOf } from "./_money.mjs";
+import { returnPoints, rehold } from "./_points.mjs";
 import { finalizePaid } from "./_pay.mjs";
 import { setLast } from "./_adj.mjs";
 
@@ -21,12 +22,12 @@ export function applyPayment(o, p, now = Date.now()) {
   const res = { recovered: false, external: 0, unassigned: 0, mismatch: false, changed: false };
   const paidState = ["DONE", "PARTIAL_CANCELED", "CANCELED"].includes(p.status);
   if (["pending", "failed"].includes(o.status) && paidState) {
-    if (Number(p.totalAmount) !== o.total) { o.mismatch = { toss: Number(p.totalAmount), ours: o.total }; res.mismatch = res.changed = true; return res; }
+    if (Number(p.totalAmount) !== payOf(o)) { o.mismatch = { toss: Number(p.totalAmount), ours: payOf(o) }; res.mismatch = res.changed = true; return res; }
     o.status = "paid"; o.paidAt = p.approvedAt || new Date(now).toISOString(); o.paymentKey = p.paymentKey; o.method = p.method || ""; o.recovered = true; delete o.failReason;
     res.recovered = res.changed = true;
   }
   if (!isSale(o)) return res;
-  if (p.totalAmount !== undefined && Number(p.totalAmount) !== o.total) { if (!o.mismatch) { o.mismatch = { toss: Number(p.totalAmount), ours: o.total }; res.changed = true; } res.mismatch = true; return res; }
+  if (p.totalAmount !== undefined && Number(p.totalAmount) !== payOf(o)) { if (!o.mismatch) { o.mismatch = { toss: Number(p.totalAmount), ours: payOf(o) }; res.changed = true; } res.mismatch = true; return res; }
   if (o.mismatch) { delete o.mismatch; res.changed = true; }
   o.refunds = o.refunds || [];
   const cancels = (p.cancels || []).filter((c) => c && c.transactionKey);
@@ -44,7 +45,7 @@ export function applyPayment(o, p, now = Date.now()) {
     const fullNow = p.status === "CANCELED" && old[old.length - 1] === c && o.status !== "canceled";
     if (fullNow) { const made = bookCancel(o, at, c.transactionKey); res.external += amount; res.changed = true; if (!made.length) o.status = "canceled"; }
     else {
-      const bs = brandsOf(o), one = bs.length === 1 ? bs[0] : null;
+      const bs = brandsOf(o), one = !o.pointsUsed && bs.length === 1 ? bs[0] : null; /* 포인트를 쓴 주문의 외부 부분취소는 포인트 몫 계산이 필요해서 관리자가 지정 */
       /* 한 브랜드 주문이거나 배송비만 남은 환불이면 바로 배정, 묶음 주문은 관리자가 지정 */
       o.refunds.push({ brand: one || UNASSIGNED, amount, at, source: "toss", tx: c.transactionKey, note: c.cancelReason || "" });
       res.external += amount; if (!one) res.unassigned++; res.changed = true;
@@ -64,6 +65,8 @@ export async function syncOrder(id) {
   const t = await tossPayment(o);
   if (!t.ok) return t.status === 404 ? { skipped: true } : { error: "토스 조회 실패" + (t.status ? " " + t.status : "") };
   const r = applyPayment(o, t.p);
+  if (r.recovered && o.pointsReleased && !(await rehold(o))) { o.mismatch = { toss: Number(t.p.totalAmount), ours: payOf(o), note: "포인트 재차감 실패" }; r.mismatch = true; }
+  if (o.status === "canceled" && o.pointsUsed && (o.pointsReturned || 0) < o.pointsUsed) { await returnPoints(o, o.pointsUsed - (o.pointsReturned || 0), "주문 취소", "ret-all-" + o.id).catch(() => {}); r.changed = true; }
   if (r.changed) await st.setJSON(o.id, o);
   if (r.recovered) await finalizePaid(o);
   return r;

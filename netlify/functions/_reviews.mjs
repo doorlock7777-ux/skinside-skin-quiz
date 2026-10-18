@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { getStore } from "@netlify/blobs";
 import { BRANDS, mail, esc } from "./_lib.mjs";
+import { earnReview, clawReview, REVIEW_POINTS } from "./_points.mjs";
 
 /* 리뷰. 브랜드는 리뷰를 직접 지울 수 없고, 악의적인 리뷰는 삭제 요청만 할 수 있다. 관리자가 승인하면 소비자 화면에서 사라진다(기록은 남김). */
 export const reviewStore = () => getStore({ name: "reviews", consistency: "strong" });
@@ -17,11 +18,11 @@ export const getReview = (id) => reviewStore().get(String(id || ""), { type: "js
 const save = (r) => reviewStore().setJSON(r.id, r);
 const vis = (r) => r.status !== "deleted";
 
-/* 배송 시작된 본인 주문의 제품에만 작성. 주문+제품당 1개 */
+/* 결제가 끝난 본인 주문의 제품에 작성(배송 전에도 가능). 주문+제품당 1개. 작성하면 500P 적립 */
 export async function createReview(user, o, productId, rating, text) {
   const line = o && o.userId === user.id ? o.items.find((l) => l.id === productId) : null;
   if (!line) return { error: "주문한 제품이 아니에요" };
-  if (!(o.shipments && o.shipments[line.brand] && o.shipments[line.brand].tracking)) return { error: "배송이 시작된 뒤에 작성할 수 있어요" };
+  if (!["paid", "partial", "shipped"].includes(o.status)) return { error: "취소된 주문에는 리뷰를 쓸 수 없어요" };
   const n = Math.round(Number(rating));
   if (!(n >= 1 && n <= 5)) return { error: "별점을 선택해주세요" };
   const t = clip(text, 500).trim();
@@ -29,9 +30,10 @@ export async function createReview(user, o, productId, rating, text) {
   if ((await allReviews()).some((x) => x.orderId === o.id && x.productId === productId)) return { error: "이미 리뷰를 작성했어요" };
   const r = { id: "R" + Date.now().toString(36).toUpperCase() + randomBytes(2).toString("hex").toUpperCase(), productId, productName: line.name, brand: line.brand, orderId: o.id, userId: user.id, userName: mask(o.userName || user.name), rating: n, text: t, createdAt: new Date().toISOString(), status: "visible", best: false, read: { brand: false, admin: false }, delReq: null };
   await save(r);
+  const pt = await earnReview(user.id, o.id, productId).catch(() => null);
   const b = BRANDS[r.brand];
   if (n <= LOW && b && b.email) await mail(b.email, `[스킨인사이드] 낮은 평점 리뷰가 등록됐어요 (${n}점)`, `<p>${esc(r.productName)}에 ${n}점 리뷰가 등록됐어요.</p><p style="padding:12px;background:#f2f4f6;border-radius:8px">${esc(r.text)}</p><p>파트너 페이지의 리뷰 메뉴에서 확인하고, 악의적인 내용이면 삭제 요청을 할 수 있어요.</p>`);
-  return { review: r };
+  return { review: r, points: pt && pt.done ? REVIEW_POINTS : 0 };
 }
 
 /* 소비자에게 보이는 목록: 베스트(최신순) 먼저, 그 다음 최신순 */
@@ -88,7 +90,18 @@ export async function decide(r, action) {
   } else if (action === "delete") { r.status = "deleted"; r.best = false; r.deletedAt = now; }
   else return { error: "처리를 선택해주세요" };
   await save(r);
+  if (r.status === "deleted") await clawReview(r.userId, r.orderId, r.productId, "삭제된 리뷰").catch(() => {});
   const b = BRANDS[r.brand];
   if (r.delReq && r.delReq.status && b && b.email) await mail(b.email, `[스킨인사이드] 리뷰 삭제 요청이 ${r.delReq.status === "approved" ? "승인" : "거부"}됐어요`, `<p>${esc(r.productName)} 리뷰 삭제 요청이 ${r.delReq.status === "approved" ? "승인되어 삭제됐어요" : "거부됐어요"}.</p>`);
   return { review: r };
+}
+
+/* 주문이 취소되면 그 주문의 리뷰를 숨기고 적립한 포인트를 회수한다 */
+export async function voidOrderReviews(orderId) {
+  let n = 0;
+  for (const r of (await allReviews()).filter((x) => x.orderId === orderId && vis(x))) {
+    r.status = "deleted"; r.best = false; r.deletedAt = new Date().toISOString(); r.deletedReason = "주문 취소"; await save(r);
+    await clawReview(r.userId, r.orderId, r.productId, "주문 취소").catch(() => {}); n++;
+  }
+  return n;
 }

@@ -263,7 +263,8 @@ await call(brand, "/api/partner/stock", "POST", { id: "bonkorea-vit", soldOut: f
 // 리뷰
 const rvNew = async (u, orderId, productId, rating, text) => call(reviewsApi, "/api/review/new", "POST", { orderId, productId, rating, text }, u);
 [s, j] = await rvNew({}, "O1", "bonkorea-cl", 5, "아주 좋아요 추천합니다"); ok(s === 401, "로그인 없이 리뷰가 써져요");
-[s, j] = await rvNew(U1, "O5", "grafen-patch", 5, "아직 안 받았는데"); ok(s === 400 && /배송/.test(j.error), "배송 전 주문에 리뷰가 써져요 " + JSON.stringify(j));
+await lib.orders().setJSON("O5X", mk("O5X", [GF(1)], "canceled", 5, { canceledAt: ago(1) }));
+[s, j] = await rvNew(U1, "O5X", "grafen-patch", 5, "취소된 주문인데 리뷰"); ok(s === 400 && /취소/.test(j.error), "취소된 주문에 리뷰가 써져요 " + JSON.stringify(j));
 [s, j] = await rvNew(U2, "O1", "bonkorea-cl", 5, "남의 주문이에요 리뷰"); ok(s === 400, "남의 주문에 리뷰가 써져요");
 [s, j] = await rvNew(U1, "O1", "bonkorea-vit", 5, "주문 안 한 제품이에요"); ok(s === 400, "주문하지 않은 제품에 리뷰가 써져요");
 [s, j] = await rvNew(U1, "O1", "bonkorea-cl", 0, "별점이 없는 리뷰예요"); ok(s === 400, "별점 0이 통과해요");
@@ -463,6 +464,89 @@ ok(s === 200 && j.warns.some((w) => /수수료율이 0%/.test(w.text)) && j.warn
   const paidTotal = live.reduce((a, o) => a + o.total, 0), refundAll = os2.flatMap((o) => money.refundsOf(o)).filter((r) => String(r.at).startsWith(month)).reduce((a, r) => a + r.amount, 0);
   const rows = home.monthSettle(os2, month), brandNet = rows.reduce((a, r) => a + r.sales - r.refund, 0);
   const rep = await settleMod.settleReport(os2, month); ok(rep.recon.gross === paidTotal && rep.recon.net === paidTotal - refundAll, "토스 대조용 합계가 달라요"); void brandNet; }
+
+// ===== 스토어: 주문 취소, 포인트 =====
+const pointsApi = (await import(pathToFileURL(path.join(T, "functions/points.mjs")))).default;
+const ptMod = await import(pathToFileURL(path.join(T, "functions/_points.mjs")));
+const bal = async (U) => (await call(pointsApi, "/api/points", "GET", null, U))[1].balance;
+const mkOrder = async (U, body) => call(orderApi, "/api/order", "POST", { items: [{ id: "grafen-patch", q: 1 }], ship: shipBody, ...body }, U);
+const paidOrder = async (U, body) => { const [s1, o] = await mkOrder(U, body); if (s1 !== 200) return [s1, o]; const [s2, c] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_" + o.orderId, orderId: o.orderId, amount: o.amount }, U); return [s2, o, c]; };
+[s, j] = await call(pointsApi, "/api/points"); ok(s === 401, "로그인 없이 포인트가 보여요");
+{ await ptMod.apply("u1", 5000, "earn", "시험 지급", "t-seed");
+  const B0 = await bal(U1);
+  // 한도: 잔액 초과 / 결제 최소 100원
+  [s, j] = await mkOrder(U1, { usePoints: B0 + 1 }); ok(s === 400 && /최대/.test(j.error), "잔액보다 많은 포인트가 사용돼요 " + JSON.stringify(j));
+  [s, j] = await mkOrder(U1, { usePoints: 9900 + 3000 }); ok(s === 400, "결제금액이 0원이 되도록 포인트를 쓸 수 있어요");
+  ok(await bal(U1) === B0, "거절된 주문이 포인트를 잡아요");
+  // 포인트 사용 주문 -> 결제는 줄어든 금액으로
+  TOSS.calls.length = 0;
+  [s, j] = await mkOrder(U1, { usePoints: 300 }); ok(s === 200 && j.pointsUsed === 300, "포인트 사용 주문 생성 실패 " + JSON.stringify(j)); const OP = j.orderId, payAmt = j.amount;
+  let xo = await lastOrder(OP); ok(payAmt === xo.total - 300 && xo.payAmount === payAmt && xo.pointsUsed === 300, "결제금액이 포인트만큼 줄지 않아요 " + JSON.stringify(xo));
+  ok(await bal(U1) === B0 - 300, "주문 때 포인트가 잡히지 않아요");
+  [s, j] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_" + OP, orderId: OP, amount: xo.total }, U1); ok(s === 400, "포인트를 빼기 전 금액으로 결제가 승인돼요");
+  [s, j] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_" + OP, orderId: OP, amount: payAmt }, U1); ok(s === 200 && TOSS.calls.slice(-1)[0].body.amount === payAmt, "토스에 줄어든 금액이 전달되지 않아요 " + JSON.stringify(TOSS.calls));
+  xo = await lastOrder(OP); ok(xo.status === "paid", "포인트 주문 결제 확정 실패");
+  { const r = home.monthSettle([xo], month)[0]; ok(r.sales === 9900 && r.payout === 9900, "포인트 사용이 브랜드 정산을 줄여요 " + JSON.stringify(r)); }
+  // 배송 전에도 리뷰 가능 + 500P 적립, 같은 리뷰 중복 없음
+  const B1 = await bal(U1);
+  [s, j] = await rvNew(U1, OP, "grafen-patch", 5, "배송 전인데 먼저 씁니다"); ok(s === 200 && j.points === 500, "배송 전 리뷰/적립 실패 " + JSON.stringify(j));
+  ok(await bal(U1) === B1 + 500, "리뷰 적립이 500P가 아니에요");
+  [s, j] = await rvNew(U1, OP, "grafen-patch", 5, "또 쓰면 안 돼요"); ok(s === 400 && await bal(U1) === B1 + 500, "같은 상품 리뷰로 포인트가 또 적립돼요");
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, U1); ok(j.log.some((x) => x.type === "earn" && x.amount === 500) && j.log.some((x) => x.type === "use" && x.amount === -300), "포인트 내역이 달라요 " + JSON.stringify(j.log.slice(0, 3)));
+  // 고객 취소: 남의 주문 불가 / 본인 취소 -> 환불, 포인트 반환, 리뷰 회수
+  [s, j] = await call(orderApi, "/api/order/cancel", "POST", { orderId: OP }, U2); ok(s === 404, "남의 주문을 취소할 수 있어요");
+  [s, j] = await call(orderApi, "/api/order/cancel", "POST", { orderId: OP }); ok(s === 401, "로그인 없이 주문이 취소돼요");
+  TOSS.calls.length = 0; const nCancel = MAILS.length;
+  [s, j] = await call(orderApi, "/api/order/cancel", "POST", { orderId: OP, reason: "단순 변심" }, U1); ok(s === 200 && j.pointsBack === 300 && j.refundedCash === payAmt, "고객 주문 취소 실패 " + JSON.stringify(j));
+  ok(TOSS.calls.length === 1 && TOSS.calls[0].u.includes("/cancel") && TOSS.calls[0].body.cancelAmount === undefined, "토스 환불 요청이 달라요 " + JSON.stringify(TOSS.calls));
+  xo = await lastOrder(OP); ok(xo.status === "canceled" && xo.canceledBy === "customer" && xo.refunds.reduce((a, r) => a + r.amount, 0) === xo.total && xo.refunds.reduce((a, r) => a + (r.cash || 0), 0) === payAmt, "취소 환불 기록이 달라요 " + JSON.stringify(xo.refunds));
+  ok(await bal(U1) === B0, "취소 후 포인트가 원래대로 돌아오지 않아요(사용분 반환 + 리뷰 적립 회수): " + (await bal(U1)) + " vs " + B0);
+  ok(mails("gf@x.test", "주문 취소 " + OP).length === 1, "고객 취소가 브랜드에 안 알려져요");
+  [s, j] = await call(reviewsApi, "/api/review?product=grafen-patch"); ok(!j.reviews.some((r) => r.text.includes("배송 전인데")), "취소된 주문의 리뷰가 남아요");
+  [s, j] = await call(orderApi, "/api/order/cancel", "POST", { orderId: OP }, U1); ok(s === 400, "취소한 주문이 또 취소돼요");
+  ok(await bal(U1) === B0, "두 번째 취소 시도가 포인트를 또 줘요");
+  { const r = home.monthSettle([xo], month)[0]; ok(r.sales === 9900 && r.refund === 9900 && r.payout === 0, "포인트 사용 주문 취소가 정산에 남아요 " + JSON.stringify(r)); }
+  // 발송이 시작된 주문은 고객이 직접 취소할 수 없다 (교환·반품으로)
+  [s, j, x] = await paidOrder(U1, {}); const OS = j.orderId;
+  { const o = await lastOrder(OS); o.shipments = { grafen: { carrier: "cj", tracking: "123123123123", at: ago(1) } }; o.status = "shipped"; await lib.orders().setJSON(OS, o); }
+  [s, j] = await call(orderApi, "/api/order/cancel", "POST", { orderId: OS }, U1); ok(s === 400 && /발송/.test(j.error), "발송된 주문을 고객이 취소해요 " + JSON.stringify(j));
+  // 결제 전 주문은 취소 대상이 아님, 토스 취소 실패 시 주문 유지
+  [s, j] = await mkOrder(U1, {}); const OPEND = j.orderId;
+  [s, j] = await call(orderApi, "/api/order/cancel", "POST", { orderId: OPEND }, U1); ok(s === 400, "결제 전 주문이 취소돼요");
+  [s, j, x] = await paidOrder(U1, { usePoints: 100 }); const OF = j.orderId; const BF = await bal(U1);
+  TOSS.failCancel = true; [s, j] = await call(orderApi, "/api/order/cancel", "POST", { orderId: OF }, U1); TOSS.failCancel = false;
+  ok(s === 400 && (await lastOrder(OF)).status === "paid" && await bal(U1) === BF, "환불 실패인데 주문/포인트가 바뀌어요");
+
+  // 부분 반품 환불: 포인트 사용 비율대로 나눠서 환불
+  await lib.orders().setJSON("SKPT0005", mkp("SKPT0005", [BK(1), GF(1)], "shipped", 4, { pointsUsed: 1000, payAmount: 42800 - 1000, shipments: { ...shippedBK, grafen: { carrier: "cj", tracking: "300300300300", at: ago(2) } } }));
+  [s, j] = await call(csApi, "/api/cs/new", "POST", { orderId: "SKPT0005", brand: "bonkorea", type: "return", text: "반품합니다" }, U1); ok(s === 200, "포인트 주문 반품 신청 실패 " + JSON.stringify(j)); const TP = j.ticket.id;
+  await call(brand, "/api/partner/cs/decide", "POST", { id: TP, action: "approve" }, BH);
+  const BP = await bal(U1); TOSS.calls.length = 0;
+  [s, j] = await call(brand, "/api/partner/cs/received", "POST", { id: TP }, BH); const pp = Math.round(29900 * 1000 / 42800);
+  ok(s === 200 && TOSS.calls[0].body.cancelAmount === 29900 - pp, "포인트 주문의 부분 환불 금액이 달라요 " + JSON.stringify(TOSS.calls));
+  ok(await bal(U1) === BP + pp, "부분 환불의 포인트 몫이 반환되지 않아요");
+  xo = await lastOrder("SKPT0005"); ok(xo.refunds[0].amount === 29900 && xo.refunds[0].cash === 29900 - pp && xo.refunds[0].points === pp, "부분 환불 기록이 달라요 " + JSON.stringify(xo.refunds));
+  [s, j] = await call(adminApi, "/api/admin/cancel", "POST", { orderId: "SKPT0005" }, A); ok(s === 200, "포인트 주문 부분환불 뒤 취소 실패 " + JSON.stringify(j));
+  xo = await lastOrder("SKPT0005");
+  ok(xo.refunds.reduce((a, r) => a + r.amount, 0) === 42800 && xo.refunds.reduce((a, r) => a + (r.cash || 0), 0) === 41800 && xo.pointsReturned === 1000 && await bal(U1) === BP + 1000, "부분환불 뒤 취소 합계가 결제/포인트와 달라요 " + JSON.stringify({ r: xo.refunds, pr: xo.pointsReturned }));
+  { const r = home.monthSettle([xo], month); ok(r.every((y) => y.sales === y.refund), "포인트 주문 취소가 정산에 남아요"); }
+
+  // 결제 안 한 주문의 포인트는 새 주문을 만들 때 풀리고, 뒤늦게 결제되면 다시 잡힌다 / 잔액이 모자라면 승인 전에 막는다
+  const BQ = await bal(U1);
+  [s, j] = await mkOrder(U1, { usePoints: 200 }); const OA = j.orderId; ok(await bal(U1) === BQ - 200, "주문 A 포인트 잡기 실패");
+  [s, j] = await mkOrder(U1, { usePoints: 100 }); const OB = j.orderId; ok(await bal(U1) === BQ - 100, "새 주문을 만들어도 이전 미결제 주문의 포인트가 안 풀려요 " + (await bal(U1)));
+  TOSS.calls.length = 0; [s, j] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_" + OA, orderId: OA, amount: (await lastOrder(OA)).payAmount }, U1); ok(s === 200 && await bal(U1) === BQ - 300, "풀린 주문이 뒤늦게 결제됐는데 포인트를 다시 안 잡아요 " + (await bal(U1)));
+  { const keep = await bal(U1); await ptMod.apply("u1", -keep, "use", "비우기", "t-drain"); const n0 = TOSS.calls.length;
+    [s, j] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_" + OB, orderId: OB, amount: (await lastOrder(OB)).payAmount }, U1);
+    ok(s === 200 || s === 409, "응답 이상"); ok((await lastOrder(OB)).status === "paid" || TOSS.calls.length === n0, "잔액이 모자란데 토스 승인이 나가요"); await ptMod.apply("u1", keep, "earn", "복구", "t-restore"); }
+  // 결제 실패하면 포인트가 바로 돌아온다
+  { const b2 = await bal(U1); [s, j] = await mkOrder(U1, { usePoints: 150 }); const OX = j.orderId; ok(await bal(U1) === b2 - 150, "포인트 잡기 실패");
+    TOSS.confirmFail = { code: "REJECT_CARD_COMPANY", message: "카드사 거절" }; [s, j] = await call(confirmApi, "/api/confirm", "POST", { paymentKey: "pk_x", orderId: OX, amount: (await lastOrder(OX)).payAmount }, U1); TOSS.confirmFail = null;
+    ok(s === 400 && await bal(U1) === b2, "결제 실패했는데 포인트가 안 돌아와요 " + (await bal(U1)) + " vs " + b2); }
+  // 대조 합계: 포인트는 결제액에서 빠지고 플랫폼 부담으로 표시
+  { const os2 = (await ctxMod.allOrders()).filter((o) => o.status !== "pending"); const rep = await settleMod.settleReport(os2, month);
+    ok(rep.recon.pointsUsed > 0 && rep.recon.cashPaid === rep.recon.gross - rep.recon.pointsUsed, "대조 합계에 포인트 몫이 반영되지 않아요 " + JSON.stringify(rep.recon)); }
+}
 
 // 코드 재발급/폐기/잠금
 [s, j] = await call(adminApi, "/api/admin/partners/issue", "POST", { brand: "bonkorea" }, A); const codeB2 = j.code;

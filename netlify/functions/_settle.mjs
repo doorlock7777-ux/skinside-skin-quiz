@@ -2,7 +2,7 @@ import { getStore } from "@netlify/blobs";
 import { BRANDS, mail, esc, kday } from "./_lib.mjs";
 import { monthSettle } from "./_home.mjs";
 import { getAdj, addAdj, getLast } from "./_adj.mjs";
-import { isSale, refundsOf, hasUnassigned, dayOf, when, SHIP, UNASSIGNED, brandsOf, lines, amt } from "./_money.mjs";
+import { payOf, pointsOf, isSale, refundsOf, hasUnassigned, dayOf, when, SHIP, UNASSIGNED, brandsOf, lines, amt } from "./_money.mjs";
 
 /* 정산 확정(스냅샷)과 송금 완료 표시. {month: {month, confirmedAt, rows, paid:{brand: iso}}} */
 export const settleStore = () => getStore({ name: "settlements", consistency: "strong" });
@@ -66,7 +66,7 @@ export async function settleReport(os, m) {
   if (un) warns.push({ level: "bad", text: `브랜드가 정해지지 않은 환불 ${un}건 — 아래에서 지정해야 정산을 확정할 수 있어요` });
   const mm = os.filter((o) => o.mismatch);
   if (mm.length) warns.push({ level: "bad", text: `토스 결제액과 금액이 다른 주문 ${mm.length}건 (${mm.slice(0, 3).map((o) => o.id).join(", ")})` });
-  const bad = inM.filter((o) => o.sub !== undefined && (o.sub !== amt(o.items) || o.total !== o.sub + (o.shipFee || 0)));
+  const bad = inM.filter((o) => o.sub !== undefined && (o.sub !== amt(o.items) || o.total !== o.sub + (o.shipFee || 0) || payOf(o) !== o.total - pointsOf(o)));
   if (bad.length) warns.push({ level: "bad", text: `상품 금액 합계와 결제액이 맞지 않는 주문 ${bad.length}건 (할인·쿠폰 같은 금액이 끼었는지 확인)` });
   for (const r of rows) {
     if (!r.feeRate) warns.push({ level: "warn", text: `${r.name}: 수수료율이 0%예요 (서버 설정 파일 확인)` });
@@ -81,8 +81,10 @@ export async function settleReport(os, m) {
   else if (age > 36) warns.push({ level: "warn", text: `마지막 토스 대조가 ${Math.floor(age)}시간 전이에요` });
   /* 토스 정산서와 맞춰볼 합계: 이 달 결제 총액 - 이 달 환불 총액(배송비, 미지정 포함) */
   const refunds = os.flatMap((o) => refundsOf(o)).filter((r) => dayOf(r.at).startsWith(m));
-  const gross = inM.reduce((a, o) => a + o.total, 0), ship = inM.reduce((a, o) => a + (o.shipFee || 0), 0);
-  const rf = (f) => refunds.filter(f).reduce((a, r) => a + r.amount, 0);
-  const recon = { gross, ship, refundBrand: rf((r) => r.brand !== SHIP && r.brand !== UNASSIGNED), refundShip: rf((r) => r.brand === SHIP), refundUnassigned: rf((r) => r.brand === UNASSIGNED), net: gross - rf(() => true) };
+  /* 토스 정산서와 맞춰볼 합계: 실제 결제액(포인트 제외) - 실제 환불액. 포인트로 낸 몫은 플랫폼이 부담하고 브랜드 정산(판매가 기준)은 그대로다 */
+  const cashPaid = inM.reduce((a, o) => a + payOf(o), 0), gross = inM.reduce((a, o) => a + o.total, 0), ship = inM.reduce((a, o) => a + (o.shipFee || 0), 0);
+  const rf = (f) => refunds.filter(f).reduce((a, r) => a + r.amount, 0), cashRf = refunds.reduce((a, r) => a + (r.cash !== undefined ? r.cash : r.amount), 0);
+  const pointsUsed = inM.reduce((a, o) => a + pointsOf(o), 0), pointsBack = inM.reduce((a, o) => a + (o.pointsReturned || 0), 0);
+  const recon = { gross, ship, pointsUsed, pointsBack, cashPaid, refundBrand: rf((r) => r.brand !== SHIP && r.brand !== UNASSIGNED), refundShip: rf((r) => r.brand === SHIP), refundUnassigned: rf((r) => r.brand === UNASSIGNED), cashRefund: cashRf, net: cashPaid - cashRf };
   return { rows, warns, recon, last };
 }

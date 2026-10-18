@@ -43,3 +43,7 @@ export function refundsOf(o) {
   return rs;
 }
 export const hasUnassigned = (o) => refundsOf(o).some((r) => r.brand === UNASSIGNED);
+
+/* 고객이 실제로 카드·계좌로 결제한 금액(포인트 사용분 제외). 포인트는 플랫폼이 부담하므로 브랜드 정산(판매가 기준)에는 영향이 없다 */
+export const payOf = (o) => (o.payAmount !== undefined ? o.payAmount : o.total);
+export const pointsOf = (o) => o.pointsUsed || 0;

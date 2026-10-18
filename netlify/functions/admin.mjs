@@ -7,6 +7,7 @@ import { allTickets, getTicket, addMessage, close, receiveAndRefund } from "./_c
 import { allReviews, getReview, manageView, markRead, setBest, decide as decideReview } from "./_reviews.mjs";
 import { confirmSettlement, markPaid, getSettlement, listSettlements, settleReport } from "./_settle.mjs";
 import { getAdj, addAdj, delAdj } from "./_adj.mjs";
+import { cancelOrder } from "./_cancel.mjs";
 import { syncOrder, reconcileAll } from "./_toss.mjs";
 import { bookCancel, refundsOf, UNASSIGNED, brandsOf } from "./_money.mjs";
 
@@ -51,24 +52,11 @@ export default async (req) => {
 
   if (p === "/api/admin/cancel" && req.method === "POST") {
     const o = await st.get(String(b.orderId || ""), { type: "json" });
-    if (!o || !o.paymentKey || o.status === "canceled" || !["paid", "partial", "shipped"].includes(o.status)) return json({ error: "취소할 수 없는 주문" }, 400);
-    const r = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(o.paymentKey)}/cancel`, {
-      method: "POST", headers: { authorization: tossAuth(), "content-type": "application/json", "Idempotency-Key": "cancel-" + o.id },
-      body: JSON.stringify({ cancelReason: String(b.reason || "관리자 취소").slice(0, 100) }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      /* 이미 토스에서 취소된 주문이면 토스 기록을 가져와 맞춘다 */
-      if (j.code === "ALREADY_CANCELED_PAYMENT") { const sy = await syncOrder(o.id); return sy.error ? json({ error: sy.error }, 502) : json({ ok: true, synced: true }); }
-      return json({ error: j.message || "취소 실패" }, 400);
-    }
-    /* 취소는 남은 금액 전부를 "환불"로 기록한다. 취소한 달에서 차감되고 이미 확정한 정산은 바뀌지 않는다 */
-    const tx = ((j.cancels || []).slice(-1)[0] || {}).transactionKey;
-    bookCancel(o, new Date().toISOString(), tx); if (tx) (o.tossTx = o.tossTx || []).push(tx);
-    try { await adjustStock(o.items.map((l) => [l.id, l.q])); } catch {}
-    try { await notifyCancel(o); } catch {}
-    await st.setJSON(o.id, o);
-    return json({ ok: true });
+    if (!o || o.status === "canceled") return json({ error: "취소할 수 없는 주문" }, 400);
+    /* 토스에서 이미 취소된 주문이면 토스 기록을 가져와 맞춘다 */
+    const r = await cancelOrder(o, { by: "admin", reason: b.reason });
+    if (r.code === "ALREADY_CANCELED_PAYMENT") { const sy = await syncOrder(o.id); return sy.error ? json({ error: sy.error }, 502) : json({ ok: true, synced: true }); }
+    return r.error ? json({ error: r.error }, 400) : json({ ok: true });
   }
 
   /* ---- CS ---- */

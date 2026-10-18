@@ -1,5 +1,7 @@
 import { json, getUser, orders, tossAuth } from "./_lib.mjs";
 import { finalizePaid } from "./_pay.mjs";
+import { payOf } from "./_money.mjs";
+import { rehold, releaseOrder } from "./_points.mjs";
 import { tossPayment, applyPayment } from "./_toss.mjs";
 
 export default async (req) => {
@@ -11,15 +13,17 @@ export default async (req) => {
   const o = await st.get(String(orderId || ""), { type: "json" });
   if (!o || o.userId !== user.id) return json({ error: "주문을 찾을 수 없어요" }, 404);
   if (o.status === "paid" || o.status === "shipped" || o.status === "partial" || o.status === "canceled") return json({ ok: true, orderId: o.id });
-  if (Number(amount) !== o.total) return json({ error: "결제 금액이 달라요" }, 400);
+  if (Number(amount) !== payOf(o)) return json({ error: "결제 금액이 달라요" }, 400);
   if (!process.env.TOSS_SECRET_KEY) return json({ error: "결제 설정이 아직 없어요" }, 503);
 
+  /* 포인트를 풀어준 주문이 뒤늦게 결제되면 다시 잡는다. 잔액이 모자라면 토스 승인 전에 막는다 */
+  if (o.pointsUsed && o.pointsReleased) { if (!(await rehold(o))) return json({ error: "포인트 잔액이 바뀌어서 결제할 수 없어요. 주문을 다시 만들어주세요" }, 409); await st.setJSON(o.id, o); }
   let r, j;
   try {
     r = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
       method: "POST",
       headers: { authorization: tossAuth(), "content-type": "application/json" },
-      body: JSON.stringify({ paymentKey, orderId: o.id, amount: o.total }),
+      body: JSON.stringify({ paymentKey, orderId: o.id, amount: payOf(o) }),
     });
     j = await r.json().catch(() => ({}));
   } catch {
@@ -36,6 +40,7 @@ export default async (req) => {
     }
     o.status = "failed"; o.failReason = j.message || "";
     await st.setJSON(o.id, o);
+    if (o.pointsUsed) await releaseOrder(o).catch(() => {});
     return json({ error: j.message || "결제 승인에 실패했어요" }, 400);
   }
   const cur = (await st.get(o.id, { type: "json" })) || o;

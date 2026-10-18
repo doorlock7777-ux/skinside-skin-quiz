@@ -393,8 +393,10 @@ function reconCard(j){
   var r = j.recon || {}, l = j.last;
   return '<div class="card"><h2>토스와 대조</h2><p class="sub">매일 새벽 4시 30분에 자동으로 맞추고, 토스에서 직접 취소한 건과 놓친 결제를 가져와요. 지금 바로 하려면 버튼을 누르세요.</p>'
     + '<div class="rw"><span>마지막 대조</span><b>' + (l ? kst(l.at) + ' · ' + l.checked + '건 확인' + (l.recovered ? ' · 결제 복구 ' + l.recovered : '') + (l.external ? ' · 외부 환불 ' + n(l.external) + '원' : '') + (l.errors ? ' · 오류 ' + l.errors : '') : '아직 없음') + '</b></div>'
-    + '<div class="rw"><span>' + esc(SM) + ' 결제 총액 (배송비 ' + n(r.ship) + '원 포함)</span><b>' + n(r.gross) + '원</b></div>'
-    + '<div class="rw"><span>환불 (브랜드 ' + n(r.refundBrand) + ' · 배송비 ' + n(r.refundShip) + (r.refundUnassigned ? ' · 미지정 ' + n(r.refundUnassigned) : '') + ')</span><b>-' + n(r.refundBrand + r.refundShip + r.refundUnassigned) + '원</b></div>'
+    + '<div class="rw"><span>' + esc(SM) + ' 주문 금액 (배송비 ' + n(r.ship) + '원 포함)</span><b>' + n(r.gross) + '원</b></div>'
+    + '<div class="rw"><span>포인트 사용 (플랫폼 부담' + (r.pointsBack ? ', 취소로 돌려준 ' + n(r.pointsBack) + 'P 포함' : '') + ')</span><b>-' + n(r.pointsUsed) + '원</b></div>'
+    + '<div class="rw"><span>실제 결제액 (카드·계좌)</span><b>' + n(r.cashPaid) + '원</b></div>'
+    + '<div class="rw"><span>실제 환불액 (브랜드 ' + n(r.refundBrand) + ' · 배송비 ' + n(r.refundShip) + (r.refundUnassigned ? ' · 미지정 ' + n(r.refundUnassigned) : '') + ' 중 포인트 몫 제외)</span><b>-' + n(r.cashRefund) + '원</b></div>'
     + '<div class="rw"><span><b>토스 정산서와 맞춰볼 순 결제액</b></span><b>' + n(r.net) + '원</b></div>'
     + '<div style="margin-top:8px"><button class="g" id="rc">토스와 대조하기</button> <span class="msg" id="rcm"></span></div></div>';
 }
