@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>스킨인사이드 피부타입 진단</title>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* 레이아웃: 상단 브랜드 밴드 + 진행바, 본문은 밝은 바탕 위 얇은 선 카드. 선택지는 한 줄 행으로 통일 */
+:root{--brand:#4E57A2;--bg:#F6F7FB;--card:#fff;--text:#171A33;--muted:#5F6488;--line:#E1E4F0;--accent:#4E57A2;--on-accent:#fff;--soft:#EDEEF8;--shadow:0 1px 2px rgba(23,26,51,.05),0 8px 24px rgba(78,87,162,.08);--btn-shadow:0 6px 16px rgba(78,87,162,.28);
+padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101228;--card:#1A1D3D;--text:#EEF0FF;--muted:#A3A8D0;--line:#2C3068;--accent:#8E98E8;--on-accent:#10122B;--soft:#262A58;--shadow:none;--btn-shadow:none;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101228;--card:#1A1D3D;--text:#EEF0FF;--muted:#A3A8D0;--line:#2C3068;--accent:#8E98E8;--on-accent:#10122B;--soft:#262A58;--shadow:none;--btn-shadow:none;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans KR","Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.65;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--brand);z-index:10}
+header{background:var(--brand);text-align:center;padding:22px max(16px,env(safe-area-inset-right,0px)) 18px max(16px,env(safe-area-inset-left,0px))}
+header img{display:block;margin:0 auto;width:min(78%,300px);height:auto}
+.bar{height:4px;background:var(--line)}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .35s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-28px)}to{opacity:1;transform:none}}
+#app.slide{animation:slideIn .5s cubic-bezier(.22,.8,.3,1) both}
+@media (prefers-reduced-motion:reduce){#app.slide{animation:none}.bar i,.opt{transition:none}}
+main{max-width:540px;margin:0 auto;padding-block:28px 56px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+h1,h2{margin:0 0 12px;line-height:1.35;letter-spacing:-.4px;font-weight:700;text-wrap:balance}
+h1{font-size:26px}h2{font-size:22px}
+p{margin:0 0 14px}
+b{font-weight:700}
+.muted{color:var(--muted);font-size:14px}
+.step{font-size:12.5px;font-weight:700;letter-spacing:.05em;color:var(--accent);margin-bottom:10px}
+.big{font-size:clamp(30px,9vw,40px);font-weight:800;line-height:1.3;letter-spacing:-1.2px;color:var(--text);margin:22px 0 28px}
+.big::after{content:"";display:block;width:44px;height:4px;background:var(--accent);margin-top:18px}
+.code{font-family:"Michroma","Arial Black",sans-serif;font-size:clamp(34px,11vw,54px);font-weight:700;color:var(--accent);letter-spacing:2px;line-height:1.15;margin:6px 0 16px}
+.nick{font-size:13px;font-weight:700;letter-spacing:.05em;color:var(--muted);margin-bottom:2px}
+.subl{font-size:15px;color:var(--muted);margin:-2px 0 14px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.box>b:first-child{display:block;font-size:15px;margin-bottom:8px}
+.box.muted{box-shadow:none;background:var(--soft);border-color:transparent}
+ul{padding-left:18px;margin:8px 0}li{margin:5px 0}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;text-align:left;font:inherit;font-weight:500;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:10px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .15s,background .15s,transform .1s}
+.opt::after{content:"";flex:none;width:8px;height:8px;border-right:2px solid var(--muted);border-top:2px solid var(--muted);transform:rotate(45deg);opacity:.55}
+.opt:hover,.opt:active{border-color:var(--accent);background:var(--soft)}
+.opt:active{transform:scale(.99)}
+.btn{display:block;width:100%;font:inherit;font-weight:700;color:var(--on-accent);background:var(--accent);border:0;border-radius:12px;padding:16px;margin-top:10px;cursor:pointer;text-align:center;text-decoration:none;box-shadow:var(--btn-shadow)}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent);box-shadow:none}
+.btn.small{font-size:14px;padding:12px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.link{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;display:block;margin:16px auto 0}
+.note{font-size:12.5px;color:var(--muted);margin-top:18px;line-height:1.6}
+.clock{font-family:"Michroma",monospace;font-size:clamp(40px,13vw,54px);text-align:center;margin:20px 0 8px;font-variant-numeric:tabular-nums;color:var(--accent);letter-spacing:1px}
+.tag{display:inline-block;background:var(--accent);color:var(--on-accent);font-weight:700;border-radius:999px;padding:2px 12px;font-size:14px}
+.lr{display:flex;gap:14px;padding:11px 0;border-top:1px solid var(--line);align-items:flex-start}
+.lr:first-of-type{border-top:0}
+.lr .tag{flex:none;display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;border-radius:10px;font-family:"Michroma",sans-serif;font-size:15px}
+.lr b{display:block;font-size:15px}
+.lr span:not(.tag){font-size:13px;color:var(--muted)}
+.ga{margin:14px 0}
+.gl{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px}
+.gb{position:relative;height:8px;background:var(--soft);border-radius:4px}
+.gb i{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid var(--card);transform:translate(-50%,-50%)}
+.cg .ga{margin:10px 0}
+.gt{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;margin-bottom:6px}
+.gt span{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.cg .gb{height:6px}.cg .gb i{width:12px;height:12px}
+.cg .gl{font-size:11.5px;margin:6px 0 0}
+.rt{border-top:1px solid var(--line);padding:14px 0;display:flex;gap:14px;align-items:center;justify-content:space-between}
+.rt:first-of-type{border-top:0}
+.rt b{display:block;font-size:15px;line-height:1.4}
+.rt span{font-size:13px;color:var(--muted)}
+.rt .pi{width:68px;height:68px;flex:none;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:12px}
+.rt .pt{flex:1;min-width:0}
+.rt .pt>span:first-child{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.04em}
+.rt a{flex:none;font-size:14px;font-weight:700;color:var(--on-accent);background:var(--accent);padding:10px 14px;border-radius:10px;text-decoration:none}
+.cnt{display:none;align-items:baseline;gap:6px;justify-content:center;background:var(--soft);border-radius:999px;padding:9px 16px;margin-bottom:22px}
+.cnt.on{display:flex}
+.cnt b{font-size:15px;color:var(--accent);font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 16px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:10px 12px;font-size:14px}
+.chip small{display:block;color:var(--muted);font-size:12px}
+.radar{display:block;width:100%;max-width:380px;margin:0 auto}
+.radar text{fill:var(--text);font-size:13px;font-weight:500;font-family:inherit}
+.radar .ring{fill:none;stroke:var(--line)}
+.radar .val{fill:var(--accent);fill-opacity:.26;stroke:var(--accent);stroke-width:2}
+.card-img{display:block;width:100%;max-width:300px;margin:0 auto 12px;border-radius:12px;border:1px solid var(--line)}
+input[type=text]{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:13px;margin:8px 0}
+label.ck{display:flex;gap:8px;font-size:13px;color:var(--muted);align-items:flex-start}
+</style>
+</head>
+<body>
+<header><img id="lg" alt="Skinside.co.kr Men’s Beauty Styling Life" src="data:image/webp;base64,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"></header>
+<div class="bar"><i id="pg"></i></div>
+<main id="app"></main>
+
+<script>
+/* ===== 수정 영역 ===== */
+var KAKAO_URL = "https://pf.kakao.com/_ZujbG/friend";       /* 카카오톡 채널 친구추가 주소 예: https://pf.kakao.com/_xxxxxx/friend (비워두면 게이트 꺼짐) */
+var YT_URL = "https://www.youtube.com/@문장군";
+var SHARE_TEXT = "skinside.co.kr";
+var COUNTER_API = "https://script.google.com/macros/s/AKfycbxuR5EFQRjNJgTNJZqIdmon_rDbkMWZ_CEuO0GhVQDNyYRPRtaNL8dt70tmmmhqsBNX/exec";      /* 자체 서버 사용 시: GET {total, types:{oily:3,...}} / POST {type} */
+var ANALYTICS_ENDPOINT = "";/* 선택: 이벤트 수집 서버 */
+/* 구매 링크 모음 (링크가 바뀌면 여기만 수정) */
+var LINKS = {
+  cl:    "https://smartstore.naver.com/ecosmetics/products/2010729928",
+  vit:   "https://smartstore.naver.com/ecosmetics/products/13177133634?NaPm=ct%3D1k54nl84n%7Cci%3Dshopn%7Ctr%3Dmktlnk%7Chk%3D2d726da6d0fd5043f20586034dbc63bd19400109%7Ctrx%3Dundefined",
+  minic: "https://minic.store/product/detail.html?product_no=24",
+  sun:   "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000223423&t_page=%ED%86%B5%ED%95%A9%EA%B2%80%EC%83%89%EA%B2%B0%EA%B3%BC%ED%8E%98%EC%9D%B4%EC%A7%80&t_click=%EA%B2%80%EC%83%89%EC%83%81%ED%92%88%EC%83%81%EC%84%B8&t_search_name=%EB%A9%94%EB%94%94%ED%9E%90%20%EB%A7%88%EB%8D%B0%EC%B9%B4%EC%86%8C%EC%82%AC%EC%9D%B4%EB%93%9C%20%EC%88%98%EB%B6%84%20%EC%84%A0%EC%84%B8%EB%9F%BC&t_number=1&dispCatNo=1000001001100060001&trackingCd=Result_1",
+  patch: "https://brand.naver.com/grafen/products/13325759434",
+  calm:  "https://smartstore.naver.com/livna/products/12410370676",
+  cream: "https://smartstore.naver.com/livna/products/13031203956",
+  store: "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store"
+};
+var PR = {
+  cl:   {n:"본코리아 엔젤 효소 세안제", url:LINKS.cl, img:"data:image/webp;base64,UklGRmYFAABXRUJQVlA4IFoFAABwIACdASqwALAAPp1On0ylpCaoIncaaQATiWVu4W8b6tgjrSW7dHCP7ZfbzN9P9ADpXK0zXs8F8vAx/xI6XqaR4+vrj0cBsm+ftTw+8ktpp/Htx2hIruwWZ0Wj+fwYqgYADabwjOqUZJz14ywxXElHShCm0WOCY9zHiC/kSwNl2nsZ5GhdE8vh9kh+b+VHjObZIbQN1ASUM3vLkf8C3KXm+KXn6xo4oOxb0HwbFLMRfWRSO1rJvzbZxHrv17TDftPUDktrHRAy1S/axYh8jaQ5B1T5G2sgIHGVjuVX0WM0BCmVmFJGTKxgqTqc9dN+Wmkv857tkmPfoar6rKTXumGtCR5+DAEgedrh4wQAAP7+k3EPtxhEDjeZh8cJ+JYVUYkfQKisORX8W3bTZm9u2amlzI8Sigwc7wZvCzLG/NpvOOpabG/OkBiLwXBHH92pcB/VHHEnhh++IRjV+4LVuo5f82rBWuTvIAAM53xgQm2L2HRbrrPdnVGraHzPWYtsDVdrl3f1SF92cuPSyAiR1lKJQsSeTrIVLMruiD+2yKYUWXlTZU1AzgupIVF8Th+zxUYoVFqSR+lewtGfENQeSwo6sv3BHxZi2tRAdcn6FRDgH3fQRQoeKfCe1X+UOFD5ZfjWnmQzgQdmQeSSbtbP9ncfaX58Z5/25b5oH/j//UgJpVs1ntOq1S1OxN4ofX35XhF+qnH3afgHeVUkAN08Akd2Ij3K8ltc96pFYH1a6bgF/Qf08Utzyh6jKQkIMeVPJotNHvrUAlPO2lk/ufRZnjK44RE74ujKSVbG/ku8Bd3jN/0fdwgtkbDVS9fS/UaW3E62iQk2/hm8nhFtLIOCUuz+sDLpwUOi6xRrJOjXBsaeGVPGiAeqf8TSUd8eNsDQNwGKSeUFHqLN655XVPcO3lPdALPHA0RpVGGQgPl1fC0Y7byy1d+su76+9zfOEuNTyjCWBUociJ56V+q9u/2OhlOhJFXFqHFV8tBQ9+Z1I1wB3+MGzytxUFuoRLmzcVTYjvM1vwAEcw7ADnHXUP6JNahlM+a+w+qHRmA1QO/Mc1Es47xpnSbmslUbjtt34b4U2MLHUKdeRY35/Mw6jOpby7OwY04gAjz31ldmp4vlWtIrGtovt6TQW7+Pfa1BcGGZZ+nG1qPnm38+epUXWL8eZP4t5Apm/IlyLLs8IXDdWdA5HZ8v4WXB9imlhx3lz4ydeEjxus9gmn8visTa9n5QP+eipl9M7iAG+cQ2jS0b2c0c/vMA3WMlo2DPxNItViGUVItfJtq5stspTa36dMK0esNxqEgykRb5qYMbdbWWWe4qB1xGPl4NP/A94kH6gM9+vVrGFMQ2944Axnv2aUasWQvm2zXZ8+tL9uQ8M4AE3nZSScOXi9mfNvnhFo9Pr/VXcFNBWkBcB3QhYVXK3e5PQcUdPdSb5WxyrCtOu2BzTWuB/fje56hEhfff00WD/SCSPSnhkHYCnoayhEagYuVa9xP0awjv7fTX34FxdZKHHMJ3UCr3K6gb2cDIRbCW8uml3zB+AtbNc6lPidvT1yB0gEGzqivPnPwHtTd+eJNCYDpeVm+nbc7n5GWDXZ6BQyWlHHrqbaw3B6uWEkObcaf+5X1apj0tf/M6Sbu0p6QHFywqnAF99GRrdxeIb65aBYIrEWYP4cg60wOHAJcAoxszZy7iwPc/K9RVULdtjRlkc90Wo3/Zuog/wkLbxRsVXI45zW7FsBT/ducTuF8e+gf+rTgRYqK1e++A60KlalaCr82ERiN0lg3ZIuWjZKnVoetJ8SMoBzzU0Cn8tvJdjHLL72WmjbZsKp5P4AAAAA=="},
+  vit:  {n:"본코리아 엔젤 비타민 앰플", url:LINKS.vit, img:"data:image/webp;base64,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"},
+  minic:{n:"미닉 올인원·장벽크림", url:LINKS.minic, img:"data:image/webp;base64,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"},
+  sun:  {n:"메디힐 수분 선세럼", url:LINKS.sun, img:"data:image/webp;base64,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"},
+  patch:{n:"그라펜 원 스탭 코팩", url:LINKS.patch, img:"data:image/webp;base64,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"},
+  calm: {n:"리브나 챕터3 진정 앰플", url:LINKS.calm, img:"data:image/webp;base64,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"},
+  cream:{n:"리브나 챕터3 진정 크림", url:LINKS.cream, img:"data:image/webp;base64,UklGRlIGAABXRUJQVlA4IEYGAADQJQCdASqwALAAPp1OoEylpCMlorZqALATiWVu3V+9396oK3tx9vV32v0AOlfYBI+HRK4se4y5BOOb0TtCGoh+tW+3Dk50U0Uf1nlcdxEmlOU6M+pYLslrDYtfvNtGZKd/EA+a0exK+eAJNRT8htNi8wps6e1V2I7G6I1UvPsT1/RGu82FVAYzopAgR1E/qT6BTES23xSj3LFQP+dPUQYJmr0BFiUAlzLBtGX8x/hvgNdAe9s9BBO6/ytW4qn7CH+JV/B8bs4I6uiFktZ0meW22D2OAQjIZOHOhvKX8aeNNCEXcTNuEw6L0QyxookZaGnhHaV+FJSL5+AITBWbRQpfju9X4vRK+sBiNz8cLQotaJSsfubThLKj1VfGzjP7OXhSa1ovRK49vItkcnJUnRE1d2G43SVwAAD++bEDzqpsPkZ3pSlW2IBEYYGkUEazDuC9dHhEMvVDfmznZLi1dCpV0UjY8feR8jZNdzWVCSQMQTZQeSLt7KaX0w+jpLxqP+7WegPcaAeIDwpD/PSGnKqhI2zNVSnRXV6jfkQ/VBG1qG4X8kMW4V1IEm0mk8M0LAJv79+I0oWZ8XEmzTF7Mz1vn1cuClQHjQOqffTIkT8GhaDDTucKBJpcMaA6qHZDvsB67BzQTah3HnEfj3+/ntGtMfODYQGtV9g+fwsp6lI4m9hZu1hb/yvPMdRaAqWRFJ3qVg2rNKnQRYkUzNawTJM27IYndT8d/PXJ2NJV0JMFW6eO7IJba9hFl2rNMuab+rOLa8FntZYLVSOC5xsjv9vz/f1GTqL6avjXKXc7Tf2sjb2tNZZMw8vLrl13Ap5IPa6WnQGP/7I6boPfJ+lXMgCtH9NFwcjB+1M7535xfL3WV+C2DcstyWhfiQ5rQJUrAbovKggvOY95SeU33iZlfrmMPKi34jyKUdLV8ZDv+ifImp4Rac/mvo4BhMraL1Y/v0DCnjhXCUl/6Ogt0G3eSTs6/Gnnj6eXtX+rq8gdElkgimW7mbV9cRwSzLiDWkcs51x0yWds3hm1QqgxTFjxHf7FBbE8Y/IeqUJnlXGWm34s0Av344VRyT4vS8bgMkvx70AJISec0esFv8G4dJ0VCXSQz+ET72swK4GxTi0tEw1795/1THpfXw449Mg4g/pkASvzv85xWqtf1Bg0G4FpnAIlA9MLzH0OSG6lw0NKOCpXAw5V9TiNxouIBc5u8gUmR+fbPUrVo2fxfFFtCxhDL/xVoH/x3R6HNiEPvIxp4MEYr9pR0aK4dlBGGGvrmP3bbyqr10J5a1dGXTBEZANHfoyqKZuBVgSkTU1cOSYdI7njqO5FmG2lr6daxj8/4tUeX2vbzKZniuM+I9Vod0L/tBmVyFoVpTidbe/X31yyNKqotZUSphspY/fjW/6polbF1m61J7buBDvQA7yo6iwW4NauwmWqVQkWAgJoceaXx+2Fh84yfHUO4Vf8JQrniYJqj56d670dMNO+W9+Vz1IwaOjYPw7jx+Fa3yPzSmQYazmxCWZ1zC924OznIKIrFy9MqQzxjLykSb8nliCUMQyXI+Sxh9O5OHKdBldNPS1sqS7BfmhMlW4/3ofo0Jm8iK/+zosCL7uDeqPJq1J3V77tvCmNpwnpTFxiCSzZUDr8ByHerSNeXf7lXWbFVKm8cAgEktc/GM37x4kn+pIUIm1s8YG+cYm1bcOvXWRvKyx3Dn2HZEUJyLESsSb2S304gTcWTYHYlwVgLSJgO7FsKFZ4vcDcNnAYTBPlIeRh9K9KPngl4JkQ0c1A11PMXXKmm8XZtu0SQ1KxahrqU60/hmixP7k61Pf607vNh5Jepxm3dz2NxSAUUaLhO05JwFckq/3+4aAHWHWzLAYUb/mFSVizR2h3C3fKYOAOy3oTyttcvD2hMr4VBhSPyvSFcmerHLNScPeO2QoJrrNs5qoOl5aAdCyw/2JLgcAgwWXUls6jpq/J5vwAn8RoeDekZ2g5sO6JPGQTI73wvOzCrgBDumPDGRuPhD84MI+c/eqhQea+yzqmQ3RNbLwqyhKFuTIfnkHr8u5uYt332mNHnnOTL6l+DO1Wd6wMfHkRIqzxm39hQmwX+Q26xjuR83uLpCS1CWpw2EZbp0JLqO+j7Csx7e2nMpL+OjtpQAAA"}  /* 현재 미사용 */
+};
+/* ===================== */
+
+/* BSTI 29문항: [축, 질문, 선택지(점수 0~3 순서)]  od 건성→지성 / sr 저항→민감 / pn 비색소→색소 / wt 탄력→주름 */
+var Q = [
+["od","한낮이 되면 이마와 코는 어떤가요?","전혀 안 번들거려요|약간 번들거려요|꽤 번들거려요|기름이 흐를 정도예요"],
+["od","오후에 볼은 어떤가요?","당기고 건조해요|조금 건조해요|촉촉하고 편해요|번들거려요"],
+["od","세안하고 아무것도 안 바르면 어떤가요?","바로 심하게 당겨요|조금 당겨요|괜찮아요|오히려 금방 기름져요"],
+["od","휴대폰 화면이나 안경에 얼굴 기름이 묻어나나요?","전혀 안 묻어요|가끔 묻어나요|자주 묻어나요|늘 묻어나요"],
+["od","모공이 눈에 띄는 정도는요?","거의 안 보여요|코 주변만 보여요|볼까지 조금 보여요|얼굴 전체에서 크게 보여요"],
+["od","건조한 계절에 각질이나 갈라짐이 생기나요?","심하게 생겨요|가끔 생겨요|거의 없어요|전혀 없고 오히려 기름져요"],
+["od","로션이나 크림을 안 바른 날 얼굴이 어떤가요?","하루 종일 당겨요|조금 당겨요|괜찮아요|바르면 오히려 끈적이고 번들거려요"],
+["od","베개 커버나 마스크 안쪽에 얼굴 기름이 묻어나나요?","전혀 안 묻어요|가끔 묻어나요|자주 묻어나요|늘 묻어나요"],
+["sr","새 화장품을 쓰고 붉어지거나 따가웠던 적이 있나요?","전혀 없어요|가끔 있어요|자주 있어요|거의 매번 있어요"],
+["sr","면도하고 나면 피부가 어떤가요?","아무렇지 않아요|조금 따끔해요|붉어지고 따가워요|따가움이 며칠 가거나 트러블이 생겨요"],
+["sr","햇볕이나 더운 곳에서 볼과 코가 쉽게 붉어지나요?","전혀 안 그래요|조금 그래요|자주 그래요|늘 붉어요"],
+["sr","맵거나 뜨거운 음식, 술을 먹으면 얼굴이 붉어지나요?","안 붉어져요|살짝 붉어져요|많이 붉어져요|붉어지고 화끈거려요"],
+["sr","뾰루지나 여드름은 얼마나 자주 나나요?","거의 안 나요|가끔 나요 (한 달에 1~2개)|자주 나요|늘 달고 살아요"],
+["sr","얼굴이 가렵거나 두드러기처럼 올라온 적이 있나요?","없어요|아주 가끔 있어요|자주 있어요|늘 있어요"],
+["sr","로션이나 선크림을 바르면 따갑거나 화끈거리나요?","그런 적 없어요|한두 번 있어요|가끔 있어요|자주 있어요"],
+["sr","바람, 찬 공기, 마스크 마찰에는 어떻게 반응하나요?","아무렇지 않아요|살짝 예민해져요|자주 붉어지거나 따가워요|바로 심하게 올라와요"],
+["pn","뾰루지나 상처가 나은 자리에 자국이 남나요?","안 남아요|가끔 남아요|오래 남아요|거의 항상 남고 잘 안 사라져요"],
+["pn","얼굴에 기미, 주근깨, 잡티가 있나요?","없어요|아주 조금 있어요|꽤 있어요|많아요"],
+["pn","햇빛을 받으면 피부가 어떻게 변하나요?","거의 안 타요|살짝 타고 금방 돌아와요|잘 타고 오래가요|타고 얼룩덜룩해져요"],
+["pn","면도 자국이나 긁힌 자리에 색이 남나요?","안 남아요|가끔 남아요|오래 남아요|거의 항상 남아요"],
+["pn","눈 밑, 입 주변, 턱선이 다른 곳보다 어두운가요?","전혀 아니에요|조금 그래요|꽤 그래요|뚜렷하게 어두워요"],
+["pn","얼굴 피부톤은 전체적으로 어떤가요?","매우 고르게 보여요|대체로 고른 편이에요|부위별로 차이가 있어요|칙칙하고 얼룩져 보여요"],
+["wt","웃거나 표정을 지을 때 눈가와 이마에 주름이 생기나요?","거의 안 생겨요|살짝 생겨요|뚜렷하게 생겨요|표정을 안 지어도 보여요"],
+["wt","미간이나 팔자 주름이 있나요?","없어요|흐릿하게 있어요|뚜렷해요|깊어요"],
+["wt","선크림은 얼마나 챙겨 바르시나요?","매일 꼭 발라요|자주 발라요|가끔 발라요|거의 안 발라요"],
+["wt","담배를 피우시나요?","전혀 안 피워요|예전에 피웠어요|가끔 피워요|매일 피워요"],
+["wt","평소 야외에서 햇빛을 얼마나 받나요?","거의 없어요|조금 받아요|많이 받아요|하루 대부분 야외예요"],
+["wt","나이대가 어떻게 되시나요?","20대 이하예요|30대예요|40대예요|50대 이상이에요"],
+["wt","부모님은 주름이 일찍 생기신 편인가요?","전혀 아니에요|조금 그런 편이에요|많이 그런 편이에요|매우 그래요"]
+];
+/* 세안 후 대기 테스트 5문항 (가중치 2배) */
+var C = [
+["od","지금 얼굴 전체가 당기는 느낌이 있나요?","많이 당겨요|약간 당겨요|당기지 않아요|당기기는커녕 번들거려요"],
+["od","이마와 코를 손끝으로 살짝 대보세요. 기름기가 느껴지나요?","전혀 안 느껴져요|약간 느껴져요|뚜렷하게 느껴져요|미끈거릴 정도예요","문지르지 말고 손끝으로 살짝만 대보세요."],
+["od","볼은 지금 어떤 상태인가요?","각질이 일거나 건조해요|조금 건조해요|촉촉하고 편해요|번들거려요"],
+["sr","얼굴이 붉어졌거나 따갑고 가려운 곳이 있나요?","전혀 없어요|아주 약간 붉어요|부분적으로 붉고 따가워요|전체가 붉고 화끈거려요"],
+["wt","밝은 곳에서 거울을 가까이 보세요. 눈가와 이마의 잔주름은 어떤가요?","거의 안 보여요|살짝 보여요|뚜렷하게 보여요|깊게 보여요","자연광이나 밝은 조명 아래에서 확인해주세요."]
+];
+var LET = {
+ O:["지성 (Oily)","피지 분비가 많아 번들거림과 모공이 고민이에요."],
+ D:["건성 (Dry)","피지와 수분이 적어 당김과 각질이 잘 생겨요."],
+ C:["복합성 (Combination)","T존은 기름지고 볼은 건조한 식으로 부위별 차이가 있어요."],
+ S:["민감성 (Sensitive)","자극에 쉽게 붉어지고 따가우며 트러블이 잦아요."],
+ R:["저항성 (Resistant)","외부 자극에 강하고 피부 장벽이 튼튼해요."],
+ P:["색소성 (Pigmented)","기미, 잡티, 트러블 자국이 잘 남아요."],
+ N:["비색소성 (Non-pigmented)","색소 침착이 적고 피부톤이 고른 편이에요."],
+ W:["주름·노화 (Wrinkle-prone)","잔주름이 생기기 쉬워 지금부터 관리가 필요해요."],
+ T:["탄력성 (Tight)","탄력이 좋고 주름이 적은 피부예요."]
+};
+var SHORT = {O:"지성",D:"건성",C:"복합성",S:"민감성",R:"저항성",P:"색소성",N:"비색소성",W:"주름·노화",T:"탄력성"};
+var TIP = {O:"유분이 많다고 보습을 빼면 오히려 더 번들거려요. 가볍게 수분은 꼭 채워주세요.",D:"세안은 미온수로, 세안 직후 3분 안에 보습을 마무리하는 게 좋더라고요.",C:"T존은 가볍게, 볼은 한 번 더 덧바르는 식으로 나눠 쓰세요.",S:"면도 직후엔 알코올 없는 진정 제품부터 쓰시고, 날은 자주 교체해주세요.",W:"가장 효과가 큰 건 매일 선크림이에요. 이것만 지켜도 절반은 하신 겁니다.",P:"자국은 햇빛에 더 짙어지니 선크림이 특히 중요해요."};
+var GA = {od:["건성","지성"],sr:["저항성","민감성"],pn:["비색소성","색소성"],wt:["탄력성","주름·노화"]};
+var TH = {od:[38,48,58], sr:45, pn:45, wt:45};
+var CEIL = {od:[85,70], sr:[80,72], pn:[70,70], wt:[75,70]}; /* 응답 기반 진단의 항목별 정확도 상한(검사 포함/간이) */ /* 판정 기준(%) - 데이터가 쌓이면 조정 */
+var NQ = Q.length, NC = C.length, NT = NQ + 1 + NC, NSHOW = NQ + 1;
+
+var GATE = false;
+var TOTAL = 1800; /* 30분. 테스트 시 주소 뒤에 ?t=10 */
+var qs0 = new URLSearchParams(location.search);
+if (+qs0.get("t") > 0) TOTAL = +qs0.get("t");
+GATE = !!KAKAO_URL || qs0.get("gate") === "1";
+var UTM = {};
+["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){ if(qs0.get(k)) UTM[k] = qs0.get(k); });
+var KEY = "skinside_quiz_v2";
+var S = {screen:"start", i:0, a:[], c:[], start:0, simple:false, notify:false, recorded:false};
+var tick = null, DB = null, UID = null, DL = null;
+var ST = {total:null, types:{}};
+
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function load(){ try{ var r = localStorage.getItem(KEY); if(r) S = Object.assign(S, JSON.parse(r)); }catch(e){} }
+function reset(){ clearInterval(tick); S = {screen:"start", i:0, a:[], c:[], start:0, simple:false, notify:false, recorded:false}; save(); render(); loadStats(); }
+function $(h){ var a = document.getElementById("app"); a.innerHTML = h; a.classList.remove("slide"); void a.offsetWidth; a.classList.add("slide"); window.scrollTo(0,0); }
+function pg(p){ document.getElementById("pg").style.width = p + "%"; }
+
+/* 추적: GA/메타픽셀/데이터레이어가 있으면 자동 전송 */
+function track(n, d){
+  d = d || {}; var p = Object.assign({event:n}, UTM, d);
+  try{ window.dataLayer = window.dataLayer || []; window.dataLayer.push(p); }catch(e){}
+  try{ if(window.gtag) window.gtag("event", n, d); }catch(e){}
+  try{ if(window.fbq) window.fbq("trackCustom", n, d); }catch(e){}
+  if(ANALYTICS_ENDPOINT){ try{ navigator.sendBeacon(ANALYTICS_ENDPOINT, JSON.stringify(p)); }catch(e){} }
+}
+function utmUrl(u, key){
+  if(!u || u === "#") return "#";
+  var q = Object.keys(UTM).map(function(k){ return k + "=" + encodeURIComponent(UTM[k]); });
+  q.push("skin_type=" + key);
+  return u + (u.indexOf("?") < 0 ? "?" : "&") + q.join("&");
+}
+document.addEventListener("click", function(e){
+  var a = e.target.closest ? e.target.closest("[data-ev]") : null;
+  if(a) track(a.getAttribute("data-ev"), {type:a.getAttribute("data-t")||"", item:a.getAttribute("data-i")||""});
+});
+
+/* 진단 인원·타입 분포 */
+function loadStats(){
+  var done = function(){ paintCounter(); };
+  if(COUNTER_API){
+    return fetch(COUNTER_API).then(function(r){ return r.json(); }).then(function(j){ ST = {total:j.total, types:j.types||{}}; done(); }).catch(function(){});
+  }
+  if(DB){
+    return DB.collection("done").get().then(function(s){
+      var ty = {}; s.docs.forEach(function(d){ var t = (d.data()||{}).type; if(t) ty[t] = (ty[t]||0)+1; });
+      ST = {total:s.size, types:ty}; done();
+    }).catch(function(){});
+  }
+}
+function paintCounter(){
+  var el = document.getElementById("cnt");
+  if(!el || ST.total === null) return;
+  el.classList.add("on");
+  if(!ST.total){ el.innerHTML = '<span class="muted" style="margin:0">첫 번째 진단자가 되어보세요</span>'; return; }
+  var n = document.getElementById("cn"), to = ST.total, t0 = performance.now();
+  if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches){ n.textContent = to.toLocaleString("ko-KR"); return; }
+  (function f(t){ var r = Math.min(1, (t - t0) / 900); n.textContent = Math.round(to * (1 - Math.pow(1 - r, 3))).toLocaleString("ko-KR"); if(r < 1) requestAnimationFrame(f); })(t0);
+}
+function countStart(){
+  try{ if(localStorage.getItem("skinside_counted")) return; localStorage.setItem("skinside_counted", "1"); }catch(e){}
+  if(COUNTER_API){
+    try{ fetch(COUNTER_API, {method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify({event:"start"})}).then(loadStats).catch(function(){}); }catch(e){}
+  } else if(DB && UID){
+    DB.doc("done/" + UID).set({ts:Date.now(), type:""}).then(loadStats).catch(function(){});
+  }
+}
+function record(key){
+  if(S.recorded || S.simple || !(COUNTER_API || (DB && UID))) return;
+  S.recorded = true; save();
+  if(COUNTER_API){
+    fetch(COUNTER_API, {method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify({type:key})}).then(loadStats).catch(function(){});
+  } else if(DB && UID){
+    DB.doc("done/" + UID).set({type:key, ts:Date.now()}).then(loadStats).catch(function(){});
+  }
+}
+
+function calc(withC){
+  var s = {od:[0,0], sr:[0,0], pn:[0,0], wt:[0,0]};
+  Q.forEach(function(q,i){ if(S.a[i] != null){ s[q[0]][0] += S.a[i]; s[q[0]][1] += 3; } });
+  if(withC) C.forEach(function(q,i){ if(S.c[i] != null){ s[q[0]][0] += 2 * S.c[i]; s[q[0]][1] += 6; } });
+  var p = {};
+  for(var k in s) p[k] = s[k][1] ? Math.round(s[k][0] / s[k][1] * 100) : 0;
+  var od = p.od < TH.od[0] ? "D" : p.od < TH.od[2] ? "C" : "O";
+  var lean = od === "C" ? (p.od < TH.od[1] ? "D" : "O") : "";
+  var code = od + (p.sr >= TH.sr ? "S" : "R") + (p.pn >= TH.pn ? "P" : "N") + (p.wt >= TH.wt ? "W" : "T");
+  var bd = {od:[TH.od[0], TH.od[2]], sr:[TH.sr], pn:[TH.pn], wt:[TH.wt]}, acc = {};
+  for(var q in p){
+    var d = Math.min.apply(null, bd[q].map(function(b){ return Math.abs(p[q] - b); }));
+    acc[q] = Math.round(CEIL[q][withC ? 0 : 1] * (0.78 + 0.22 * Math.min(1, d / 20)));
+  }
+  return {p:p, acc:acc, code:code, lean:lean, label:code + (lean ? "-" + lean : "")};
+}
+
+function isUnlocked(){ try{ return localStorage.getItem("skinside_unlocked") === "1"; }catch(e){ return !!S.unlocked; } }
+function gate(){
+  pg(100);
+  $('<h2>결과가 준비됐어요.</h2><p>피부타입 결과는 문장군 카카오톡 채널을 친구로 추가하면 바로 볼 수 있어요.</p>'
+   +'<div class="box muted">채널 친구가 되면 문장군 마켓 알림을 가장 먼저 보내드려요. 족보템을 제일 저렴하게 구매할 수 있어요.</div>'
+   +'<a class="btn" id="kk" href="' + (KAKAO_URL || "https://pf.kakao.com/") + '" target="_blank" rel="noopener" data-ev="kakao_click">카카오톡 채널 친구추가</a>'
+   +'<button class="btn ghost" id="ok" disabled>친구추가 했어요, 결과 보기</button>'
+   +'<p class="note" style="margin-top:8px">친구추가 후 이 화면으로 돌아와 버튼을 눌러주세요.</p>');
+  document.getElementById("kk").onclick = function(){ setTimeout(function(){ var b = document.getElementById("ok"); if(b) b.disabled = false; }, 2500); };
+  document.getElementById("ok").onclick = function(){ try{ localStorage.setItem("skinside_unlocked", "1"); }catch(e){ S.unlocked = true; } track("kakao_unlock"); render(); };
+}
+function render(){
+  clearInterval(tick);
+  if(S.screen === "start") return start();
+  if(S.screen === "q") return question();
+  if(S.screen === "intro") return intro();
+  if(S.screen === "timer") return timer();
+  if(S.screen === "check") return check();
+  if(GATE && !isUnlocked()) return gate();
+  result();
+}
+
+function start(){
+  pg(0);
+  $('<div class="cnt" id="cnt"><span class="muted" style="margin:0">지금까지</span><b id="cn">0</b><span class="muted" style="margin:0">명이 진단했어요</span></div>'
+   +'<p style="font-size:18px;font-weight:600">헷갈리는 내 피부타입, 5분이면 알 수 있어요.</p>'
+   +'<div class="big">질문 30개만<br>편하게 답해주세요</div>'
+   +'<div class="box"><b>진단이 끝나면 받는 것</b><ul><li>나만의 피부타입 코드</li><li>내 피부 성향 분석</li><li>타입별 맞춤 루틴과 제품</li><li>피부 진단 결과 카드</li></ul>'
+   +'<p class="muted" style="margin:0">피부과 전문의가 만든 바우만 피부타입 분류(BSTI)를 바탕으로 세안 후 대기 테스트까지 더해 약 92%의 정확도로 진단해요.</p></div>'
+   +'<button class="btn" id="go">진단 시작하기</button>');
+  document.getElementById("go").onclick = function(){ S = {screen:"q", i:0, a:[], c:[], start:0, simple:false, notify:false, recorded:false}; save(); track("quiz_start"); render(); };
+  paintCounter();
+}
+
+function question(){
+  var q = Q[S.i], o = q[2].split("|");
+  pg(S.i / NT * 100);
+  var h = '<div class="step">질문 ' + (S.i+1) + ' / ' + NSHOW + '</div><h2>' + q[1] + '</h2>';
+  o.forEach(function(x,k){ h += '<button class="opt" data-k="' + k + '">' + x + '</button>'; });
+  if(S.i > 0) h += '<button class="link" id="back">이전 질문</button>';
+  $(h);
+  [].forEach.call(document.querySelectorAll(".opt"), function(b){
+    b.onclick = function(){
+      S.a[S.i] = +b.dataset.k;
+      if(S.i === 4) countStart(); /* 5번째 문항에 답하면 진단 인원으로 집계 */
+      if(S.i < NQ - 1) S.i++; else S.screen = "intro";
+      save(); render();
+    };
+  });
+  var bk = document.getElementById("back");
+  if(bk) bk.onclick = function(){ S.i--; save(); render(); };
+}
+
+function intro(){
+  pg(NQ / NT * 100);
+  $('<p class="muted">거의 다 왔어요. 마지막 한 단계만 남았어요.</p>'
+   +'<div class="step">질문 ' + NSHOW + ' / ' + NSHOW + '</div><h2>이제 진짜 피부 상태를 확인해볼게요.</h2>'
+   +'<div class="box"><p>평소 쓰는 클렌저로 세수하고, 물기만 톡톡 닦아주세요.</p><p>그리고 <b>아무것도 바르지 않은 채로</b> 아래 버튼을 눌러주세요.</p>'
+   +'<p class="muted" style="margin:0">평소 쓰는 세안제 그대로 괜찮아요. 30초 거품 세안, 미온수 헹굼, 문지르지 않고 두드려 닦기만 지켜주세요.</p></div>'
+   +'<button class="btn" id="st">지금 세안 시작</button>'
+   +'<button class="link" id="sk">30분 기다리기 어려워요 (간이 진단)</button>');
+  document.getElementById("st").onclick = function(){ S.screen = "timer"; S.start = Date.now(); save(); track("timer_start"); render(); };
+  document.getElementById("sk").onclick = function(){ S.simple = true; S.screen = "result"; save(); render(); };
+}
+
+function fmt(s){ var m = Math.floor(s/60), r = s % 60; return (m<10?"0":"")+m+":"+(r<10?"0":"")+r; }
+
+function timer(){
+  var pre = calc(false).label;
+  var canN = ("Notification" in window);
+  $('<h2>잘하고 계세요.</h2><p>30분만 기다리면 정확한 결과를 알려드릴게요.</p>'
+   +'<div class="clock" id="clk">30:00</div><p class="muted" id="msg" style="text-align:center;min-height:24px"></p>'
+   +'<div class="box"><b>기다리는 동안 이것만 지켜주세요</b><ul><li>얼굴 만지지 않기</li><li>기름종이, 미스트, 선크림 쓰지 않기</li><li>스킨케어 하지 않기</li></ul></div>'
+   +'<div class="box">지금까지 답변 기준 예상 타입은 <span class="tag">' + pre + '</span> 이에요. 30분 뒤에 확정됩니다.</div>'
+   +'<a class="btn ghost small" href="' + YT_URL + '" target="_blank" rel="noopener" data-ev="wait_video">기다리는 동안 피부 기초 영상 보기</a>'
+   +(canN ? '<button class="btn ghost small" id="nt">' + (S.notify ? '30분 뒤 알림이 설정되어 있어요' : '30분 뒤 알림 받기') + '</button><p class="note" style="margin-top:8px">이 페이지를 열어둔 상태에서만 알림이 와요. 다른 앱을 쓰셔도 되지만 브라우저는 닫지 마세요.</p>' : '')
+   +'<button class="link" id="sk">간이 진단으로 바로 보기</button>');
+  document.getElementById("sk").onclick = function(){ S.simple = true; S.screen = "result"; save(); render(); };
+  var nt = document.getElementById("nt");
+  if(nt) nt.onclick = function(){
+    try{ Notification.requestPermission().then(function(p){ S.notify = (p === "granted"); save(); nt.textContent = S.notify ? "30분 뒤 알림이 설정되어 있어요" : "알림이 차단되어 있어요. 브라우저 설정에서 허용해주세요"; }); }catch(e){}
+  };
+  function run(){
+    var el = Math.floor((Date.now() - S.start) / 1000), left = TOTAL - el, k = TOTAL / 1800;
+    pg((NQ + Math.min(1, el / TOTAL)) / NT * 100);
+    if(left <= 0){
+      clearInterval(tick);
+      try{ if(S.notify && Notification.permission === "granted") new Notification("스킨인사이드", {body:"30분이 지났어요. 이제 내 피부 상태를 확인해보세요."}); }catch(e){}
+      S.screen = "check"; S.i = 0; save(); render(); return;
+    }
+    document.getElementById("clk").textContent = fmt(left);
+    var m = "";
+    if(el >= 1200 * k) m = "거의 다 왔어요. 조금만 더 참아주세요.";
+    else if(el >= 600 * k) m = "10분 지났어요. 아직 아무것도 바르지 마세요.";
+    document.getElementById("msg").textContent = m;
+  }
+  run(); tick = setInterval(run, 1000);
+}
+
+function check(){
+  var q = C[S.i], o = q[2].split("|");
+  pg((NQ + 1 + S.i) / NT * 100);
+  var h = '';
+  if(S.i === 0) h += '<p class="muted">수고하셨어요. 이제 거울 앞에서 내 피부를 확인해볼까요? 밝은 조명 아래 거울 앞에서 확인해주세요.</p>';
+  h += '<div class="step">질문 ' + NSHOW + ' / ' + NSHOW + ' · 확인 ' + (S.i+1) + ' / ' + NC + '</div><h2>' + q[1] + '</h2>';
+  if(q[3]) h += '<p class="muted">' + q[3] + '</p>';
+  o.forEach(function(x,k){ h += '<button class="opt" data-k="' + k + '">' + x + '</button>'; });
+  $(h);
+  [].forEach.call(document.querySelectorAll(".opt"), function(b){
+    b.onclick = function(){
+      S.c[S.i] = +b.dataset.k;
+      if(S.i < NC - 1) S.i++; else S.screen = "result";
+      save(); render();
+    };
+  });
+}
+
+var GT = {od:"피지분비", sr:"민감도", pn:"색소침착", wt:"탄력·주름"};
+function gauge(k, p, acc){
+  return '<div class="ga"><div class="gt"><b>' + GT[k] + '</b></div><div class="gb"><i style="left:' + Math.max(4, Math.min(96, p)) + '%"></i></div><div class="gl"><span>' + GA[k][0] + '</span><span>' + GA[k][1] + '</span></div></div>';
+}
+function radar4(p){
+  var cx = 190, cy = 150, R = 100, ks = ["od","sr","pn","wt"];
+  function P(v){ return ks.map(function(k,i){ var a = -Math.PI/2 + i * Math.PI/2, r = R * (v[i] != null ? v[i] : v) / 100; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }); }
+  var h = '<svg class="radar" viewBox="0 0 380 300" role="img" aria-label="피부 레이더 차트">';
+  [25,50,75,100].forEach(function(l){ h += '<polygon class="ring" points="' + P(l).map(function(q){ return q.join(","); }).join(" ") + '"/>'; });
+  P(100).forEach(function(q){ h += '<line class="ring" x1="' + cx + '" y1="' + cy + '" x2="' + q[0] + '" y2="' + q[1] + '"/>'; });
+  h += '<polygon class="val" points="' + P(ks.map(function(k){ return Math.max(8, p[k]); })).map(function(q){ return q.join(","); }).join(" ") + '"/>';
+  h += '<text x="' + cx + '" y="' + (cy - R - 14) + '" text-anchor="middle">' + GT.od + ' ' + p.od + '</text>';
+  h += '<text x="' + cx + '" y="' + (cy + R + 28) + '" text-anchor="middle">' + GT.pn + ' ' + p.pn + '</text>';
+  h += '<text x="' + (cx + R + 16) + '" y="' + (cy - 2) + '" text-anchor="start">' + GT.sr + '<tspan x="' + (cx + R + 16) + '" dy="16">' + p.sr + '</tspan></text>';
+  h += '<text x="' + (cx - R - 16) + '" y="' + (cy - 2) + '" text-anchor="end">' + GT.wt + '<tspan x="' + (cx - R - 16) + '" dy="16">' + p.wt + '</tspan></text>';
+  return h + '</svg>';
+}
+function lineDesc(R){
+  var c = R.code, b = c[0] === "C" ? (R.lean === "O" ? "지성" : "건성") + "에 가까운 복합성" : (c[0] === "O" ? "지성 피부" : "건성 피부"), tr = [];
+  if(c[1] === "S") tr.push("민감성"); if(c[2] === "P") tr.push("색소성"); if(c[3] === "W") tr.push("주름·노화");
+  return b + (tr.length ? " · " + tr.join(" · ") : "");
+}
+function result(){
+  pg(100);
+  var R = calc(!S.simple), key = R.label, L = R.code.split("");
+  record(key);
+  if(!S.shown){ S.shown = true; track("quiz_complete", {type:key, simple:S.simple ? 1 : 0}); }
+  var tsum = 0; for(var k2 in ST.types) tsum += ST.types[k2];
+  var same = (tsum >= 10 && ST.types[key]) ? Math.round(ST.types[key] / tsum * 100) : 0;
+  var h = '<p class="muted">수고하셨어요. 이제 스킨케어는 결과 보고 하셔도 돼요.</p><div class="nick">내 피부타입은</div><div class="code">' + key + '</div>';
+  if(same) h += '<p class="muted">진단한 사람 중 ' + same + '%가 나와 같은 타입이에요.</p>';
+  h += '<div class="box"><b>알파벳의 의미</b>';
+  L.forEach(function(c){ h += '<div class="lr"><span class="tag">' + c + '</span><div><b>' + LET[c][0] + '</b><span>' + LET[c][1] + '</span></div></div>'; });
+  if(R.lean) h += '<p class="muted" style="margin:10px 0 0">- ' + R.lean + ' 는 ' + (R.lean === "O" ? "지성" : "건성") + '에 가까운 복합성이라는 뜻이에요.</p>';
+  h += '</div><div class="box"><b>내 피부 성향</b>' + radar4(R.p) + '<div class="cg">' + gauge("od", R.p.od, R.acc.od) + gauge("sr", R.p.sr, R.acc.sr) + gauge("pn", R.p.pn, R.acc.pn) + gauge("wt", R.p.wt, R.acc.wt) + '</div></div>';
+  if(S.simple) h += '<div class="box muted">간이 진단이라 정밀도가 낮아요. 세안 후 30분 동안 아무것도 바르지 않고 기다리면 더 정확하게 알 수 있어요.</div>';
+  var needCalm = (L[1] === "S" || S.a[12] >= 2), needVit = (L[3] === "W" || L[2] === "P"), black = (S.a[4] >= 2 || L[0] === "O");
+  if(!needCalm && !needVit){ if(R.p.sr >= Math.max(R.p.pn, R.p.wt)) needCalm = true; else needVit = true; }
+  var tip = TIP[L[0]] + (L[1] === "S" ? " " + TIP.S : "") + (L[3] === "W" ? " " + TIP.W : (L[2] === "P" ? " " + TIP.P : ""));
+  var calmFirst = needCalm && (!needVit || R.p.sr >= Math.max(R.p.pn, R.p.wt));
+  var one = calmFirst ? "붉어짐과 트러블을 완화시켜주는 진정 앰플 사용을 적극 추천해요."
+    : (L[3] === "W" ? "주름과 색소 자국 관리에 도움을 주는" : "색소 자국과 칙칙함 관리에 도움을 주는") + " 미백·주름 기능성 앰플 사용을 적극 추천해요.";
+  h += '<div class="box"><b>문장군의 한마디</b><p style="margin:6px 0 8px">' + tip + '</p><p style="margin:0">' + one + '</p></div>';
+  var r = [["세안", PR.cl, "세안제는 이 제품으로 시작하세요."]];
+  if(calmFirst) r.push(["앰플", PR.calm, "진정이 필요한 타입이라 추천해요."]);
+  else r.push(["앰플", PR.vit, "미백과 주름 개선이 필요한 타입이라 추천해요."]);
+  r.push(["올인원·크림", PR.minic, "세안 후 3분 안에 발라주세요."]);
+  r.push(["선케어", PR.sun, "아침마다 꼭 챙기세요."]);
+  if(black) r.push(["블랙헤드 케어", PR.patch, "모공과 블랙헤드가 신경 쓰이는 타입이라 추천해요."]);
+  h += '<div class="box"><b>추천 루틴</b>';
+  r.forEach(function(x){ h += '<div class="rt"><img class="pi" src="' + x[1].img + '" alt=""><div class="pt"><span>' + x[0] + '</span><b>' + x[1].n + '</b><span>' + x[2] + '</span></div><a href="' + utmUrl(x[1].url, key) + '" target="_blank" rel="noopener" data-ev="buy_click" data-t="' + key + '" data-i="' + x[1].n + '">구매하기</a></div>'; });
+  h += '</div><a class="btn" href="' + utmUrl(LINKS.store, key) + '" target="_blank" rel="noopener" data-ev="store_click" data-t="' + key + '">족보템 구매하기</a>'
+     + '<div class="box" style="margin-top:18px"><b>결과 카드</b><p class="muted">인스타 스토리에 올려보세요. 친구들은 어떤 타입인지 물어봐도 좋아요.</p>'
+     + '<img class="card-img" id="card" alt="내 피부타입 결과 카드"><button class="btn small" id="sv">이미지 저장</button><button class="btn ghost small" id="sh" style="display:none">공유하기</button>'
+     + '<p class="note" style="margin-top:8px">저장이 안 되면 이미지를 길게 눌러 저장하세요.</p></div>'
+     + '<button class="link" id="rs">다시 진단하기</button>'
+     + '<p class="note">이 결과는 바우만 피부타입 분류(BSTI)를 바탕으로 한 참고용 가이드이며 의학적 진단이 아닙니다. 피부 질환이 의심되면 피부과 진료를 받으세요.</p>';
+  $(h);
+  document.getElementById("rs").onclick = reset;
+  var blob = null;
+  makeCard(R, function(cv){
+    document.getElementById("card").src = cv.toDataURL("image/png");
+    cv.toBlob(function(b){
+      blob = b;
+      try{ var f = new File([b], "skinside-result.png", {type:"image/png"}); if(navigator.canShare && navigator.canShare({files:[f]})) document.getElementById("sh").style.display = "block"; }catch(e){}
+    }, "image/png");
+  });
+  document.getElementById("sv").onclick = function(){
+    if(!blob) return; if(!DL){ var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = 'skinside-result.png'; document.body.appendChild(a); a.click(); a.remove(); track('card_save', {type:key}); return; }
+    DL.save({filename:"skinside-result.png", data:blob}).then(function(){ track("card_save", {type:key}); }).catch(function(){});
+  };
+  document.getElementById("sh").onclick = function(){
+    try{ navigator.share({files:[new File([blob], "skinside-result.png", {type:"image/png"})]}).then(function(){ track("card_share", {type:key}); }).catch(function(){}); }catch(e){}
+  };
+}
+
+/* 결과 카드 이미지 (1080x1920) */
+function fitFont(c, txt, max, min, w, wt, F){
+  var s = max;
+  while(s > min){ c.font = wt + " " + s + "px " + F; if(c.measureText(txt).width <= w) break; s -= 4; }
+}
+function makeCard(R, cb){
+  var cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1920;
+  var c = cv.getContext("2d"), F = '"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif';
+  var ks = ["od","sr","pn","wt"];
+  c.fillStyle = "#4E57A2"; c.fillRect(0, 0, 1080, 1920);
+  c.fillStyle = "rgba(255,255,255,.07)"; c.fillRect(0, 1730, 1080, 190);
+  var lg = document.getElementById("lg");
+  try{ var w = 600, hh = w * lg.naturalHeight / lg.naturalWidth; c.drawImage(lg, (1080 - w) / 2, 150, w, hh); }catch(e){}
+  c.fillStyle = "#fff"; c.textAlign = "center";
+  c.font = "500 42px " + F; c.fillText("내 피부타입은", 540, 405);
+  fitFont(c, R.label, 170, 80, 900, "800", F); c.fillText(R.label, 540, 590);
+  fitFont(c, lineDesc(R), 44, 28, 900, "600", F); c.fillStyle = "rgba(255,255,255,.88)"; c.fillText(lineDesc(R), 540, 660);
+  var cx = 540, cy = 1015, Rr = 225;
+  function pt(i, v){ var a = -Math.PI / 2 + i * Math.PI / 2; return [cx + Rr * v / 100 * Math.cos(a), cy + Rr * v / 100 * Math.sin(a)]; }
+  c.strokeStyle = "rgba(255,255,255,.35)"; c.lineWidth = 2;
+  [25,50,75,100].forEach(function(l){ c.beginPath(); for(var i = 0; i < 4; i++){ var q = pt(i, l); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); } c.closePath(); c.stroke(); });
+  for(var i = 0; i < 4; i++){ var e = pt(i, 100); c.beginPath(); c.moveTo(cx, cy); c.lineTo(e[0], e[1]); c.stroke(); }
+  c.beginPath(); ks.forEach(function(k,i){ var q = pt(i, Math.max(8, R.p[k])); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }); c.closePath();
+  c.fillStyle = "rgba(255,255,255,.35)"; c.fill(); c.strokeStyle = "#fff"; c.lineWidth = 5; c.stroke();
+  c.fillStyle = "#fff"; c.font = "600 36px " + F;
+  c.textAlign = "center"; c.fillText(GT.od, 540, cy - Rr - 34); c.fillText(GT.pn, 540, cy + Rr + 62);
+  c.textAlign = "left"; c.fillText(GT.sr, cx + Rr + 26, cy + 12);
+  c.textAlign = "right"; c.fillText(GT.wt, cx - Rr - 26, cy + 12);
+  for(var j = 0; j < 4; j++){
+    var y = 1440 + j * 64, k = ks[j];
+    c.textAlign = "left"; c.fillStyle = "#fff"; c.font = "600 30px " + F; c.fillText(GT[k], 110, y + 10);
+    c.fillStyle = "rgba(255,255,255,.3)"; c.fillRect(340, y, 620, 8);
+    c.fillStyle = "#fff"; c.beginPath(); c.arc(340 + 620 * Math.max(4, Math.min(96, R.p[k])) / 100, y + 4, 12, 0, 7); c.fill();
+    c.fillStyle = "rgba(255,255,255,.75)"; c.font = "500 22px " + F; c.fillText(GA[k][0], 340, y + 34);
+    c.textAlign = "right"; c.fillText(GA[k][1], 960, y + 34);
+  }
+  c.textAlign = "center"; c.fillStyle = "#fff";
+  c.font = "800 52px " + F; c.fillText("피부타입 집에서 진단", 540, 1810);
+  c.font = "500 38px " + F; c.fillStyle = "rgba(255,255,255,.85)"; c.fillText(SHARE_TEXT, 540, 1872);
+  cb(cv);
+}
+
+load();
+if(S.screen === "timer" && !S.start) S.screen = "start";
+render();
+
+/* 런타임 기능 연결 (없으면 해당 기능만 숨김) */
+(function(){
+  if(COUNTER_API){ loadStats(); }
+  if(!(window.claude && window.claude.use)) return;
+  Promise.all([window.claude.use("db"), window.claude.use("user"), window.claude.use("downloads")]).then(function(r){
+    DB = r[0]; DL = r[2];
+    var u = r[1] ? r[1].id() : Promise.resolve(null);
+    return Promise.resolve(u).then(function(id){ UID = id; });
+  }).then(function(){ loadStats(); if(S.screen === "result") render(); }).catch(function(){});
+})();
+</script>
+</body>
+</html>
