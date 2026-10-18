@@ -56,6 +56,7 @@ with sync_playwright() as pw:
     for bad in ["BRDY", "보떼", "아이팔레트", "자주 추천", "아끼는", "문장군이 자주"]:
         if bad in vis: err.append("없애기로 한 문구가 보여요: " + bad)
     if _re.search(r"\d\s?(ml|mL|g|ML)\b", vis): err.append("용량 표기가 보여요")
+    if not _re.search(r"지금 [\d,]+명이 구매 중 · 최대 \d+% 할인", vis): err.append("가장 많이 구매하는 제품의 '지금 N명이 구매 중 · 최대 X% 할인' 문구가 없어요")
     if "지금 가장 많이 구매하는 제품" not in vis: err.append("'지금 가장 많이 구매하는 제품' 구역이 없어요")
     # 결과 카드: 레이더 글자가 잘리지 않는지, 글자 비율, 가로 넘침
     for w in (360, 400, 560):
