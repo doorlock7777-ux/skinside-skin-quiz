@@ -28,3 +28,26 @@
   };
   try{ sessionStorage.setItem("adm", "demo"); }catch(e){}
 })();
+
+/* 주문 관리 화면(미리보기 안의 iframe)용 가짜 서버: window.__ORDERS 가 있을 때만 동작 */
+(function(){
+  if(!window.__ORDERS_MOCK) return;
+  var now = Date.now(), O = [
+    {id:"SK2610180003", createdAt:new Date(now - 3600e3).toISOString(), status:"paid", total:51500, items:[{brand:"minic", name:"퍼펙트 콜라드그린 진정 올인원", optName:"1개", q:1}, {brand:"grafen", name:"포어 올킬 원스텝 코팩", q:2}], ship:{name:"김민수", phone:"010-1234-5678", zip:"06236", addr1:"서울 강남구 테헤란로 123", addr2:"456호", memo:"문 앞에 놓아주세요"}},
+    {id:"SK2610180002", createdAt:new Date(now - 5 * 3600e3).toISOString(), status:"shipped", total:29900, items:[{brand:"bonkorea", name:"엔젤 탄산 효소 세안제", q:1}], ship:{name:"이준호", phone:"010-9876-5432", zip:"13529", addr1:"경기 성남시 분당구 판교로 1", addr2:"", memo:""}, shipments:{bonkorea:{carrier:"cj", tracking:"123456789012"}}},
+    {id:"SK2610170007", createdAt:new Date(now - 30 * 3600e3).toISOString(), status:"canceled", total:21400, items:[{brand:"grafen", name:"팁 스케치 멀티 커버 파운데이션", q:1}], ship:{name:"박서준", phone:"010-5555-0000", zip:"04524", addr1:"서울 중구 세종대로 110", addr2:"", memo:""}}];
+  var BR = {minic:{name:"MINIC"}, grafen:{name:"GRAFEN"}, bonkorea:{name:"본코리아"}};
+  var real = window.fetch;
+  function res(o, s){ return Promise.resolve(new Response(JSON.stringify(o), {status:s || 200, headers:{"content-type":"application/json"}})); }
+  window.fetch = function(u, o){
+    u = String(u); var b = {}; try{ b = JSON.parse((o && o.body) || "{}"); }catch(e){}
+    if(u.indexOf("/api/admin/orders") >= 0) return res({orders:O, brands:BR});
+    if(u.indexOf("/api/admin/ship") >= 0){ O.forEach(function(x){ if(x.id === b.orderId){ x.shipments = x.shipments || {}; x.shipments[b.brand] = {carrier:b.carrier, tracking:b.tracking}; } }); return res({ok:true}); }
+    if(u.indexOf("/api/admin/cancel") >= 0){ O.forEach(function(x){ if(x.id === b.orderId) x.status = "canceled"; }); return res({ok:true}); }
+    if(u.indexOf("/api/admin/settlement") >= 0) return Promise.resolve(new Response("정산 예시", {status:200}));
+    return real.apply(this, arguments);
+  };
+  window.confirm = function(){ return true; }; window.alert = function(){};
+  try{ sessionStorage.setItem("adm", "demo"); }catch(e){}
+  document.addEventListener("click", function(e){ var a = e.target.closest && e.target.closest('a[href="/admin/"]'); if(a){ e.preventDefault(); try{ parent.postMessage({skadm:"home"}, "*"); }catch(x){} } }, true);
+})();

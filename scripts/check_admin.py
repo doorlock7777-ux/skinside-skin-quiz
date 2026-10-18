@@ -33,6 +33,13 @@ with sync_playwright() as p:
         if "검사 제품" not in pg.inner_text("#pl"): err.append("제품 추가가 동작하지 않아요")
         pg.fill("#fp", "50000"); pg.set_input_files("#fi", os.path.join(T, "chk_prod.png")); pg.wait_for_timeout(400); pg.fill("#fn", "x"); pg.fill("#fb", "x"); pg.fill("#fu", "https://e.com"); pg.fill("#fl", "30000"); pg.click("#fs"); pg.wait_for_timeout(400)
         if "정가" not in pg.inner_text("#fm"): err.append("할인가가 정가보다 커도 등록돼요")
+    pg = b.new_page(viewport={"width": 900, "height": 900}); pg.goto("file://" + a); pg.wait_for_timeout(700)
+    pg.click("#ordl"); pg.wait_for_timeout(1000)
+    if pg.frame_locator("#ordf").locator(".o").count() != 3: err.append("미리보기에서 주문 관리가 열리지 않아요")
+    pg.frame_locator("#ordf").locator("a:has-text('관리자 홈')").click(); pg.wait_for_timeout(300)
+    if not pg.locator("#ordf").is_hidden(): err.append("주문 관리에서 관리자 홈으로 돌아가지 않아요")
+    for l in pg.locator("header a").all(): 
+        if (l.get_attribute("href") or "").startswith("/"): err.append("관리자 헤더에 미리보기에서 열리지 않는 링크가 있어요: " + (l.get_attribute("href") or ""))
     # 로그인 없이 열면 막혀야 한다 (미리보기가 아닌 실제 페이지)
     pg = b.new_page(); pg.goto("file://" + os.path.join(R, "public/admin/index.html")); pg.wait_for_timeout(500)
     if pg.locator("#tk").count() != 1: err.append("토큰 없이 관리자 화면이 열려요")

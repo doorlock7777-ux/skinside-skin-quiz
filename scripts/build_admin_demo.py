@@ -14,5 +14,12 @@ h = rd("public/admin/index.html")
 mock = "<script>window.__CATS=%s;\n%s</script>\n" % (json.dumps(d["categories"], ensure_ascii=False), rd("scripts/admin_mock.js"))
 h = h.replace('<div id="dm" class="demo" hidden></div>', '<div id="dm" class="demo">미리보기 화면이에요. 숫자는 예시 값이고, 제품 추가는 이 화면 안에서만 저장돼요.</div>')
 h = h.replace("<script>\nvar COUNTER_API", mock + "<script>\nvar COUNTER_API", 1)
+# 주문 관리 화면: 같은 화면 안에서 열리는 iframe (가짜 주문 데이터)
+od = rd("public/admin/orders.html").replace("<script>\nvar T =", "<script>window.__ORDERS_MOCK=1;</script><script>" + rd("scripts/admin_mock.js") + "</script><script>\nvar T =", 1)
+assert "__ORDERS_MOCK" in od
+h = h.replace('<a href="/admin/orders.html">주문 관리</a><a href="/store">스토어 보기</a>', '<a href="#orders" id="ordl">주문 관리</a>')
+ov = '<iframe id="ordf" title="주문 관리" style="display:none;position:fixed;inset:0;width:100%;height:100%;border:0;background:#f2f4f6;z-index:50"></iframe>'
+js = '<script>var ordf=document.getElementById("ordf");document.getElementById("ordl").onclick=function(e){e.preventDefault();if(!ordf.srcdoc)ordf.srcdoc=' + json.dumps(od, ensure_ascii=False).replace("</", "<\\/") + ';ordf.style.display="block"};addEventListener("message",function(e){if(e.data&&e.data.skadm)ordf.style.display="none"});</script>'
+h = h.replace("</body>", ov + js + "</body>", 1)
 assert "__CATS" in h
 open(sys.argv[1], "w", encoding="utf-8").write(frag(h)); print(len(h))
