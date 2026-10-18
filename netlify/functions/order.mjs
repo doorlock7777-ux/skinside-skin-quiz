@@ -1,9 +1,10 @@
+import { loadBrands } from "./_lib.mjs";
 import { randomBytes } from "node:crypto";
 import { json, getUser, orders, userIdx, loadProducts, shipFee } from "./_lib.mjs";
 import { balance, holdForOrder, apply, releaseStale, MIN_PAY } from "./_points.mjs";
 import { cancelOrder } from "./_cancel.mjs";
 
-export default async (req) => {
+export default async (req) => { await loadBrands();
   const user = getUser(req);
   if (!user) return json({ error: "로그인이 필요해요" }, 401);
 

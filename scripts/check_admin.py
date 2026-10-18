@@ -74,10 +74,23 @@ with sync_playwright() as p:
             if F.locator(".aup:not([hidden]) .pk").count() != 5: err.append("문구 추가가 안 돼요")
             F.locator(".aup:not([hidden]) [data-px]").last.click(); F.locator(".aup:not([hidden]) [data-px]").last.click(); pg.wait_for_timeout(400)
             if F.locator(".aup:not([hidden]) .pk").count() != 4: err.append("문구 삭제가 안 돼요")
+            F.locator(".aup:not([hidden]) [data-nt]").fill("님 테스트"); F.locator(".aup:not([hidden]) [data-nx]").fill("{고객}님 안녕하세요 확인했어요"); F.locator(".aup:not([hidden]) [data-pn]").click(); pg.wait_for_timeout(400)
+            F.locator(".aup:not([hidden]) .pk").last.click(); pg.wait_for_timeout(200)
+            v = F.locator("[data-tx]").first.input_value()
+            if "님님" in v or "{" in v or "님 안녕하세요" not in v: err.append("{고객}님 이 '님님'으로 나와요: " + v)
+            AU.click(); pg.wait_for_timeout(300); F.locator(".aup:not([hidden]) [data-px]").last.click(); F.locator(".aup:not([hidden]) [data-px]").last.click(); pg.wait_for_timeout(300); AU.click()
         F.locator("[data-tx]").first.fill("확인했어요"); F.locator("[data-a=reply]").first.click(); pg.wait_for_timeout(400)
         if "확인했어요" not in F.locator("#mn").inner_text(): err.append("관리자 CS 답변이 보이지 않아요")
         F.locator("[data-a=close]").first.click(); pg.wait_for_timeout(400)
         if F.locator(".o2").count() != 0: err.append("종료한 CS가 '내가 처리할 것'에 남아요")
+        # 브랜드 이메일/수수료율을 화면에서 저장
+        F.locator("nav button[data-t=brands]").click(); pg.wait_for_timeout(600)
+        if F.locator("[data-bs]").count() < 3: err.append("브랜드 이메일/수수료율 입력칸이 없어요")
+        else:
+            F.locator("[data-be=grafen]").fill("gf@brand.example"); F.locator("[data-bf=grafen]").fill("18"); F.locator("[data-bs=grafen]").click(); pg.wait_for_timeout(1200)
+            if F.locator("[data-be=grafen]").input_value() != "gf@brand.example" or F.locator("[data-bf=grafen]").input_value() != "18": err.append("저장한 이메일/수수료율이 다시 열었을 때 안 보여요")
+            F.locator("[data-bf=grafen]").fill("0.15"); F.locator("[data-bs=grafen]").click(); pg.wait_for_timeout(500)
+            if "15로" not in F.locator("[data-bm=grafen]").inner_text(): err.append("0.15 입력 경고가 안 떠요")
         # 정산: 확정 -> 송금 표시
         F.locator("nav button[data-t=settle]").click(); pg.wait_for_timeout(400)
         if F.locator("#sc").count() != 1: err.append("정산 확정 버튼이 없어요")

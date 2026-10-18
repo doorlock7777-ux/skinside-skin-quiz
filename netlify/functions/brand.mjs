@@ -1,3 +1,4 @@
+import { loadBrands } from "./_lib.mjs";
 import { json, orders, BRANDS, setShipment, notifyShipped, loadProducts, loadStock, stockStore, normCarrier, TRACK_RE, CARRIERS } from "./_lib.mjs";
 import { partnerLogin, partnerLogout, partnerFromReq } from "./_auth.mjs";
 import { partnerHome } from "./_home.mjs";
@@ -18,7 +19,7 @@ async function brandStock(req, brand) {
 }
 const toCsvResponse = (text, name) => new Response(text, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="${name}"`, "cache-control": "no-store" } });
 
-export default async (req) => {
+export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, ""), st = orders();
   if (p === "/api/partner/login" && req.method === "POST") return partnerLogin(req, BRANDS);
   if (p === "/api/partner/logout" && req.method === "POST") return partnerLogout();

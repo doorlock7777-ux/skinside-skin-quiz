@@ -1,3 +1,4 @@
+import { loadBrands } from "./_lib.mjs";
 import { runBrandBatch } from "./_batch.mjs";
 import { adminSummary } from "./_ctx.mjs";
 import { mail, esc } from "./_lib.mjs";
@@ -5,7 +6,7 @@ import { mail, esc } from "./_lib.mjs";
 /* 매일 아침 9시(KST) = 00:00 UTC.
    1) 아직 발송하지 않은 주문을 브랜드별로 정리해서 메일 (지연 표시, 엑셀 첨부)
    2) 대표님께 "오늘 처리할 일"을 메일로 요약 (처리할 일이 있을 때만) */
-export default async () => {
+export default async () => { await loadBrands();
   const r = await runBrandBatch({});
   let todo = [];
   try {

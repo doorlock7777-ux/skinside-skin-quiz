@@ -548,6 +548,18 @@ const paidOrder = async (U, body) => { const [s1, o] = await mkOrder(U, body); i
     ok(rep.recon.pointsUsed > 0 && rep.recon.cashPaid === rep.recon.gross - rep.recon.pointsUsed, "대조 합계에 포인트 몫이 반영되지 않아요 " + JSON.stringify(rep.recon)); }
 }
 
+// 관리자 페이지에서 브랜드 이메일·수수료율 저장
+{
+  [s, j] = await call(adminApi, "/api/admin/partners/save", "POST", { brand: "bonkorea", email: "a@b.co", fee: 10 }); ok(s === 401, "로그인 없이 브랜드 정보가 저장돼요");
+  [s, j] = await call(adminApi, "/api/admin/partners/save", "POST", { brand: "none", email: "a@b.co", fee: 10 }, A); ok(s === 404, "없는 브랜드가 저장돼요");
+  [s, j] = await call(adminApi, "/api/admin/partners/save", "POST", { brand: "bonkorea", email: "이메일아님", fee: 10 }, A); ok(s === 400, "잘못된 이메일이 저장돼요");
+  for (const f of [0.15, 150, -1, "abc"]) { [s, j] = await call(adminApi, "/api/admin/partners/save", "POST", { brand: "bonkorea", email: "a@b.co", fee: f }, A); ok(s === 400, "잘못된 수수료율 " + f + "이 저장돼요"); }
+  [s, j] = await call(adminApi, "/api/admin/partners/save", "POST", { brand: "bonkorea", email: "cs@bonkorea.test", fee: 12.5 }, A); ok(s === 200 && j.fee === 12.5, "브랜드 정보 저장 실패 " + JSON.stringify(j));
+  [s, j] = await call(adminApi, "/api/admin/partners", "GET", null, A); const pb = j.partners.find((x) => x.key === "bonkorea"); ok(pb.email === "cs@bonkorea.test" && pb.fee === 12.5 && j.partners.find((x) => x.key === "minic").fee === 0, "저장한 값이 목록에 안 보이거나 다른 브랜드가 바뀌어요");
+  [s, j] = await call(brand, "/api/partner/home", "GET", null, BH); ok(j.month.feeRate === 12.5, "파트너 정산 화면에 새 수수료율이 안 보여요 " + j.month.feeRate);
+  await call(adminApi, "/api/admin/partners/save", "POST", { brand: "bonkorea", email: "", fee: 0 }, A);
+  [s, j] = await call(adminApi, "/api/admin/partners", "GET", null, A); ok(j.partners.find((x) => x.key === "bonkorea").fee === 0, "수수료율을 0으로 되돌릴 수 없어요");
+}
 // 포토리뷰
 {
   const jpg = (n = 100) => "data:image/jpeg;base64," + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(n, 1)]).toString("base64");

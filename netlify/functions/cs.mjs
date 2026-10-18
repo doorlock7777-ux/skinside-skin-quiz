@@ -1,8 +1,9 @@
+import { loadBrands } from "./_lib.mjs";
 import { json, getUser, orders } from "./_lib.mjs";
 import { allTickets, getTicket, createTicket, addMessage, escalate, forCustomer } from "./_cs.mjs";
 
 /* 고객용 문의·교환·반품 (네이버 로그인한 본인 주문만) */
-export default async (req) => {
+export default async (req) => { await loadBrands();
   const user = getUser(req);
   if (!user) return json({ error: "로그인이 필요해요" }, 401);
   const p = new URL(req.url).pathname.replace(/\/$/, "");

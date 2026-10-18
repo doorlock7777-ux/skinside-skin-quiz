@@ -129,3 +129,19 @@ export async function notifyShipped(o, brand) {
   if (ok) o.shipNotified[brand] = key;
   return ok;
 }
+
+/* 브랜드 이메일·수수료율은 관리자 페이지에서 저장한 값이 서버 설정 파일(_brands.mjs)보다 우선한다 */
+const brandCfg = () => getStore({ name: "brandcfg", consistency: "strong" });
+let _bc = { at: 0 };
+export async function loadBrands(force) {
+  if (!force && Date.now() - _bc.at < 5000) return;
+  try {
+    const cfg = (await brandCfg().get("all", { type: "json" })) || {};
+    for (const k of Object.keys(BRANDS)) if (cfg[k]) { BRANDS[k].email = cfg[k].email || ""; BRANDS[k].fee = Number(cfg[k].fee) || 0; }
+    _bc = { at: Date.now() };
+  } catch { /* 읽기에 실패하면 설정 파일 값으로 계속 동작 */ }
+}
+export async function saveBrand(key, email, fee) {
+  const cfg = (await brandCfg().get("all", { type: "json" })) || {};
+  cfg[key] = { email, fee }; await brandCfg().setJSON("all", cfg); await loadBrands(true);
+}

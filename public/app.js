@@ -279,7 +279,7 @@ function drawOrders(){
   else if(!list.length) h += '<div class="empty">내역이 없어요.</div>';
   list.forEach(function(o){
     var canCancel = o.status === "paid" && !Object.keys(o.shipments || {}).some(function(k){ return o.shipments[k] && o.shipments[k].tracking; });
-    h += '<div class="oc"><div class="st"><b>' + (ST2[o.status] || o.status) + '</b>' + (o.status === "canceled" ? '<span>' + kdate(o.canceledAt || o.createdAt) + ' 취소</span>' : '') + '</div>';
+    h += '<div class="oc"><div class="st"><b>' + (ST2[o.status] || o.status) + '</b>' + (o.status === "canceled" ? '<span>' + kdate(o.canceledAt || o.createdAt) + ' 취소</span>' : '') + (canCancel ? '<button type="button" class="more" data-omore="' + esc(o.id) + '" aria-label="더보기">&#8943;</button>' : '') + '</div>';
     o.items.forEach(function(l, ix){
       var p = P[l.id], key = o.id + "|" + l.id, sh = (o.shipments || {})[l.brand], tr = "";
       if(sh && sh.tracking){ var c = CARR[sh.carrier] || [sh.carrier, ""]; tr = '<div class="s"><a style="color:var(--pri);font-weight:700" target="_blank" rel="noopener" href="https://tracker.delivery/#/' + esc(c[1]) + '/' + encodeURIComponent(sh.tracking) + '">배송 조회</a> · ' + esc(c[0]) + ' ' + esc(sh.tracking) + '</div>'; }
@@ -292,7 +292,7 @@ function drawOrders(){
       if(p) acts += '<button class="ob" data-add="' + esc(l.id) + '" data-opt="' + (l.opt || 0) + '">장바구니 담기</button>';
       h += '<div class="obs">' + acts + '</div><div data-rvform="' + esc(key) + '"></div>';
     });
-    if(canCancel) h += '<div class="obs"><button class="ob" data-ocancel="' + esc(o.id) + '">취소요청</button></div><div data-cform="' + esc(o.id) + '" hidden></div>';
+    if(canCancel) h += '<div class="obs" data-omenu="' + esc(o.id) + '" hidden><button class="ob" data-ocancel="' + esc(o.id) + '">취소요청</button></div><div data-cform="' + esc(o.id) + '" hidden></div>';
     else if(o.status === "partial" || o.status === "shipped") h += '<p class="s" style="margin:6px 0 0">발송이 시작돼서 직접 취소할 수 없어요. 판매자정보/문의에서 교환·반품을 신청해주세요.</p>';
     var pay = o.payAmount !== undefined ? o.payAmount : o.total;
     h += '<div data-det="' + esc(o.id) + '" class="det" hidden><div><span>주문번호</span><span>' + esc(o.id) + '</span></div><div><span>상품금액</span><span>' + won(o.sub !== undefined ? o.sub : o.total) + '</span></div><div><span>배송비</span><span>' + (o.shipFee ? won(o.shipFee) : '무료') + '</span></div>' + (o.pointsUsed ? '<div><span>포인트 사용</span><span>-' + won(o.pointsUsed) + '</span></div>' : '') + '<div class="tot"><span>결제금액</span><span>' + won(pay) + '</span></div>' + shipInfo(o) + (o.status === "canceled" ? '<p class="s" style="margin:8px 0 0">결제 취소는 카드사·결제수단에 따라 반영까지 영업일 기준 3~5일 걸릴 수 있어요.' + (o.pointsUsed ? ' 사용한 포인트는 바로 돌려드렸어요.' : '') + '</p>' : '') + '</div>';
@@ -305,6 +305,7 @@ function drawOrders(){
 document.addEventListener("click", function(e){
   var t = e.target, q = function(sel){ return t.closest && t.closest(sel); }, b;
   if((b = q("[data-of]"))){ OFILTER = b.dataset.of; if(OCACHE) drawOrders(); return; }
+  if((b = q("[data-omore]"))){ var mn = document.querySelector('[data-omenu="' + b.dataset.omore + '"]'); if(mn){ mn.hidden = !mn.hidden; if(mn.hidden){ var cf = document.querySelector('[data-cform="' + b.dataset.omore + '"]'); if(cf) cf.hidden = true; } } return; }
   if((b = q("[data-od]"))){ var d = document.querySelector('[data-det="' + b.dataset.od + '"]'); if(d) d.hidden = !d.hidden; return; }
   if((b = q("[data-oc]"))){ var w = document.querySelector('[data-csw="' + b.dataset.oc + '"]'); if(w) w.hidden = !w.hidden; return; }
   if((b = q("[data-add]"))){ addCart(b.dataset.add, +b.dataset.opt || 0, 1); toast("장바구니에 담았어요"); return; }
@@ -402,13 +403,26 @@ function points(){
       + ((j.log || []).length ? j.log.map(function(x){ return '<div class="row"><div class="t"><div class="nm">' + esc(x.note || T[x.type]) + '</div><div class="s">' + kdate(x.at) + ' · ' + (T[x.type] || "") + '</div></div><b style="color:' + (x.amount < 0 ? 'var(--red)' : 'var(--pri)') + '">' + (x.amount > 0 ? "+" : "") + x.amount.toLocaleString("ko-KR") + ' P</b></div>'; }).join("") : '<div class="empty" style="padding:32px 0">아직 내역이 없어요.</div>') + '</div>';
   }).catch(function(){ $app.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; });
 }
+function showPoints(){
+  var T = {earn:"적립", use:"사용", "return":"반환", claw:"회수"}, m = document.createElement("div"); m.className = "mdl";
+  m.innerHTML = '<div class="mdl-box" role="dialog" aria-label="포인트 내역"><div class="mdl-h"><b>포인트 내역</b><button type="button" aria-label="닫기">&times;</button></div><div class="mdl-b"><div class="empty">불러오는 중</div></div></div>';
+  var close = function(){ m.remove(); document.body.style.overflow = ""; };
+  m.onclick = function(e){ if(e.target === m || e.target.closest(".mdl-h button")) close(); };
+  document.body.appendChild(m); document.body.style.overflow = "hidden";
+  fetch("/api/points").then(function(r){ return r.json(); }).then(function(j){
+    m.querySelector(".mdl-b").innerHTML = '<div class="ptcard" style="margin-top:0"><span>보유 포인트</span><b>' + (j.balance || 0).toLocaleString("ko-KR") + ' P</b><p>현금처럼 결제할 때 쓸 수 있어요. 리뷰를 쓰면 500P가 적립돼요.</p></div>'
+      + ((j.log || []).length ? j.log.map(function(x){ return '<div class="row"><div class="t"><div class="nm">' + esc(x.note || T[x.type]) + '</div><div class="s">' + kdate(x.at) + ' · ' + (T[x.type] || "") + '</div></div><b style="color:' + (x.amount < 0 ? 'var(--red)' : 'var(--pri)') + '">' + (x.amount > 0 ? "+" : "") + x.amount.toLocaleString("ko-KR") + ' P</b></div>'; }).join("") : '<div class="empty" style="padding:32px 0">아직 내역이 없어요.</div>');
+  }).catch(function(){ m.querySelector(".mdl-b").innerHTML = '<div class="empty">불러오지 못했어요.</div>'; });
+}
 function me(){
   var h = '<div class="sec"><h1>' + (user ? esc(user.name || "회원") + '님' : '내 정보') + '</h1></div>';
   if(!user && CFG.LOGIN) h += loginBox("#/me");
   else if(!user) h += '<div class="sec"><div class="ntc">로그인 기능은 준비 중이에요.</div></div>';
-  h += '<div class="sec menu" style="padding-top:0">' + (CHECKOUT ? '<a href="#/orders">주문/배송내역<span>&#8250;</span></a>' + (user ? '<a href="#/points">내 포인트<span id="mypt">&#8250;</span></a>' : '') : '') + '<a href="' + QZ + '"' + QT + '>피부타입 진단<span>&#8250;</span></a><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener">카카오톡 채널 문의<span>&#8250;</span></a>' + (DEMO ? '<a href="#/admin">관리자 화면 (데모)<span>&#8250;</span></a>' : '') + (user ? '<a href="#/" id="lo">로그아웃<span>&#8250;</span></a>' : '') + '</div>' + foot();
+  if(CHECKOUT && user) h += '<div class="sec" style="padding:0 20px 12px"><button type="button" class="ptcard ptbtn" id="myp"><span>보유 포인트</span><b id="mypt">- P</b><p>누르면 포인트 내역을 볼 수 있어요 &#8250;</p></button></div>';
+  h += '<div class="sec menu" style="padding-top:0">' + (CHECKOUT ? '<a href="#/orders">주문/배송내역<span>&#8250;</span></a>' + '' : '') + '<a href="' + QZ + '"' + QT + '>피부타입 진단<span>&#8250;</span></a><a href="' + esc(CFG.KAKAO_URL) + '" target="_blank" rel="noopener">카카오톡 채널 문의<span>&#8250;</span></a>'  + (user ? '<a href="#/" id="lo">로그아웃<span>&#8250;</span></a>' : '') + '</div>' + foot();
   $app.innerHTML = h;
-  if(CHECKOUT && user) fetch("/api/points").then(function(r){ return r.ok ? r.json() : null; }).then(function(j){ var e = document.getElementById("mypt"); if(j && e) e.textContent = (j.balance || 0).toLocaleString("ko-KR") + " P \u203A"; }).catch(function(){});
+  if(CHECKOUT && user) fetch("/api/points").then(function(r){ return r.ok ? r.json() : null; }).then(function(j){ var e = document.getElementById("mypt"); if(j && e) e.textContent = (j.balance || 0).toLocaleString("ko-KR") + " P"; }).catch(function(){});
+  var mp = document.getElementById("myp"); if(mp) mp.onclick = showPoints;
   var lo = document.getElementById("lo");
   if(lo) lo.onclick = function(e){ e.preventDefault(); fetch("/api/logout", {method:"POST"}).then(function(){ user = null; setH("#/"); }); };
 }

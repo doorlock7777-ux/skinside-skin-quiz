@@ -31,7 +31,7 @@ with sync_playwright() as p:
     pg.click("text=주문 내역 보기"); pg.wait_for_timeout(900)
     pg.locator("[data-od]").first.click()
     if "포인트 사용" not in pg.inner_text("[data-det]") or "-1,000원" not in pg.inner_text("[data-det]"): err.append("상세보기에 포인트 사용 내역이 없어요: " + pg.inner_text("[data-det]"))
-    pg.locator("[data-ocancel]").first.click(); pg.locator("[data-ocx]").first.click(); pg.wait_for_timeout(900)
+    pg.locator("[data-omore]").first.click(); pg.locator("[data-ocancel]").first.click(); pg.locator("[data-ocx]").first.click(); pg.wait_for_timeout(900)
     if "1,000P 반환" not in "".join(pg.locator(".toast").all_inner_texts()) and "주문취소" not in pg.inner_text("body"): err.append("포인트 사용 주문 취소가 안 돼요")
     pg.evaluate("window.__goto('#/points')"); pg.wait_for_timeout(600)
     if "1,200 P" not in pg.inner_text("body"): err.append("취소 뒤 포인트가 원래대로 돌아오지 않아요: " + pg.inner_text("body")[:120])
@@ -46,9 +46,15 @@ with sync_playwright() as p:
     if tb[2] or tb[1] < 30: err.append("장바구니에서 하단 메뉴가 사라져요")
     elif ct[0] > tb[0] + 1: err.append("장바구니 주문 버튼이 하단 메뉴를 가려요 (%s %s)" % (ct, tb))
     pg2.evaluate("window.__goto('#/me')"); pg2.wait_for_timeout(300)
+    if "관리자" in pg2.inner_text("body") or pg2.locator("a[href='#/points']").count(): err.append("내 정보에 관리자 화면/내 포인트 메뉴가 남아 있어요")
+    if pg2.locator("#myp").count() != 1 or pg2.locator("#myp").evaluate("e => e.getBoundingClientRect().top") > pg2.locator("a:has-text('주문/배송내역')").evaluate("e => e.getBoundingClientRect().top"): err.append("이름 밑에 포인트 카드가 없어요")
+    pg2.click("#myp"); pg2.wait_for_timeout(600)
+    if "포인트 내역" not in pg2.inner_text(".mdl") or "1,200 P" not in pg2.inner_text(".mdl"): err.append("포인트 내역 창이 안 떠요: " + pg2.inner_text("body")[:200])
+    pg2.click(".mdl-h button"); pg2.wait_for_timeout(200)
+    if pg2.locator(".mdl").count(): err.append("포인트 내역 창이 안 닫혀요")
     pg2.click("a:has-text('주문/배송내역')"); pg2.wait_for_timeout(1000)
     bt = pg2.inner_text("body")
-    for w in ["주문/배송내역", "결제완료", "배송중", "취소/교환/반품", "상세보기", "판매자정보/문의", "취소요청", "리뷰쓰기", "최대 500P", "장바구니 담기"]:
+    for w in ["주문/배송내역", "결제완료", "배송중", "취소/교환/반품", "상세보기", "판매자정보/문의", "리뷰쓰기", "최대 500P", "장바구니 담기"]:
         if w not in bt: err.append("주문내역에 '%s'이(가) 없어요" % w)
     if "바로 구매하기" in bt or pg2.locator("[data-buy]").count(): err.append("주문내역에 '바로 구매하기'가 있어요")
     if pg2.evaluate("getComputedStyle(document.querySelector('.oc-page')).backgroundColor") != "rgb(242, 244, 246)" or pg2.evaluate("document.querySelector('.oc-page').getBoundingClientRect().height") < 600: err.append("주문내역 배경이 화면 전체를 덮지 않아요")
@@ -86,6 +92,9 @@ with sync_playwright() as p:
         if len([r for r in json.loads(pg2.evaluate("localStorage.getItem('skd')"))["reviews"] if r.get("photos") and r["photos"][0].startswith("data:image/jpeg")]) != 1: err.append("사진이 리뷰와 함께 저장되지 않아요")
     pg2.go_back() if False else None
     # 주문 취소: 발송 전 주문(SK1) -> 사유 선택 -> 취소됨, 리뷰 적립 회수
+    if pg2.locator("[data-ocancel=SK1]").is_visible(): err.append("취소요청 버튼이 처음부터 보여요")
+    pg2.click("[data-omore=SK1]"); pg2.wait_for_timeout(150)
+    if not pg2.locator("[data-ocancel=SK1]").is_visible(): err.append("... 버튼을 눌러도 취소요청이 안 나와요")
     pg2.click("[data-ocancel=SK1]"); pg2.wait_for_timeout(200)
     if "바로 취소돼요" not in pg2.inner_text("[data-cform=SK1]"): err.append("취소 안내 문구가 안 보여요")
     pg2.click("[data-ocx=SK1]"); pg2.wait_for_timeout(900)

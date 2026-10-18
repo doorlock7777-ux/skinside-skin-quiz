@@ -1,10 +1,11 @@
+import { loadBrands } from "./_lib.mjs";
 import { json, getUser, orders, tossAuth } from "./_lib.mjs";
 import { finalizePaid } from "./_pay.mjs";
 import { payOf } from "./_money.mjs";
 import { rehold, releaseOrder } from "./_points.mjs";
 import { tossPayment, applyPayment } from "./_toss.mjs";
 
-export default async (req) => {
+export default async (req) => { await loadBrands();
   const user = getUser(req);
   if (!user) return json({ error: "로그인이 필요해요" }, 401);
   if (req.method !== "POST") return json({ error: "method" }, 405);

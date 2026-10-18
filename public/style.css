@@ -163,3 +163,10 @@ label.f{display:block;font-size:13px;color:var(--mute);font-weight:600;margin:14
 .lbx{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99;display:flex;align-items:center;justify-content:center;cursor:zoom-out}.lbx img{max-width:94vw;max-height:90vh;border-radius:8px}
 
 .cta.up{bottom:calc(62px + env(safe-area-inset-bottom,0));padding-bottom:12px;z-index:35}
+
+.ptbtn{display:block;width:100%;text-align:left;border:0;font:inherit;cursor:pointer;margin-top:0}
+.oc .st .more{margin-left:auto;border:0;background:#f2f4f6;color:var(--ink);width:34px;height:34px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer;align-self:center}
+.mdl{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90;display:flex;align-items:flex-end;justify-content:center}
+.mdl-box{background:#fff;width:100%;max-width:560px;max-height:82vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0)}
+.mdl-h{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);font-size:17px}.mdl-h button{border:0;background:none;font-size:26px;line-height:1;color:var(--mute);cursor:pointer}
+.mdl-b{overflow:auto;padding:16px 20px 24px}

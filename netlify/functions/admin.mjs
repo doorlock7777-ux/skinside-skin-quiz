@@ -1,3 +1,4 @@
+import { loadBrands, saveBrand } from "./_lib.mjs";
 import { json, orders, BRANDS, tossAuth, setShipment, notifyShipped, adjustStock, normCarrier } from "./_lib.mjs";
 import { isAdmin, adminLogin, adminLogout, partnerIdx, issueCode, revokeCode, PARTNER_DIR } from "./_auth.mjs";
 import { monthSettle } from "./_home.mjs";
@@ -15,7 +16,7 @@ import { bookCancel, refundsOf, UNASSIGNED, brandsOf } from "./_money.mjs";
 const all = allOrders;
 const csv = (rows) => "﻿" + rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
 
-export default async (req) => {
+export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, "");
   if (p === "/api/admin/login" && req.method === "POST") return adminLogin(req);
   if (p === "/api/admin/logout" && req.method === "POST") return adminLogout();
@@ -33,6 +34,14 @@ export default async (req) => {
     return json({ dir: PARTNER_DIR, partners: Object.keys(BRANDS).map((k) => ({ key: k, name: BRANDS[k].name, email: BRANDS[k].email || "", fee: BRANDS[k].fee || 0, issuedAt: (idx[k] || {}).issuedAt || null, lastLogin: (idx[k] || {}).lastLogin || null })) });
   }
   const b = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  if (p === "/api/admin/partners/save" && req.method === "POST") {
+    if (!BRANDS[b.brand]) return json({ error: "브랜드를 찾을 수 없어요" }, 404);
+    const email = String(b.email || "").trim().slice(0, 120), fee = Number(b.fee);
+    if (email && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(email)) return json({ error: "이메일 형식을 확인해주세요" }, 400);
+    if (!Number.isFinite(fee) || fee < 0 || fee > 100) return json({ error: "수수료율은 0~100 사이 숫자로 적어주세요 (15% = 15)" }, 400);
+    if (fee > 0 && fee < 1) return json({ error: "15%면 15로 적어주세요. 0.15는 0.15%로 계산돼요" }, 400);
+    await saveBrand(b.brand, email, Math.round(fee * 100) / 100); return json({ ok: true, email, fee: BRANDS[b.brand].fee });
+  }
   if (p === "/api/admin/partners/issue" && req.method === "POST") {
     if (!BRANDS[b.brand]) return json({ error: "브랜드를 찾을 수 없어요" }, 404);
     return json({ ok: true, code: await issueCode(b.brand) });

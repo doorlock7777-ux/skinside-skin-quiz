@@ -380,7 +380,7 @@ function review(){
 /* CS 자동 입력: 자주 쓰는 답변을 눌러서 채운다. 문구는 직접 추가·삭제할 수 있다 */
 var TPL = null, TPLBN = "스킨인사이드";
 function tplLoad(){ return TPL ? Promise.resolve(TPL) : api("/api/partner/cs/templates").then(function(j){ TPL = j.templates; if(j.brand) TPLBN = j.brand; return TPL; }); }
-function tplFill(text, cust){ return text.replace(/\{브랜드\}/g, TPLBN).replace(/\{고객\}/g, (cust || "고객") + "님"); }
+function tplFill(text, cust){ return text.replace(/\{브랜드\}/g, TPLBN).replace(/\{고객\}(님)?/g, (cust || "고객") + "님"); }
 function tplDraw(box, ta, cust){
   var h = '<div class="ah">누르면 답변칸에 채워져요. 고쳐서 보내도 돼요. {고객}·{브랜드}는 자동으로 바뀌어요.</div><div style="margin-top:8px">' + TPL.map(function(x){
     return '<div class="tp"><button type="button" class="pk" data-pk="' + esc(x.id) + '"><b>' + esc(x.title) + '</b><span>' + esc(x.text) + '</span></button><button type="button" class="x" data-px="' + esc(x.id) + '" title="삭제">×</button></div>'; }).join("") + '</div>'

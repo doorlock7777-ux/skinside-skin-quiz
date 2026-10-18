@@ -37,6 +37,7 @@
     if(u.indexOf("/api/admin/ship") >= 0){ O.forEach(function(x){ if(x.id === b.orderId){ x.shipments = x.shipments || {}; x.shipments[b.brand] = {carrier:b.carrier, tracking:b.tracking}; x.status = "shipped"; } }); return res({ok:true}); }
     if(u.indexOf("/api/admin/cancel") >= 0){ O.forEach(function(x){ if(x.id === b.orderId) x.status = "canceled"; }); return res({ok:true}); }
     if(u.indexOf("/api/admin/partners/issue") >= 0){ var c = "K7QM-X2PD-R9WT-H4NB"; PART[b.brand] = {issuedAt:new Date().toISOString(), lastLogin:null}; return res({ok:true, code:c}); }
+    if(u.indexOf("/api/admin/partners/save") >= 0){ var fe = Number(b.fee); if(b.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email)) return res({error:"이메일 형식을 확인해주세요"}, 400); if(!(fe >= 0 && fe <= 100)) return res({error:"수수료율은 0~100 사이 숫자로 적어주세요 (15% = 15)"}, 400); if(fe > 0 && fe < 1) return res({error:"15%면 15로 적어주세요. 0.15는 0.15%로 계산돼요"}, 400); EM[b.brand] = b.email || ""; FEE[b.brand] = fe; return res({ok:true}); }
     if(u.indexOf("/api/admin/partners/revoke") >= 0){ delete PART[b.brand]; return res({ok:true}); }
     if(u.indexOf("/api/admin/partners") >= 0) return res({dir:"partner-k3x9m2", partners:Object.keys(BR).map(function(k){ return {key:k, name:BR[k].name, email:EM[k], fee:FEE[k], issuedAt:(PART[k] || {}).issuedAt || null, lastLogin:(PART[k] || {}).lastLogin || null}; })});
     if(u.indexOf("/api/admin/reconcile") >= 0){ LAST = {at:new Date().toISOString(), checked:42, recovered:1, external:9900, unassigned:0, mismatch:0, errors:0}; return res({ok:true, result:LAST}); }

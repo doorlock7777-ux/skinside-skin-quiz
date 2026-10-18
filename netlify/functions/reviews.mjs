@@ -1,8 +1,9 @@
+import { loadBrands } from "./_lib.mjs";
 import { json, getUser, orders } from "./_lib.mjs";
 import { allReviews, createReview, publicList, getReview, imgStore } from "./_reviews.mjs";
 
 /* 소비자용 리뷰: 제품별 목록은 누구나(베스트 먼저, 최신순), 작성은 결제가 끝난 본인 주문(배송 전에도 가능, 500P 적립) */
-export default async (req) => {
+export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, "");
   if (p === "/api/review" && req.method === "GET") {
     const id = String(u.searchParams.get("product") || "");
