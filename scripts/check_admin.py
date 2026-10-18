@@ -110,7 +110,16 @@ with sync_playwright() as p:
         P.locator("#tb button[data-t=orders]").click(); pg.wait_for_timeout(300)
         left = P.locator("[data-s]").count()
         ids = pf.evaluate("[...document.querySelectorAll('[data-n]')].map(e=>e.dataset.n)")
-        if P.locator("a.dl").count() != 1: err.append("발송 대기 엑셀 받기 버튼이 없어요")
+        if P.locator("#dl").count() != 1 or P.locator("#cp").count() != 1: err.append("발송 대기 엑셀 받기/복사 버튼이 없어요")
+        else:
+            P.locator("#cp").click(); pg.wait_for_timeout(500)
+            if "주문번호" not in P.locator("#bp").input_value() or "\t" not in P.locator("#bp").input_value(): err.append("엑셀 복사가 안 돼요(not found 등)")
+            if "not found" in P.locator("#bres").inner_text().lower(): err.append("엑셀 받기에서 not found가 떠요")
+            P.locator("#bp").fill("")
+        # 눌린(선택된) 버튼의 글자가 배경과 구분되는지: 대비 3 이상
+        bad = pf.evaluate("""()=>{const L=c=>{const m=c.match(/[\\d.]+/g).map(Number);const f=v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)};return .2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2])};
+          return [...document.querySelectorAll('button.on,.tabs button.on,.chips button.on')].filter(b=>{const s=getComputedStyle(b);const a=L(s.color),c=L(s.backgroundColor.startsWith('rgba(0, 0, 0, 0')?getComputedStyle(document.body).backgroundColor:s.backgroundColor);const r=(Math.max(a,c)+.05)/(Math.min(a,c)+.05);return r<3}).map(b=>b.textContent.trim())}""")
+        if bad: err.append("선택된 버튼 글씨가 안 보여요: %s" % bad)
         if ids:
             P.locator("#bp").fill("주문번호\t택배사\t송장번호\n%s\tCJ대한통운\t900011112222\nXXXX\t롯데택배\t900011113333" % ids[0]); P.locator("#bgo").click(); pg.wait_for_timeout(300)
             if "2건을 읽었어요" not in P.locator("#bres").inner_text(): err.append("엑셀 붙여넣기 미리보기가 달라요")

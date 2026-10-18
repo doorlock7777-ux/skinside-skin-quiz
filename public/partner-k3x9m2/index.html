@@ -123,6 +123,11 @@ button.g:hover,.bt2:hover,.chips button:hover,.more:hover{border-color:var(--neo
 .demo{background:var(--warn-bg)!important;color:var(--warn)!important}
 /* 라벨(작은 대문자 느낌) */
 label{font-size:12px!important;letter-spacing:.03em;color:var(--mute)}
+/* 본문 안의 하위 탭 (발송 대기 / 완료 / 취소) */
+main .tabs{display:flex;gap:6px;flex-wrap:wrap}
+main .tabs button{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important;padding:8px 14px}
+main .tabs button:hover{border-color:var(--neon)!important}
+main .tabs button.on{background:var(--pri-soft)!important;color:var(--neon)!important;border-color:var(--neon)!important}
 </style></head>
 <body>
 <header id="hd"></header>
@@ -182,7 +187,7 @@ function draw(){
   var os = DATA.orders, todo = os.filter(function(o){ return !o.canceled && !(o.shipment && o.shipment.tracking); }), done = os.filter(function(o){ return o.shipment && o.shipment.tracking; }), cx = os.filter(function(o){ return o.canceled; });
   var list = OT === "todo" ? todo : OT === "done" ? done : cx;
   var h = '<div class="help"><b>송장번호란?</b> 택배사에 물건을 접수하면 받는 운송장 번호예요. 번호를 입력하면 고객이 배송 조회를 할 수 있어요. 발송 후 택배사와 번호를 입력해주세요.</div>'
- + '<div class="card"><h2>엑셀로 한 번에 처리하기</h2><p class="sub">① 발송 대기 주문을 엑셀로 받아 택배사 프로그램에 붙여넣거나 송장을 채워요. ② 택배사·송장번호를 채운 파일(CSV)을 올리거나, 엑셀에서 복사해 붙여넣으면 한 번에 입력돼요.</p><div class="f"><a class="dl" href="/api/partner/orders.csv">발송 대기 엑셀 받기</a><label class="bt2">채운 파일 올리기<input type="file" id="bf" accept=".csv,.tsv,.txt" hidden></label></div><textarea id="bp" placeholder="엑셀에서 주문번호 · 택배사 · 송장번호 열을 복사해 여기에 붙여넣어도 돼요" style="margin-top:10px"></textarea><div class="f"><button class="sv" id="bgo">미리보기</button></div><div id="bres"></div></div>'
+ + '<div class="card"><h2>엑셀로 한 번에 처리하기</h2><p class="sub">① 발송 대기 주문을 엑셀로 받아 택배사 프로그램에 붙여넣거나 송장을 채워요. ② 택배사·송장번호를 채운 파일(CSV)을 올리거나, 엑셀에서 복사해 붙여넣으면 한 번에 입력돼요.</p><div class="f"><button class="sv" id="dl">발송 대기 엑셀 받기</button><button class="bt2" id="cp">엑셀에 붙여넣기용으로 복사</button><label class="bt2">채운 파일 올리기<input type="file" id="bf" accept=".csv,.tsv,.txt" hidden></label></div><textarea id="bp" placeholder="엑셀에서 주문번호 · 택배사 · 송장번호 열을 복사해 여기에 붙여넣어도 돼요" style="margin-top:10px"></textarea><div class="f"><button class="sv" id="bgo">미리보기</button></div><div id="bres"></div></div>'
     + '<div class="tabs">' + [["todo", "발송 대기 " + todo.length], ["done", "발송 완료 " + done.length], ["cx", "취소 " + cx.length]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (OT === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
   h += list.length ? list.map(function(o){
     var a = o.ship || {}, sh = o.shipment || {};
@@ -193,7 +198,7 @@ function draw(){
   }).join("") : '<div class="empty">' + (OT === "todo" ? "발송할 주문이 없어요." : OT === "done" ? "발송 완료한 주문이 없어요." : "취소된 주문이 없어요.") + '</div>';
   M.innerHTML = h;
   [].forEach.call(M.querySelectorAll(".tabs button"), function(b){ b.onclick = function(){ OT = b.dataset.t; draw(); }; });
-  bulkInit();
+  bulkInit(); csvInit();
   [].forEach.call(M.querySelectorAll("[data-s]"), function(b){ b.onclick = function(){
     var id = b.dataset.s, msg = M.querySelector('[data-m="' + id + '"]');
     api("/api/partner/ship", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({orderId:id, carrier:M.querySelector('[data-c="' + id + '"]').value, tracking:M.querySelector('[data-n="' + id + '"]').value})})
@@ -228,6 +233,22 @@ function bulkInit(){
       }).catch(function(e){ if(e.message !== "auth") res.innerHTML = '<div class="msg e">' + esc(e.message) + '</div>'; });
     };
   }
+}
+
+/* ---------- 발송 대기 엑셀: 파일로 받기 / 복사 ---------- */
+function csvInit(){
+  var dl = document.getElementById("dl"), cp = document.getElementById("cp"); if(!dl) return;
+  var get = function(){ return fetch("/api/partner/orders.csv", {credentials:"same-origin"}).then(function(r){ if(r.status === 401){ login(true); throw new Error("auth"); } if(!r.ok) throw new Error("엑셀을 만들지 못했어요"); return r.text(); }); };
+  var say = function(t, bad){ var m = document.getElementById("bres"); m.innerHTML = '<div class="msg ' + (bad ? "e" : "o") + '">' + esc(t) + '</div>'; };
+  dl.onclick = function(){ get().then(function(t){
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + t], {type:"text/csv;charset=utf-8"})); a.download = "orders-" + new Date().toISOString().slice(0, 10) + ".csv"; document.body.appendChild(a); a.click(); a.remove(); say("엑셀 파일을 내려받았어요. 받아지지 않으면 옆의 복사 버튼을 써주세요.");
+  }).catch(function(e){ if(e.message !== "auth") say(e.message, 1); }); };
+  cp.onclick = function(){ get().then(function(t){
+    var rows = []; String(t).replace(/^\ufeff/, "").split(/\r?\n/).forEach(function(l){ if(l.trim()) rows.push(l); });
+    var tsv = rows.map(function(l){ var o = [], c = "", q = false, i; for(i = 0; i < l.length; i++){ var ch = l[i]; if(q){ if(ch === '"'){ if(l[i + 1] === '"'){ c += '"'; i++; } else q = false; } else c += ch; } else if(ch === '"') q = true; else if(ch === ","){ o.push(c); c = ""; } else c += ch; } o.push(c); return o.join("\t"); }).join("\n");
+    var ta = document.getElementById("bp"); ta.value = tsv; ta.select();
+    try{ navigator.clipboard.writeText(tsv).then(function(){ say("복사했어요. 엑셀에서 붙여넣기 하세요."); }, function(){ say("아래 입력칸에 채워뒀어요. 전체 선택 후 복사해서 엑셀에 붙여넣으세요."); }); }catch(x){ say("아래 입력칸에 채워뒀어요. 전체 선택 후 복사해서 엑셀에 붙여넣으세요."); }
+  }).catch(function(e){ if(e.message !== "auth") say(e.message, 1); }); };
 }
 
 /* ---------- 재고 ---------- */

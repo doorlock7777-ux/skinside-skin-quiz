@@ -183,6 +183,11 @@ button.g:hover,.bt2:hover,.chips button:hover,.more:hover{border-color:var(--neo
 .demo{background:var(--warn-bg)!important;color:var(--warn)!important}
 /* 라벨(작은 대문자 느낌) */
 label{font-size:12px!important;letter-spacing:.03em;color:var(--mute)}
+/* 본문 안의 하위 탭 (발송 대기 / 완료 / 취소) */
+main .tabs{display:flex;gap:6px;flex-wrap:wrap}
+main .tabs button{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important;padding:8px 14px}
+main .tabs button:hover{border-color:var(--neon)!important}
+main .tabs button.on{background:var(--pri-soft)!important;color:var(--neon)!important;border-color:var(--neon)!important}
 </style></head>
 <body>
 <div id="dm" class="demo" hidden></div>
