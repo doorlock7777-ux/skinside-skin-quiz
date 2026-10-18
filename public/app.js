@@ -16,7 +16,7 @@ function ls(k, v){ try{ if(v === undefined) return JSON.parse(localStorage.getIt
 function getH(){ return DEMO ? HM : location.hash; }
 function setH(v){ if(DEMO){ HS.push(HM); HM = v; route(); } else location.hash = v; }
 if(DEMO) window.__goto = setH;
-var QZ = DEMO ? "https://skinside.co.kr/" : "/", QT = DEMO ? ' target="_blank" rel="noopener"' : "";
+var QZ = DEMO ? "#quiz" : "/", QT = ""; /* 미리보기에서는 같은 화면 안에서 진단으로 전환 */
 function toast(t){ var e = document.createElement("div"); e.className = "toast"; e.textContent = t; document.body.appendChild(e); setTimeout(function(){ e.remove(); }, 1800); }
 
 var KO = {MINIC:"미닉", LIVNA:"리브나", GRAFEN:"그라펜", MEDIHEAL:"메디힐", TORRIDEN:"토리든", NUMBUZIN:"넘버즈인", HWAPASA:"화파사", "B.READY":"비레디", ETUDE:"에뛰드", Lindsay:"린제이", "Medi Flower":"메디플라워", JMW:"제이엠더블유"};

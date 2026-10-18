@@ -131,3 +131,6 @@ window.DEMO_ADMIN = function(el, toast){
   if(b){ var a = document.createElement("a"); a.href = "#"; a.style.cssText = "display:block;margin-top:4px;font-weight:700;color:#8a5a00;text-decoration:underline"; a.textContent = done ? "진단 전 화면으로 보기" : "진단 완료 화면으로 보기";
     a.onclick = function(e){ e.preventDefault(); try{ localStorage.setItem("skd_diag", done ? "0" : "1"); }catch(x){} location.reload(); }; b.appendChild(a); }
 })();
+
+/* 미리보기: 피부 진단 링크는 바깥 화면(미리보기 틀)에 전환을 요청한다 */
+document.addEventListener("click", function(e){ var a = e.target.closest && e.target.closest('a[href="#quiz"]'); if(!a) return; e.preventDefault(); try{ parent.postMessage({skgo:"quiz"}, "*"); }catch(x){} }, true);
