@@ -70,7 +70,7 @@ function chips(cur){
 function drawTabs(){
   var h = getH() || "#/", n = cartCount(), open = CFG.STORE_OPEN;
   function t(href, label, on, extra){ return '<a href="' + href + '"' + (/^http/.test(href) ? QT : '') + ' class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
-  document.querySelector(".tabs").hidden = open && /^#\/(p\/|cart|checkout)/.test(h);
+  document.querySelector(".tabs").hidden = open && /^#\/(p\/|checkout)/.test(h);
   $nv.innerHTML = t(DEMO ? "#/" : "/store", "스토어", !/^#\/(cart|checkout|me|orders|points|done|admin)/.test(h)) + t(QZ, "피부 진단", false)
     + (open && CHECKOUT ? t("#/cart", "장바구니", /^#\/(cart|checkout)/.test(h), n ? '<span class="bd">' + n + '</span>' : '') + t("#/me", "내 정보", /^#\/(me|orders|points|done)/.test(h)) : '');
 }
@@ -172,7 +172,7 @@ function cartPage(){
     h += '<div class="row"><div class="im">' + img(l.p) + '</div><div class="t"><div class="s">' + esc(l.p.brandName) + '</div><div class="nm">' + esc(l.p.name) + (l.p.options ? ' (' + esc(l.p.options[l.opt].n) + ')' : '') + '</div>'
       + '<div class="qty"><button data-m="' + i + '">-</button><span>' + l.q + '</span><button data-a="' + i + '">+</button></div></div><div style="text-align:right"><div style="font-weight:800">' + won(l.unit * l.q) + '</div><button class="x" data-r="' + i + '">삭제</button></div></div>';
   });
-  h += sumBox(t) + '</div><div class="cta"><div class="in"><a class="btn" href="#/checkout">' + won(t.total) + ' 주문하기</a></div></div>';
+  h += sumBox(t) + '</div><div style="height:64px"></div><div class="cta up"><div class="in"><a class="btn" href="#/checkout">' + won(t.total) + ' 주문하기</a></div></div>';
   $app.innerHTML = h;
   function mod(f){ return function(){ var i = +this.dataset[f]; f === "a" ? c[i].q = Math.min(20, c[i].q + 1) : f === "m" ? c[i].q = Math.max(1, c[i].q - 1) : c.splice(i, 1); setCart(c); cartPage(); }; }
   ["a", "m", "r"].forEach(function(f){ [].forEach.call($app.querySelectorAll("[data-" + f + "]"), function(b){ b.onclick = mod(f); }); });

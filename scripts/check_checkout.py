@@ -41,6 +41,11 @@ with sync_playwright() as p:
     pg2 = b.new_page(viewport={"width": 400, "height": 1200}); errs = []; pg2.on("pageerror", lambda e: errs.append(str(e)))
     pg2.add_init_script("localStorage.setItem('skd', %r)" % json.dumps(st)); pg2.goto("file://" + o); pg2.wait_for_timeout(900); pg2.click("text=내 정보"); pg2.wait_for_timeout(500)
     if "1,200 P" not in pg2.inner_text("#mypt"): err.append("내 정보에 보유 포인트가 안 보여요: " + pg2.inner_text("#mypt"))
+    pg2.evaluate("localStorage.setItem('sk_cart', JSON.stringify([{id:'bonkorea-cl', opt:0, q:1}]))"); pg2.evaluate("window.__goto('#/cart')"); pg2.wait_for_timeout(500)
+    tb, ct = pg2.evaluate("(() => { const a = document.querySelector('.tabs').getBoundingClientRect(), c = document.querySelector('.cta').getBoundingClientRect(); return [[a.top, a.height, document.querySelector('.tabs').hidden], [c.bottom, c.height]]; })()")
+    if tb[2] or tb[1] < 30: err.append("장바구니에서 하단 메뉴가 사라져요")
+    elif ct[0] > tb[0] + 1: err.append("장바구니 주문 버튼이 하단 메뉴를 가려요 (%s %s)" % (ct, tb))
+    pg2.evaluate("window.__goto('#/me')"); pg2.wait_for_timeout(300)
     pg2.click("a:has-text('주문/배송내역')"); pg2.wait_for_timeout(1000)
     bt = pg2.inner_text("body")
     for w in ["주문/배송내역", "결제완료", "배송중", "취소/교환/반품", "상세보기", "판매자정보/문의", "취소요청", "리뷰쓰기", "최대 500P", "장바구니 담기"]:
