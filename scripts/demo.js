@@ -23,6 +23,21 @@ window.fetch = function(u, o){
   if(u === "/api/demo-login"){ state.user = {id:"n_demo", name:"홍길동", email:"demo@example.com", phone:"010-1234-5678"}; save(); return res({user: state.user}); }
   if(u === "/api/logout"){ state.user = null; save(); return res({ok:true}); }
   if(!state.user && /^\/api\/(order|confirm)/.test(u)) return res({error:"로그인이 필요해요"}, 401);
+  if(u === "/api/stock") return res({soldOut:[]});
+  if(/^\/api\/cs\//.test(u)){
+    state.tickets = state.tickets || [];
+    if(u === "/api/cs/mine") return res({tickets: state.tickets});
+    if(u === "/api/cs/new"){
+      var o2 = state.orders.filter(function(x){ return x.id === b.orderId; })[0];
+      if(!o2 || String(b.text || "").trim().length < 2) return res({error:"내용을 입력해주세요"}, 400);
+      if(b.type !== "inquiry" && !(o2.shipments && o2.shipments[b.brand] && o2.shipments[b.brand].tracking)) return res({error:"발송 후에 신청할 수 있어요"}, 400);
+      var t2 = {id:"C" + Date.now(), orderId:b.orderId, brand:b.brand, brandName:b.brand, type:b.type, status:"open", escalated:false, refundAmount:0, messages:[{from:"customer", text:b.text, at:new Date().toISOString()}]}; state.tickets.push(t2); save(); return res({ticket:t2});
+    }
+    var t3 = state.tickets.filter(function(x){ return x.id === b.id; })[0]; if(!t3) return res({error:"not found"}, 404);
+    if(u === "/api/cs/reply") t3.messages.push({from:"customer", text:b.text, at:new Date().toISOString()});
+    if(u === "/api/cs/escalate") t3.escalated = true;
+    save(); return res({ticket:t3});
+  }
   if(u === "/api/order" && m === "GET") return res({orders: state.orders.filter(function(x){ return x.status !== "pending" && x.status !== "failed"; }).slice().reverse()});
   if(u === "/api/order" && m === "POST"){
     var items = [];

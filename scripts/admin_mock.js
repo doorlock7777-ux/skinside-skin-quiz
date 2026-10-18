@@ -13,16 +13,19 @@
   var BR = {minic:{name:"MINIC"}, grafen:{name:"GRAFEN"}, bonkorea:{name:"본코리아"}};
   var PART = {minic:{issuedAt:new Date(now - 5 * 864e5).toISOString(), lastLogin:new Date(now - 3 * 3600e3).toISOString()}, bonkorea:{issuedAt:new Date(now - 2 * 864e5).toISOString(), lastLogin:null}};
   var FEE = {minic:15, grafen:12, bonkorea:10}, EM = {minic:"order@minic.example", grafen:"", bonkorea:"cs@bonkorea.example"};
+  var CONF = null, TK = [
+    {id:"C1", orderId:"SK2610170009", brand:"minic", brandName:"MINIC", type:"return", status:"open", escalated:true, customer:{name:"최유진", phone:"010-2222-3333"}, messages:[{from:"customer", text:"사이즈가 안 맞아서 반품하고 싶어요.", at:new Date(now - 6 * 3600e3).toISOString()}, {from:"customer", text:"브랜드 답변이 없어서 운영자 확인 요청드려요.", at:new Date(now - 3600e3).toISOString()}]},
+    {id:"C2", orderId:"SK2610180002", brand:"bonkorea", brandName:"본코리아", type:"inquiry", status:"answered", escalated:false, customer:{name:"이준호", phone:"010-9876-5432"}, messages:[{from:"customer", text:"언제 도착하나요?", at:new Date(now - 4 * 3600e3).toISOString()}, {from:"partner", text:"내일 도착해요.", at:new Date(now - 3 * 3600e3).toISOString()}]}];
   function admin(u, b){
     if(u.indexOf("/api/admin/login") >= 0){ if(b.id && b.pw && b.pw2){ LOGGED = true; return res({ok:true}); } return res({error:"입력한 정보가 맞지 않아요"}, 401); }
     if(u.indexOf("/api/admin/logout") >= 0){ LOGGED = false; return res({ok:true}); }
     if(!LOGGED) return res({error:"unauthorized"}, 401);
     if(u.indexOf("/api/admin/me") >= 0) return res({ok:true});
     if(u.indexOf("/api/admin/home") >= 0) return res({
-      today:{sales:80500, orders:2, yestSales:61200, yestOrders:3}, flow:{new:1, wait:2, done:5, canceled:1},
+      today:{sales:80500, orders:2, yestSales:61200, yestOrders:3}, flow:{wait:3, done:5, canceled:1}, cs:{open:2, escalated:1, refundFail:0},
       late:[{id:"SK2610170009", brand:"minic", name:"MINIC", hours:27, state:"wait"}],
       brands:[{brand:"minic", name:"MINIC", today:1, open:2, late:1, hasCode:true, hasEmail:true}, {brand:"grafen", name:"GRAFEN", today:1, open:1, late:0, hasCode:false, hasEmail:false}, {brand:"bonkorea", name:"본코리아", today:0, open:0, late:0, hasCode:true, hasEmail:true}, {brand:"livna", name:"LIVNA", today:0, open:0, late:0, hasCode:false, hasEmail:false}],
-      todo:[{k:"late", label:"발송이 지연된 주문", n:1, tab:"orders"}, {k:"noemail", label:"이메일이 없어 전달 못 한 브랜드", n:1, tab:"brands"}, {k:"nocode", label:"접속 코드가 없는 주문 브랜드", n:1, tab:"brands"}],
+      todo:[{k:"late", label:"발송이 지연된 주문", n:1, tab:"orders"}, {k:"escalated", label:"운영자 확인이 필요한 CS", n:1, tab:"cs"}, {k:"confirm", label:"9월 정산 확정 필요", n:1, tab:"settle"}, {k:"noemail", label:"이메일이 없어 알림을 못 받는 브랜드", n:1, tab:"brands"}, {k:"nocode", label:"접속 코드가 없는 주문 브랜드", n:1, tab:"brands"}],
       month:{m:"2026-10", sales:1284500, fee:171630, payout:1112870, rows:[{name:"MINIC", sales:702000, fee:105300, payout:596700}, {name:"본코리아", sales:358500, fee:35850, payout:322650}, {name:"GRAFEN", sales:224000, fee:26880, payout:197120}]}});
     if(u.indexOf("/api/admin/orders") >= 0) return res({orders:O, brands:BR});
     if(u.indexOf("/api/admin/ship") >= 0){ O.forEach(function(x){ if(x.id === b.orderId){ x.shipments = x.shipments || {}; x.shipments[b.brand] = {carrier:b.carrier, tracking:b.tracking}; x.status = "shipped"; } }); return res({ok:true}); }
@@ -30,10 +33,14 @@
     if(u.indexOf("/api/admin/partners/issue") >= 0){ var c = "K7QM-X2PD-R9WT-H4NB"; PART[b.brand] = {issuedAt:new Date().toISOString(), lastLogin:null}; return res({ok:true, code:c}); }
     if(u.indexOf("/api/admin/partners/revoke") >= 0){ delete PART[b.brand]; return res({ok:true}); }
     if(u.indexOf("/api/admin/partners") >= 0) return res({dir:"partner-k3x9m2", partners:Object.keys(BR).map(function(k){ return {key:k, name:BR[k].name, email:EM[k], fee:FEE[k], issuedAt:(PART[k] || {}).issuedAt || null, lastLogin:(PART[k] || {}).lastLogin || null}; })});
+    if(u.indexOf("/api/admin/settlement/confirm") >= 0){ CONF = {at:new Date().toISOString(), paid:{}}; return res({ok:true, created:true}); }
+    if(u.indexOf("/api/admin/settlement/paid") >= 0){ CONF.paid[b.brand] = new Date().toISOString(); return res({ok:true}); }
     if(u.indexOf("/api/admin/settlement") >= 0){
       if(u.indexOf("format=json") < 0) return Promise.resolve(new Response("정산 예시", {status:200}));
-      return res({month:"2026-10", rows:[{name:"MINIC", n:36, sales:702000, feeRate:15, fee:105300, payout:596700}, {name:"본코리아", n:12, sales:358500, feeRate:10, fee:35850, payout:322650}, {name:"GRAFEN", n:19, sales:224000, feeRate:12, fee:26880, payout:197120}]});
+      return res({month:"2026-10", confirmed:CONF, rows:[{brand:"minic", name:"MINIC", n:36, sales:702000, refund:21500, feeRate:15, fee:102075, payout:578425}, {brand:"bonkorea", name:"본코리아", n:12, sales:358500, refund:0, feeRate:10, fee:35850, payout:322650}, {brand:"grafen", name:"GRAFEN", n:19, sales:224000, refund:0, feeRate:12, fee:26880, payout:197120}]});
     }
+    if(u.indexOf("/api/admin/cs/") >= 0){ TK.forEach(function(t){ if(t.id === b.id){ if(u.indexOf("reply") >= 0) t.messages.push({from:"admin", text:b.text, at:new Date().toISOString()}); if(u.indexOf("close") >= 0 || u.indexOf("refund") >= 0){ t.status = u.indexOf("refund") >= 0 ? "refunded" : "closed"; delete t.refundError; } if(u.indexOf("refund") >= 0 || u.indexOf("close") >= 0) t.escalated = false; } }); return res({ok:true}); }
+    if(u.indexOf("/api/admin/cs") >= 0) return res({tickets:TK});
     return res({error:"not found"}, 404);
   }
   window.fetch = function(u, o){
@@ -45,7 +52,7 @@
     if(!LOGGED) return res({error:"unauthorized"}, 401);
     if(u.indexOf("/api/manage/dashboard") >= 0){ var d = +(u.split("days=")[1] || 7), f = d === 1 ? 0.16 : d === 30 ? 3.6 : 1; return res({days:d, top:TOP.map(function(x, i){ return {id:"p" + i, name:x[0], brand:x[1], clicks:Math.round(x[2] * f), views:Math.round(x[3] * f)}; }), events:{quiz_start:Math.round(1520 * f), quiz_done:Math.round(1204 * f), kakao_click:Math.round(980 * f), kakao_unlock:Math.round(871 * f)}, kakao:kakao}); }
     if(u.indexOf("/api/manage/kakao") >= 0){ kakao = {friends:Math.round(+b.friends || 0), name:b.name || "문장군", updated:new Date().toISOString()}; return res({ok:true, kakao:kakao}); }
-    if(u.indexOf("/api/manage/brand-mail") >= 0) return res({results:[{brand:"minic", name:"MINIC", email:"order@minic.example", orders:1, cancels:0, sent:false}, {brand:"grafen", name:"GRAFEN", email:"", orders:1, cancels:0, sent:false}, {brand:"bonkorea", name:"본코리아", email:"cs@bonkorea.example", orders:0, cancels:1, sent:false}]});
+    if(u.indexOf("/api/manage/brand-mail") >= 0) return res({results:[{brand:"minic", name:"MINIC", email:"order@minic.example", orders:2, late:1, cancels:0, sent:false}, {brand:"grafen", name:"GRAFEN", email:"", orders:1, late:0, cancels:0, sent:false}]});
     if(u.indexOf("/api/manage/products") >= 0) return res({products:extra});
     if(u.indexOf("/api/manage/product-delete") >= 0){ extra = extra.filter(function(x){ return x.id !== b.id; }); return res({ok:true}); }
     if(u.indexOf("/api/manage/product") >= 0){

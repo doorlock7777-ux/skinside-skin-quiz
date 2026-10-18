@@ -231,7 +231,8 @@ var CARR = {cj:["CJ대한통운", "kr.cjlogistics"], lotte:["롯데택배", "kr.
 function orders(){
   if(!user){ $app.innerHTML = loginBox("#/orders"); return; }
   $app.innerHTML = '<div class="empty">불러오는 중</div>';
-  fetch("/api/order").then(function(r){ return r.json(); }).then(function(j){
+  Promise.all([fetch("/api/order").then(function(r){ return r.json(); }), fetch("/api/cs/mine").then(function(r){ return r.ok ? r.json() : {tickets:[]}; }).catch(function(){ return {tickets:[]}; })]).then(function(rr){
+    var j = rr[0], TK = rr[1].tickets || [];
     var os = (j.orders || []).filter(function(o){ return o.status !== "pending" && o.status !== "failed"; });
     if(!os.length){ $app.innerHTML = '<div class="sec"><h1>주문 내역</h1></div><div class="empty">아직 주문이 없어요.</div>'; return; }
     var h = '<div class="sec"><h1>주문 내역</h1><div style="height:12px"></div>';
@@ -243,11 +244,40 @@ function orders(){
         if(sh && sh.tracking){ var c = CARR[sh.carrier] || [sh.carrier, ""]; tr = '<div class="s"><a style="color:var(--pri);font-weight:700" target="_blank" rel="noopener" href="https://tracker.delivery/#/' + esc(c[1]) + '/' + encodeURIComponent(sh.tracking) + '">배송 조회</a> · ' + esc(c[0]) + ' ' + esc(sh.tracking) + '</div>'; }
         h += '<div class="row" style="padding:8px 0"><div class="t"><div class="nm">' + esc(l.name) + (l.optName ? ' (' + esc(l.optName) + ')' : '') + '</div><div class="s">' + l.q + '개 · ' + won(l.unit * l.q) + '</div>' + tr + '</div></div>';
       });
+      var seen = {};
+      o.items.forEach(function(l){ if(seen[l.brand]) return; seen[l.brand] = 1; h += csBox(o, l, TK.filter(function(t){ return t.orderId === o.id && t.brand === l.brand; })); });
       h += '<div style="text-align:right;font-weight:800;margin-top:8px">결제 ' + won(o.total) + '</div></div>';
     });
     $app.innerHTML = h + '</div>';
   }).catch(function(){ $app.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; });
 }
+var CST = {open:"답변 대기", answered:"답변 완료", approved:"승인됨", rejected:"거절됨", received:"반품 입고 확인", refunded:"환불 완료", closed:"종료"}, CTY = {inquiry:"문의", exchange:"교환", return:"반품"};
+function csBox(o, l, tks){
+  var k = esc(o.id + "|" + l.brand), h = '<div class="csb" style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px">';
+  tks.forEach(function(t){
+    var fin = t.status === "refunded" || t.status === "closed" || t.status === "rejected";
+    h += '<div style="background:var(--bg);border-radius:12px;padding:10px 12px;margin-bottom:8px;font-size:13px"><b>' + CTY[t.type] + ' · ' + CST[t.status] + '</b>' + (t.refundAmount ? ' · ' + won(t.refundAmount) + ' 환불' : '')
+      + t.messages.map(function(m){ return '<div style="margin-top:6px"><span class="s">' + ({customer:"나", partner:esc(t.brandName), admin:"스킨인사이드"}[m.from] || "") + '</span><br>' + esc(m.text) + '</div>'; }).join("")
+      + (fin ? '' : '<div style="display:flex;gap:6px;margin-top:8px"><input data-rt="' + esc(t.id) + '" placeholder="추가로 남길 말" style="flex:1;min-width:0;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px"><button type="button" data-cs="reply" data-id="' + esc(t.id) + '" style="font:inherit;font-weight:700;border:0;background:var(--pri);color:#fff;border-radius:10px;padding:0 14px">보내기</button></div>'
+        + (t.escalated ? '<div class="s" style="margin-top:6px">스킨인사이드에 확인을 요청했어요.</div>' : '<button type="button" data-cs="escalate" data-id="' + esc(t.id) + '" style="font:inherit;border:0;background:none;color:var(--mute);text-decoration:underline;margin-top:6px;padding:0">답변이 늦나요? 스킨인사이드에 확인 요청</button>')) + '</div>';
+  });
+  h += '<button type="button" data-cs="open" data-k="' + k + '" style="font:inherit;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:8px 12px">' + esc(brandLabel(l)) + ' 문의 · 교환 · 반품</button><div data-form="' + k + '"></div></div>';
+  return h;
+}
+function brandLabel(l){ var p = P[l.id]; return (p && p.brandName) || (p && p.brand) || ""; }
+document.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-cs]"); if(!b) return;
+  var a = b.dataset.cs, post = function(u, body){ return fetch(u, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "오류"); return j; }); }); };
+  if(a === "open"){
+    var f = document.querySelector('[data-form="' + b.dataset.k + '"]'); if(f.innerHTML){ f.innerHTML = ""; return; }
+    f.innerHTML = '<div style="margin-top:8px"><select style="font:inherit;padding:9px;border:1px solid var(--line);border-radius:10px"><option value="inquiry">문의</option><option value="exchange">교환 (발송 후)</option><option value="return">반품 (발송 후)</option></select><textarea placeholder="내용을 적어주세요" style="display:block;width:100%;min-height:80px;margin-top:8px;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px"></textarea><button type="button" data-cs="new" data-k="' + b.dataset.k + '" style="font:inherit;font-weight:700;border:0;background:var(--pri);color:#fff;border-radius:10px;padding:10px 16px;margin-top:8px">보내기</button> <span class="s" data-err></span></div>';
+    return;
+  }
+  var done = function(){ orders(); }, err = function(m){ var x = b.parentNode.querySelector("[data-err]") || b.parentNode; x.textContent = m; };
+  if(a === "new"){ var w = b.parentNode, k = b.dataset.k.split("|"); b.disabled = true; post("/api/cs/new", {orderId:k[0], brand:k[1], type:w.querySelector("select").value, text:w.querySelector("textarea").value}).then(done).catch(function(x){ b.disabled = false; err(x.message); }); }
+  if(a === "reply"){ var inp = document.querySelector('[data-rt="' + b.dataset.id + '"]'); b.disabled = true; post("/api/cs/reply", {id:b.dataset.id, text:inp.value}).then(done).catch(function(x){ b.disabled = false; inp.value = ""; inp.placeholder = x.message; }); }
+  if(a === "escalate"){ b.disabled = true; post("/api/cs/escalate", {id:b.dataset.id}).then(done).catch(function(){ b.disabled = false; }); }
+});
 function done(id){
   $app.innerHTML = '<div class="empty"><h2 style="color:var(--ink)">주문이 완료됐어요</h2><p>주문번호 ' + esc(id) + '<br>브랜드에서 곧 발송해드려요.</p><a class="btn" style="display:inline-block;padding:13px 24px" href="#/orders">주문 내역 보기</a></div>';
   ls("sk_cart", []); ls("sk_direct", []); drawTabs();
@@ -296,6 +326,11 @@ fetch("data/products.json").then(function(r){ return r.json(); }).then(function(
   /* 관리자 페이지에서 추가한 제품을 합친다 (실패해도 기본 제품은 그대로) */
   return fetch("/api/extra").then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(x){
     ((x && x.products) || []).forEach(function(p){ if(p && p.id && j.categories[p.cat] && !j.products.some(function(q){ return q.id === p.id; })) j.products.push(p); });
+    return j;
+  });
+}).then(function(j){
+  return fetch("/api/stock").then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(x){
+    ((x && x.soldOut) || []).forEach(function(id){ var p = j.products.filter(function(q){ return q.id === id; })[0]; if(p) p.soldOut = true; });
     return j;
   });
 }).then(function(j){

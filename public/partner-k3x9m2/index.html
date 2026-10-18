@@ -38,6 +38,11 @@ header button{font:inherit;font-weight:700;border:0;background:rgba(255,255,255,
 .rw{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.rw:first-of-type{border-top:0}.rw b{font-variant-numeric:tabular-nums}
 .lgp{max-width:360px;margin:70px auto;padding:20px;background:var(--card);border-radius:18px}.lgp h2{margin:0 0 4px;text-align:center}
 .lgp input{width:100%;text-align:center;font-size:18px;letter-spacing:.08em;margin-top:12px}.lgp button{width:100%;margin-top:12px;padding:13px}
+.tk{border-top:1px solid var(--line);padding:10px 0}.ms{margin:6px 0;padding:8px 11px;border-radius:10px;background:#f2f4f6;font-size:13px;white-space:pre-wrap}.ms.p{background:var(--pri-soft)}.ms small{display:block;color:var(--mute)}
+.bt2{font:inherit;font-weight:700;border:1px solid #d1d6db;background:#fff;color:var(--ink);padding:9px 14px;border-radius:10px;cursor:pointer}.bt2.red{color:var(--red)}
+textarea{font:inherit;width:100%;min-height:80px;padding:10px;border:1px solid #d1d6db;border-radius:10px}
+.al{display:inline-block;background:#fde8ea;color:var(--red);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:700;margin:2px 4px 2px 0}
+a.dl{display:inline-block;text-decoration:none;font-weight:700;background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px}
 </style></head>
 <body>
 <header id="hd"></header>
@@ -64,9 +69,9 @@ function login(bad){
 function shell(){
   HD.innerHTML = '<div><b>' + esc(BN) + '</b><span>파트너 브랜드 페이지</span></div><button id="lo">로그아웃</button>';
   document.getElementById("lo").onclick = function(){ fetch("/api/partner/logout", {method:"POST", credentials:"same-origin"}).then(function(){ login(false); }); };
-  document.getElementById("tb").innerHTML = '<div class="tabs" style="max-width:760px;margin:12px auto 0;padding:0 16px">' + [["home", "홈"], ["orders", "발송"]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
+  document.getElementById("tb").innerHTML = '<div class="tabs" style="max-width:760px;margin:12px auto 0;padding:0 16px">' + [["home", "홈"], ["orders", "발송"], ["stock", "재고"], ["cs", "CS"], ["settle", "정산"]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
   [].forEach.call(document.querySelectorAll("#tb button"), function(b){ b.onclick = function(){ go(b.dataset.t); }; });
-  (TAB === "home" ? home : orders)();
+  ({home:home, orders:orders, stock:stock, cs:cs, settle:settle}[TAB] || home)();
 }
 function go(t){ TAB = t; try{ history.replaceState(null, "", "#" + t); }catch(e){} shell(); window.scrollTo(0, 0); }
 function links(){ [].forEach.call(M.querySelectorAll("[data-go]"), function(a){ a.onclick = function(e){ e.preventDefault(); go(a.dataset.go); }; }); }
@@ -79,9 +84,11 @@ function home(){
     var h = c.todo ? '<div class="big' + (d.late ? " late" : "") + '"><small>오늘 발송할 주문</small><b>' + c.todo + '건</b><small>' + (d.late ? "발송이 늦어진 주문 " + d.late + "건이 있어요. 가장 오래된 주문은 " + d.oldestHours + "시간째 기다려요. " : "") + '<a data-go="orders">발송하러 가기 →</a></small></div>'
       : '<div class="big zero"><small>오늘 발송할 주문</small><b>없어요</b><small>들어온 주문을 모두 발송했어요.</small></div>';
     h += '<div class="kpi"><div><small>발송 대기</small><b>' + c.todo + '</b></div><div><small>오늘 발송 완료</small><b>' + c.doneToday + '</b></div><div><small>누적 발송 완료</small><b>' + c.done + '</b></div><div><small>취소</small><b>' + c.canceled + '</b></div></div>';
+    if(d.cs && (d.cs.open || d.cs.waitingReturn)) h += '<div class="card"><a class="go" data-go="cs">CS 보기 →</a><h2>답변·처리할 CS</h2><p class="sub">답변 대기 ' + d.cs.open + '건 · 반품 입고 대기 ' + d.cs.waitingReturn + '건</p></div>';
+    if(d.stock && d.stock.alerts.length) h += '<div class="card"><a class="go" data-go="stock">재고 관리 →</a><h2>재고 확인이 필요해요</h2><p class="sub">' + d.stock.alerts.map(function(a){ return '<span class="al">' + esc(a.name) + ' · ' + (a.soldOut ? "품절" : a.qty + "개 남음") + '</span>'; }).join("") + '</p></div>';
     h += '<div class="card"><h2>최근 7일 주문</h2><div class="wk">' + d.week.map(function(x){ return '<div><b>' + x.n + '</b><i style="height:' + Math.round(x.n / mx * 70) + 'px"></i>' + x.d.replace("-", "/") + '</div>'; }).join("") + '</div></div>';
     h += '<div class="card"><h2>이번 달 베스트 제품</h2>' + (d.top.length ? d.top.map(function(x, i){ return '<div class="rw"><span>' + (i + 1) + '. ' + esc(x.name) + '</span><b>' + x.q + '개</b></div>'; }).join("") : '<div class="s" style="padding:8px 0">아직 판매가 없어요.</div>') + '</div>';
-    h += '<div class="card"><h2>' + d.month.m.slice(5) + '월 정산 예정</h2><p class="sub">이번 달 누적 기준이에요. 확정 금액은 정산일에 안내돼요.</p><div class="rw"><span>판매 금액</span><b>' + n(d.month.sales) + '원</b></div><div class="rw"><span>수수료 (' + d.month.feeRate + '%)</span><b>-' + n(d.month.fee) + '원</b></div><div class="rw"><span><b>지급 예정</b></span><b>' + n(d.month.payout) + '원</b></div></div>';
+    h += '<div class="card"><h2>' + d.month.m.slice(5) + '월 정산 예정</h2><p class="sub">이번 달 누적 기준이에요. 확정 금액은 정산일에 안내돼요.</p><div class="rw"><span>판매 금액</span><b>' + n(d.month.sales) + '원</b></div>' + (d.month.refund ? '<div class="rw"><span>환불</span><b>-' + n(d.month.refund) + '원</b></div>' : '') + '<div class="rw"><span>수수료 (' + d.month.feeRate + '%)</span><b>-' + n(d.month.fee) + '원</b></div><div class="rw"><span><b>지급 예정</b></span><b>' + n(d.month.payout) + '원</b></div></div>';
     M.innerHTML = h; links();
   }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 }
@@ -96,6 +103,7 @@ function draw(){
   var os = DATA.orders, todo = os.filter(function(o){ return !o.canceled && !(o.shipment && o.shipment.tracking); }), done = os.filter(function(o){ return o.shipment && o.shipment.tracking; }), cx = os.filter(function(o){ return o.canceled; });
   var list = OT === "todo" ? todo : OT === "done" ? done : cx;
   var h = '<div class="help"><b>송장번호란?</b> 택배사에 물건을 접수하면 받는 운송장 번호예요. 번호를 입력하면 고객이 배송 조회를 할 수 있어요. 발송 후 택배사와 번호를 입력해주세요.</div>'
+ + '<div class="card"><h2>엑셀로 한 번에 처리하기</h2><p class="sub">① 발송 대기 주문을 엑셀로 받아 택배사 프로그램에 붙여넣거나 송장을 채워요. ② 택배사·송장번호를 채운 파일(CSV)을 올리거나, 엑셀에서 복사해 붙여넣으면 한 번에 입력돼요.</p><div class="f"><a class="dl" href="/api/partner/orders.csv">발송 대기 엑셀 받기</a><label class="bt2">채운 파일 올리기<input type="file" id="bf" accept=".csv,.tsv,.txt" hidden></label></div><textarea id="bp" placeholder="엑셀에서 주문번호 · 택배사 · 송장번호 열을 복사해 여기에 붙여넣어도 돼요" style="margin-top:10px"></textarea><div class="f"><button class="sv" id="bgo">미리보기</button></div><div id="bres"></div></div>'
     + '<div class="tabs">' + [["todo", "발송 대기 " + todo.length], ["done", "발송 완료 " + done.length], ["cx", "취소 " + cx.length]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (OT === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
   h += list.length ? list.map(function(o){
     var a = o.ship || {}, sh = o.shipment || {};
@@ -106,12 +114,90 @@ function draw(){
   }).join("") : '<div class="empty">' + (OT === "todo" ? "발송할 주문이 없어요." : OT === "done" ? "발송 완료한 주문이 없어요." : "취소된 주문이 없어요.") + '</div>';
   M.innerHTML = h;
   [].forEach.call(M.querySelectorAll(".tabs button"), function(b){ b.onclick = function(){ OT = b.dataset.t; draw(); }; });
+  bulkInit();
   [].forEach.call(M.querySelectorAll("[data-s]"), function(b){ b.onclick = function(){
     var id = b.dataset.s, msg = M.querySelector('[data-m="' + id + '"]');
     api("/api/partner/ship", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({orderId:id, carrier:M.querySelector('[data-c="' + id + '"]').value, tracking:M.querySelector('[data-n="' + id + '"]').value})})
       .then(orders).catch(function(e){ if(e.message !== "auth"){ msg.className = "msg e"; msg.textContent = e.message; } });
   }; });
 }
-if(location.hash === "#orders") TAB = "orders";
+/* ---------- 엑셀 일괄 입력 ---------- */
+function parseRows(t){
+  var sep = t.indexOf("\t") >= 0 ? "\t" : ",", rows = [], r = [], c = "", q = false, i;
+  for(i = 0; i < t.length; i++){ var ch = t[i];
+    if(q){ if(ch === '"'){ if(t[i + 1] === '"'){ c += '"'; i++; } else q = false; } else c += ch; }
+    else if(ch === '"') q = true; else if(ch === sep){ r.push(c); c = ""; } else if(ch === "\n"){ r.push(c); rows.push(r); r = []; c = ""; } else if(ch !== "\r") c += ch; }
+  r.push(c); rows.push(r);
+  rows = rows.filter(function(x){ return x.some(function(v){ return String(v).trim(); }); });
+  var ix = {o:0, c:1, t:2};
+  if(rows.length && rows[0].some(function(v){ return /주문번호/.test(v); })){ var hd = rows.shift(); ix = {o:hd.findIndex(function(v){ return /주문번호/.test(v); }), c:hd.findIndex(function(v){ return /택배사/.test(v); }), t:hd.findIndex(function(v){ return /송장/.test(v); })}; }
+  return rows.map(function(x){ return {orderId:String(x[ix.o] || "").trim(), carrier:String(x[ix.c] || "").trim(), tracking:String(x[ix.t] || "").trim()}; }).filter(function(x){ return x.tracking || x.carrier; });
+}
+function bulkInit(){
+  var bf = document.getElementById("bf"), bp = document.getElementById("bp"), res = document.getElementById("bres"); if(!bf) return;
+  bf.onchange = function(){ var f = bf.files[0]; if(!f) return; f.arrayBuffer().then(function(buf){ var t = new TextDecoder("utf-8").decode(buf); if(t.indexOf("\ufffd") >= 0) try{ t = new TextDecoder("euc-kr").decode(buf); }catch(e){} bp.value = t.replace(/^\ufeff/, ""); show(); }); };
+  document.getElementById("bgo").onclick = show;
+  function show(){
+    var rows = parseRows(bp.value);
+    if(!rows.length){ res.innerHTML = '<div class="msg e">송장이 채워진 줄이 없어요. 택배사와 송장번호 칸을 확인해주세요.</div>'; return; }
+    res.innerHTML = '<p class="sub" style="margin-top:12px">' + rows.length + '건을 읽었어요. 맞으면 입력하세요.</p>' + rows.slice(0, 8).map(function(x){ return '<div class="rw"><span>' + esc(x.orderId) + ' · ' + esc(x.carrier) + '</span><b>' + esc(x.tracking) + '</b></div>'; }).join("") + (rows.length > 8 ? '<div class="s">외 ' + (rows.length - 8) + '건</div>' : '') + '<div class="f"><button class="sv" id="bok">' + rows.length + '건 입력하기</button></div>';
+    document.getElementById("bok").onclick = function(){ this.disabled = true;
+      api("/api/partner/ship-bulk", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({rows:rows})}).then(function(j){
+        var bad = j.results.map(function(r, i){ return r.ok ? null : (rows[i].orderId || "(번호 없음)") + ": " + r.error; }).filter(Boolean);
+        res.innerHTML = '<div class="msg ' + (bad.length ? "e" : "o") + '">' + j.done + '건 입력했어요.' + (bad.length ? " " + bad.length + "건은 확인이 필요해요." : "") + '</div>' + bad.map(function(x){ return '<div class="s">' + esc(x) + '</div>'; }).join("") + '<div class="f"><button class="bt2" id="brl">목록 새로고침</button></div>';
+        document.getElementById("brl").onclick = orders;
+      }).catch(function(e){ if(e.message !== "auth") res.innerHTML = '<div class="msg e">' + esc(e.message) + '</div>'; });
+    };
+  }
+}
+
+/* ---------- 재고 ---------- */
+function stock(){
+  M.innerHTML = '<div class="empty">불러오는 중...</div>';
+  api("/api/partner/stock").then(function(j){
+    M.innerHTML = '<div class="help">수량을 입력하면 주문될 때마다 자동으로 줄고, 0이 되면 스토어에서 자동으로 품절 표시돼요. 수량을 비워두면 수량 관리 없이 판매돼요.</div>' + j.products.map(function(p){
+      return '<div class="o"><div class="h"><span>' + esc(p.name) + '</span><span class="st ' + (p.soldOut ? "c" : "d") + '">' + (p.soldOut ? "품절" : "판매 중") + '</span></div><div class="f"><input data-q="' + esc(p.id) + '" inputmode="numeric" placeholder="재고 수량 (비우면 관리 안 함)" value="' + (p.qty === null ? "" : p.qty) + '"><button class="sv" data-sq="' + esc(p.id) + '">수량 저장</button><button class="bt2' + (p.manual ? "" : " red") + '" data-so="' + esc(p.id) + '" data-v="' + (p.manual ? 0 : 1) + '">' + (p.manual ? "품절 해제" : "품절로 표시") + '</button></div><div class="msg" data-sm="' + esc(p.id) + '"></div></div>';
+    }).join("");
+    var post = function(id, body){ api("/api/partner/stock", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(Object.assign({id:id}, body))}).then(stock).catch(function(e){ if(e.message !== "auth"){ var m = M.querySelector('[data-sm="' + id + '"]'); m.className = "msg e"; m.textContent = e.message; } }); };
+    [].forEach.call(M.querySelectorAll("[data-sq]"), function(b){ b.onclick = function(){ var v = M.querySelector('[data-q="' + b.dataset.sq + '"]').value.trim(); post(b.dataset.sq, {qty:v === "" ? null : Number(v)}); }; });
+    [].forEach.call(M.querySelectorAll("[data-so]"), function(b){ b.onclick = function(){ post(b.dataset.so, {soldOut:b.dataset.v === "1"}); }; });
+  }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+
+/* ---------- CS ---------- */
+var TY = {inquiry:"문의", exchange:"교환", return:"반품"}, SS = {open:"답변 대기", answered:"답변 완료", approved:"승인됨", rejected:"거절됨", received:"입고 확인", refunded:"환불 완료", closed:"종료"};
+function cs(){
+  M.innerHTML = '<div class="empty">불러오는 중...</div>';
+  api("/api/partner/cs").then(function(j){
+    var act = function(t){ var a = []; if(t.status === "closed" || t.status === "refunded" || t.status === "rejected") return "";
+      if(t.type !== "inquiry" && t.status === "open") a.push('<button class="sv" data-a="decide" data-x="approve" data-i="' + t.id + '">승인</button><button class="bt2 red" data-a="decide" data-x="reject" data-i="' + t.id + '">거절</button>');
+      if(t.type === "return" && (t.status === "approved" || t.status === "received")) a.push('<button class="sv" data-a="received" data-i="' + t.id + '">반품 입고 확인 · 자동 환불</button>');
+      if(t.type === "exchange" && t.status === "approved") a.push('<input data-tr="' + t.id + '" placeholder="교환품 송장번호 (선택)"><button class="sv" data-a="exchange-sent" data-i="' + t.id + '">교환품 발송 완료</button>');
+      if(t.type === "inquiry") a.push('<button class="bt2" data-a="close" data-i="' + t.id + '">해결됨으로 종료</button>');
+      if(!t.escalated) a.push('<button class="bt2" data-a="escalate" data-i="' + t.id + '">운영자에게 도움 요청</button>');
+      return '<textarea data-tx="' + t.id + '" placeholder="고객에게 보낼 답변"></textarea><div class="f"><button class="sv" data-a="reply" data-i="' + t.id + '">답변 보내기</button>' + a.join("") + '</div><div class="msg" data-cm="' + t.id + '"></div>'; };
+    M.innerHTML = '<div class="help">반품은 상품이 돌아온 걸 확인하고 "입고 확인"을 누르면 고객에게 자동으로 환불돼요. 따로 환불 처리를 하실 필요가 없어요.</div>' + (j.tickets.length ? j.tickets.map(function(t){
+      return '<div class="o"><div class="h"><span>' + TY[t.type] + ' · ' + esc(t.orderId) + '</span><span class="st ' + (t.status === "open" || t.status === "received" ? "c" : "d") + '">' + SS[t.status] + '</span></div><div class="s">' + esc(t.customer.name) + ' / ' + esc(t.customer.phone) + ' · ' + t.items.map(function(l){ return esc(l.name) + ' × ' + l.q; }).join(", ") + (t.refundError ? '<br><b style="color:var(--red)">환불 실패: ' + esc(t.refundError) + ' (운영자가 처리해요)</b>' : '') + '</div>'
+        + t.messages.map(function(m){ return '<div class="ms ' + (m.from === "partner" ? "p" : "") + '"><small>' + ({customer:"고객", partner:"우리", admin:"운영자"}[m.from] || m.from) + ' · ' + esc(kst(m.at)) + '</small>' + esc(m.text) + '</div>'; }).join("") + act(t) + '</div>';
+    }).join("") : '<div class="empty">CS 요청이 없어요.</div>');
+    [].forEach.call(M.querySelectorAll("[data-a]"), function(b){ b.onclick = function(){
+      var id = b.dataset.i, a = b.dataset.a, tx = M.querySelector('[data-tx="' + id + '"]'), tr = M.querySelector('[data-tr="' + id + '"]'), body = {id:id, text:tx ? tx.value : "", action:b.dataset.x, tracking:tr ? tr.value : ""};
+      if(a === "reply" && tx && tx.value.trim().length < 2){ var m = M.querySelector('[data-cm="' + id + '"]'); m.className = "msg e"; m.textContent = "답변을 입력해주세요."; return; }
+      b.disabled = true;
+      api("/api/partner/cs/" + a, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)}).then(cs).catch(function(e){ if(e.message !== "auth"){ b.disabled = false; var m = M.querySelector('[data-cm="' + id + '"]'); m.className = "msg e"; m.textContent = e.message; cs.err = 1; } });
+    }; });
+  }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+
+/* ---------- 정산 ---------- */
+function settle(){
+  M.innerHTML = '<div class="empty">불러오는 중...</div>';
+  api("/api/partner/settlements").then(function(j){
+    M.innerHTML = '<div class="help">매월 정산이 확정되면 이메일로 정산서가 가고, 여기에서도 확인할 수 있어요. 환불된 금액은 정산에서 빠져요.</div>' + (j.settlements.length ? j.settlements.map(function(x){
+      return '<div class="card"><div class="h"><h2>' + esc(x.month) + ' 정산</h2><span class="st ' + (x.paidAt ? "d" : "") + '">' + (x.paidAt ? "송금 완료 " + esc(kst(x.paidAt).slice(0, 10)) : "송금 예정") + '</span></div><div class="rw"><span>판매 금액 (' + x.n + '건)</span><b>' + n(x.sales) + '원</b></div>' + (x.refund ? '<div class="rw"><span>환불</span><b>-' + n(x.refund) + '원</b></div>' : '') + '<div class="rw"><span>수수료 (' + x.feeRate + '%)</span><b>-' + n(x.fee) + '원</b></div><div class="rw"><span><b>지급액</b></span><b>' + n(x.payout) + '원</b></div></div>';
+    }).join("") : '<div class="empty">아직 확정된 정산이 없어요.</div>');
+  }).catch(function(e){ if(e.message !== "auth") M.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+}
+if(/^#(home|orders|stock|cs|settle)$/.test(location.hash)) TAB = location.hash.slice(1);
 boot();
 </script></body></html>
