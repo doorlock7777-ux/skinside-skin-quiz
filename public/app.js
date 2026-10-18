@@ -47,7 +47,8 @@ function chips(cur){
 }
 function drawTabs(){
   var h = location.hash || "#/", n = cartCount(), open = CFG.STORE_OPEN;
-  function t(href, label, on, extra){ return '<a href="' + href + '" class="' + (on ? 'on' : '') + '">' + label + (extra || '') + '</a>'; }
+  function t(href, label, on, extra){ return '<a href="' + href + '" class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
+  document.querySelector(".tabs").hidden = open && /^#\/(p\/|cart|checkout)/.test(h);
   $nv.innerHTML = t("#/store", "스토어", /^#\/(store|p\/|c\/|search|cat)/.test(h)) + t("quiz/", "피부 진단", false)
     + (open && CHECKOUT ? t("#/cart", "장바구니", /^#\/(cart|checkout)/.test(h), n ? '<span class="bd">' + n + '</span>' : '') + t("#/me", "내 정보", /^#\/(me|orders|done)/.test(h)) : '');
 }
@@ -55,13 +56,12 @@ function searchForm(q){ return '<form class="search" id="sf"><input id="q" value
 function bindSearch(){ var f = document.getElementById("sf"); if(f) f.onsubmit = function(e){ e.preventDefault(); var q = document.getElementById("q").value.trim(); if(q) location.hash = "#/search/" + encodeURIComponent(q); }; }
 function soon(){
   $app.innerHTML = '<div class="soon"><span class="pill">COMING SOON</span><h1>스토어 오픈 준비 중이에요</h1><p>문장군이 고른 제품을 더 좋은 가격으로<br>곧 만나보실 수 있게 준비하고 있어요.</p></div>'
-    + '<div class="cta"><div class="in"><a class="btn" href="quiz/">피부 진단 먼저 해보기</a></div></div>';
+    + '<div style="padding:0 20px"><a class="btn" href="quiz/">피부 진단 먼저 해보기</a></div>';
 }
 function landing(){
   var items = [["나만의 피부타입 코드", "피지, 민감도, 색소, 탄력 네 가지를 한 번에 확인해요."], ["내 피부 성향 분석", "왜 그런 타입인지 쉽게 풀어서 알려드려요."], ["타입별 맞춤 루틴", "내 피부에 맞는 제품만 골라서 추천해요."], ["피부 진단 결과 카드", "이미지로 저장하고 공유할 수 있어요."]];
   $app.innerHTML = '<div class="sec"><a class="hero" href="quiz/"><b>헷갈리는 내 피부타입<br>5분이면 알 수 있어요</b><span>세안 후 대기 테스트까지 더한 진단</span><br><span class="go">피부 진단 시작하기</span></a></div>'
-    + '<div class="band"></div><div class="sec"><h2>진단이 끝나면 받는 것</h2>' + items.map(function(x, i){ return '<div class="row"><div class="im" style="font-weight:800;color:var(--pri);font-size:20px">' + (i + 1) + '</div><div class="t"><div class="nm">' + x[0] + '</div><div class="s">' + x[1] + '</div></div></div>'; }).join("") + '</div>' + foot()
-    + '<div class="cta"><div class="in"><a class="btn" href="quiz/">피부 진단 시작하기</a></div></div>';
+    + '<div class="band"></div><div class="sec"><h2>진단이 끝나면 받는 것</h2>' + items.map(function(x, i){ return '<div class="row"><div class="im" style="font-weight:800;color:var(--pri);font-size:20px">' + (i + 1) + '</div><div class="t"><div class="nm">' + x[0] + '</div><div class="s">' + x[1] + '</div></div></div>'; }).join("") + '</div><div style="padding:0 20px 8px"><a class="btn" href="quiz/">피부 진단 시작하기</a></div>' + foot();
 }
 
 /* 홈 */
