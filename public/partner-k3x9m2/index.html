@@ -44,9 +44,7 @@ textarea{font:inherit;width:100%;min-height:80px;padding:10px;border:1px solid #
 .al{display:inline-block;background:#fde8ea;color:var(--red);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:700;margin:2px 4px 2px 0}
 a.dl{display:inline-block;text-decoration:none;font-weight:700;background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px}
 /* ===== 스킨인사이드 운영 화면 테마: 터미널형 대시보드 (밝은 화면 = 브랜드 인디고, 어두운 화면 = 형광 인디고) ===== */
-:root{--pri:#4E57A2;--pri-soft:#eceef8;--ink:#12141f;--mute:#656b84;--line:#dfe2ee;--bg:#f3f4f9;--card:#fff;--card2:#f8f9fd;--red:#d92d3b;--ok:#0a8f63;--warn:#b86a00;--warn-bg:#fff3e0;--neon:#4E57A2;--neon-glow:none;--glow:none;--hd:#fff;--ok-bg:#e2f6ee;--red-bg:#fde8ea;--inp:#fff;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,"Liberation Mono",monospace;color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pri:#5B65C9;--pri-soft:#1b1f3a;--ink:#eceef8;--mute:#8b91ab;--line:#252840;--bg:#0a0b11;--card:#10121b;--card2:#151827;--red:#ff6577;--ok:#35f0b0;--warn:#ffb54a;--warn-bg:#2a2010;--neon:#9aa5ff;--neon-glow:0 0 10px rgba(130,145,255,.75),0 0 22px rgba(110,125,255,.4);--glow:0 0 0 1px rgba(130,145,255,.55),0 0 16px rgba(110,125,255,.35);--hd:#0a0b11;--ok-bg:#0d2a22;--red-bg:#33121a;--inp:#0b0c14;color-scheme:dark}}
-:root[data-theme="dark"]{--pri:#5B65C9;--pri-soft:#1b1f3a;--ink:#eceef8;--mute:#8b91ab;--line:#252840;--bg:#0a0b11;--card:#10121b;--card2:#151827;--red:#ff6577;--ok:#35f0b0;--warn:#ffb54a;--warn-bg:#2a2010;--neon:#9aa5ff;--neon-glow:0 0 10px rgba(130,145,255,.75),0 0 22px rgba(110,125,255,.4);--glow:0 0 0 1px rgba(130,145,255,.55),0 0 16px rgba(110,125,255,.35);--hd:#0a0b11;--ok-bg:#0d2a22;--red-bg:#33121a;--inp:#0b0c14;color-scheme:dark}
+:root{--pri:#5B65C9;--pri-soft:#1b1f3a;--ink:#eceef8;--mute:#8b91ab;--line:#252840;--bg:#0a0b11;--card:#10121b;--card2:#151827;--red:#ff6577;--ok:#35f0b0;--warn:#ffb54a;--warn-bg:#2a2010;--neon:#9aa5ff;--neon-glow:0 0 10px rgba(130,145,255,.75),0 0 22px rgba(110,125,255,.4);--glow:0 0 0 1px rgba(130,145,255,.55),0 0 16px rgba(110,125,255,.35);--hd:#0a0b11;--ok-bg:#0d2a22;--red-bg:#33121a;--inp:#0b0c14;color-scheme:dark;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,"Liberation Mono",monospace;}
 body{background:var(--bg);color:var(--ink);letter-spacing:-.005em;-webkit-font-smoothing:antialiased}
 /* 머리글 */
 header{background:var(--hd)!important;color:var(--ink)!important;border-bottom:1px solid var(--line);padding:13px max(16px,env(safe-area-inset-left,0px))!important;gap:12px}
@@ -55,7 +53,6 @@ header b:before{content:"S";display:inline-grid;place-items:center;width:26px;he
 header span{color:var(--mute)!important;font-size:12px!important;opacity:1!important}
 header button{border:1px solid var(--line)!important;background:transparent!important;color:var(--ink)!important;border-radius:8px!important;padding:7px 12px!important;font-size:13px}
 header button:hover{border-color:var(--neon)!important;box-shadow:var(--glow)}
-#th{padding:7px 10px!important;font-family:var(--mono)}
 /* 탭 */
 nav,#tb .tabs{border-bottom:1px solid var(--line);max-width:none!important;margin:0!important;padding:0 max(16px,env(safe-area-inset-left,0px))!important;gap:2px!important;background:var(--hd);overflow-x:auto;scrollbar-width:none}
 nav button,#tb .tabs button{border-radius:0!important;background:transparent!important;color:var(--mute)!important;padding:13px 16px!important;border-bottom:2px solid transparent!important;font-weight:700;white-space:nowrap}
@@ -75,9 +72,7 @@ main{max-width:1040px!important}
 .kpi div{border:0!important;border-radius:0!important;background:var(--card)!important;padding:14px 16px!important}
 .kpi small{font-size:11.5px!important;letter-spacing:.04em;color:var(--mute)}
 .kpi b{font-family:var(--mono);font-size:24px!important;font-weight:700;letter-spacing:-.02em;color:var(--ink);text-shadow:var(--glow)}
-.kpi b{text-shadow:none}
-:root[data-theme="dark"] .kpi b,:root:not([data-theme="light"]) .kpi b{text-shadow:0 0 14px rgba(130,145,255,.35)}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .kpi b{text-shadow:none}}
+.kpi b{text-shadow:0 0 14px rgba(130,145,255,.35)}
 .up{color:var(--ok)!important;font-family:var(--mono)}.dn{color:var(--red)!important;font-family:var(--mono)}
 /* 처리할 일 / 안내 */
 .todo{border:1px solid var(--warn);background:var(--warn-bg)!important;color:var(--warn)!important;border-radius:10px!important}
@@ -135,9 +130,6 @@ label{font-size:12px!important;letter-spacing:.03em;color:var(--mute)}
 <main id="m"></main>
 <script>
 var M = document.getElementById("m"), HD = document.getElementById("hd"), TAB = "home", DATA = null, BN = "";
-function skTheme(){ try{ var t = localStorage.getItem("skth"); if(t) document.documentElement.setAttribute("data-theme", t); }catch(e){} }
-function skToggle(){ var d = document.documentElement, cur = d.getAttribute("data-theme") || (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"), nx = cur === "dark" ? "light" : "dark"; d.setAttribute("data-theme", nx); try{ localStorage.setItem("skth", nx); }catch(e){} }
-skTheme();
 var CAR = {cj:"CJ대한통운", lotte:"롯데택배", hanjin:"한진택배", post:"우체국", logen:"로젠택배"};
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function n(v){ return Number(v || 0).toLocaleString("ko-KR"); }
@@ -155,8 +147,7 @@ function login(bad){
   document.getElementById("go").onclick = go; document.getElementById("cd").onkeydown = function(e){ if(e.key === "Enter") go(); };
 }
 function shell(){
-  HD.innerHTML = '<div><b>' + esc(BN) + '</b><span>SKININSIDE PARTNER</span></div><button id="th" title="밝게/어둡게">밝기</button><button id="lo">로그아웃</button>'; document.getElementById("th").onclick = skToggle;
-  document.getElementById("lo").onclick = function(){ fetch("/api/partner/logout", {method:"POST", credentials:"same-origin"}).then(function(){ login(false); }); };
+  HD.innerHTML = '<div><b>' + esc(BN) + '</b><span>SKININSIDE PARTNER</span></div><button id="lo">로그아웃</button>'; document.getElementById("lo").onclick = function(){ fetch("/api/partner/logout", {method:"POST", credentials:"same-origin"}).then(function(){ login(false); }); };
   document.getElementById("tb").innerHTML = '<div class="tabs" style="max-width:760px;margin:12px auto 0;padding:0 16px">' + [["home", "홈"], ["orders", "발송"], ["stock", "재고"], ["cs", "CS"], ["settle", "정산"]].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (TAB === t[0] ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</div>';
   [].forEach.call(document.querySelectorAll("#tb button"), function(b){ b.onclick = function(){ go(b.dataset.t); }; });
   ({home:home, orders:orders, stock:stock, cs:cs, settle:settle}[TAB] || home)();
