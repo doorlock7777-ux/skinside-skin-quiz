@@ -19,6 +19,10 @@ if(!S.shown)S.analyzed=false;save();render()}}catch(e){}
 var b=document.getElementById("pvgo");if(!b)return;b.onclick=function(){try{localStorage.removeItem("skinside_unlocked")}catch(e){}
 var r=function(n){var a=[];for(var i=0;i<n;i++)a.push(Math.floor(Math.random()*4));return a};
 S={screen:"result",i:0,a:r(NQ),c:r(NC),start:0,simple:false,notify:false,recorded:false};save();render()}});</script>'''
+assert '<script src="/hidden.js"></script>' in h
+hb = open(os.path.join(R, "public/hidden.js"), encoding="utf-8").read()
+demo = "window.__HB_DEMO=function(){return {on:true,text:'오늘만 특가 찬스',url:'https://example.com/event',end:Date.now()+(10*60+22)*1000,now:Date.now()}};"
+h = h.replace('<script src="/hidden.js"></script>', "<script>" + demo + hb + "</script>", 1)
 assert "<body>" in h
 h = h.replace("<body>", "<body>\n" + bar, 1)
 open(sys.argv[1], "w", encoding="utf-8").write(frag(h)); print(len(h))

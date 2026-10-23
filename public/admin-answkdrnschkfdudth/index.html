@@ -214,6 +214,10 @@ button.auto{font:inherit;font-weight:800;font-size:13px;border:0;background:var(
 .aup .nw{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}.aup .nw input,.aup .nw textarea{width:100%;margin-top:6px}
 .aup .ah{font-size:12px;color:var(--mute)}
 .rv-ph{display:flex;gap:6px;margin:6px 0;flex-wrap:wrap}.rv-ph a img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.ck2{display:flex;align-items:center;gap:8px;font-weight:700;margin-top:10px}.ck2 input{width:auto}
+.hbpv{margin:14px 0 6px;display:flex;align-items:center;gap:12px;padding:9px 16px 9px 12px;border-radius:30px;background:rgba(78,87,162,.72);color:#fff;font-weight:800;font-size:15px;line-height:1.3;text-shadow:0 1px 3px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.28)}.hbpv small{color:#e3e6ff;font-weight:600}.hbpv i{font-style:normal;font-size:20px}.hbpv .tx{flex:1;text-align:center;min-width:0}
+.hbpv .tm{display:flex;align-items:center;gap:3px;flex:none;padding-right:12px;border-right:1px solid rgba(255,255,255,.35);font-variant-numeric:tabular-nums;white-space:nowrap}.hbpv .tm em{display:inline-flex;align-items:center;justify-content:center;height:28px;font-style:normal;font-size:17px;font-weight:900;line-height:1;background:rgba(15,20,70,.4);border-radius:7px;padding:0 4px;min-width:27px}.hbpv .tm u,.hbpv .tm s{display:inline-flex;align-items:center;height:28px;line-height:1}.hbpv .tm u{text-decoration:none;font-size:12px;font-weight:800;margin:0 5px 0 2px}.hbpv .tm s{text-decoration:none;font-weight:900;opacity:.8}.hbpv .tm em.hot1{color:#ffe066}.hbpv .tm em.hot2{color:#ffab40}.hbpv .tm em.hot3{color:#ff6b6b}.hbpv .tm em.zero{color:#fff}
+input:disabled{opacity:.45}
 </style></head>
 <body>
 <div id="dm" class="demo" hidden></div>
@@ -520,7 +524,14 @@ var IMG = "";
 function add(){
   var M = document.getElementById("mn"); IMG = "";
   var opts = Object.keys(CATS).map(function(k){ return '<option value="' + esc(k) + '">' + esc(CATS[k]) + '</option>'; }).join("");
-  M.innerHTML = '<div class="card"><h2>제품 추가</h2><p class="sub">입력하고 등록하면 스토어에 바로 나타나요.</p>'
+  M.innerHTML = '<div class="card"><h2>히든 버튼</h2><p class="sub">스토어 하단에서 쑥 올라오는 반투명 특가 버튼이에요. 마켓이나 광고 기간에 문구와 링크를 바꿔 쓰세요. 껐다 켜도 문구는 그대로 남아요.</p>'
+    + '<label class="ck2"><input type="checkbox" id="hon"> 스토어에 노출하기</label>'
+    + '<label>버튼 문구 (최대 30자)</label><input id="htx" maxlength="30" placeholder="예: 오늘만 특가 찬스">'
+    + '<label>이동할 링크</label><input id="hur" type="url" placeholder="https://">'
+    + '<label>타이머 종료 시각 (한국 시간)</label><input id="hend" type="datetime-local">'
+    + '<label class="ck2"><input type="checkbox" id="hdf"> 기본 설정 (매주 일요일 낮 12시까지)</label><div class="sub" id="hdn" style="margin:4px 0 0"></div>'
+    + '<div class="hbpv" id="hpv"></div><button class="pri" id="hsv">히든 버튼 저장</button><div class="msg" id="hms"></div><div class="sub" id="hcl" style="margin:10px 0 0"></div></div>'
+    + '<div class="card"><h2>제품 추가</h2><p class="sub">입력하고 등록하면 스토어에 바로 나타나요.</p>'
     + '<label>제품 이미지</label><div class="drop"><img class="pv" id="pv" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="><div><input type="file" id="fi" accept="image/*"><div class="sub" style="margin:6px 0 0">정사각형에 가까운 제품 사진을 권장해요.</div></div></div>'
     + '<label>제품명</label><input id="fn" maxlength="80" placeholder="예: 시카 진정 앰플">'
     + '<label>브랜드명</label><input id="fb" maxlength="40" placeholder="예: LIVNA">'
@@ -532,6 +543,27 @@ function add(){
   var $ = function(i){ return document.getElementById(i); };
   function disc(){ var l = +$("fl").value, p = +$("fp").value; $("fd").textContent = l > 0 && p > 0 ? (p > l ? "할인가가 정가보다 커요" : p < l ? Math.round((l - p) / l * 100) + "% 할인" : "할인 없음") : ""; }
   $("fl").oninput = disc; $("fp").oninput = disc;
+  /* 히든 버튼 */
+  var HD = {now:0, off:0, defEnd:0}, htm = null;
+  function kst(str){ var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(str || ""); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - 9 * 3600e3 : null; }
+  function kfmt(t){ var k = new Date(t + 9 * 3600e3), w = "일월화수목금토"[k.getUTCDay()]; return k.getUTCFullYear() + "년 " + (k.getUTCMonth() + 1) + "월 " + k.getUTCDate() + "일 (" + w + ") " + (k.getUTCHours() < 12 ? "오전 " : "오후 ") + (k.getUTCHours() % 12 || 12) + "시 " + (k.getUTCMinutes() ? k.getUTCMinutes() + "분" : "") ; }
+  function hend(){ return $("hdf").checked ? HD.defEnd : kst($("hend").value); }
+  function hpv(){
+    var t = $("htx").value.trim(), e = hend(), left = e ? Math.max(0, e - (Date.now() + HD.off)) : null, tm = "";
+    if(left !== null){ var v = [Math.floor(left / 86400e3), Math.floor(left % 86400e3 / 3600e3), Math.floor(left % 3600e3 / 60e3), Math.floor(left % 60e3 / 1e3)], c = ["", "", "", ""]; if(v[1] <= 3){ c[1] = c[2] = c[3] = "hot1"; } if(v[2] <= 10){ c[2] = c[3] = "hot2"; } if(v[3] <= 20) c[3] = "hot3"; var z = function(x, k){ return (x < 10 && !(x === 0 && k < 3) ? "0" : "") + x; }, w = function(k, cl){ return v[k] === 0 && k < 3 ? "zero" : cl; }; tm = '<b class="tm"><em class="' + w(0, "") + '">' + z(v[0], 0) + '</em><u>일</u><em class="' + w(1, c[1]) + '">' + z(v[1], 1) + '</em><s>:</s><em class="' + w(2, c[2]) + '">' + z(v[2], 2) + '</em><s>:</s><em class="' + c[3] + '">' + z(v[3], 3) + '</em></b>'; }
+    $("hpv").innerHTML = t ? tm + '<span class="tx">' + esc(t) + '</span><i>&#8250;</i>' : '<small>문구를 입력하면 이렇게 보여요</small>';
+    $("hdn").textContent = $("hdf").checked ? "다음 종료: " + kfmt(HD.defEnd) + "까지 (일요일 낮 12시가 지나면 자동으로 다음 주로 넘어가요)" : (e ? (e <= Date.now() + HD.off ? "이미 지난 시각이에요" : kfmt(e) + "까지") : "종료 시각을 고르면 스토어 버튼에 남은 시간이 표시돼요");
+  }
+  function hmsg(t, e){ var m = $("hms"); m.className = "msg " + (e ? "e" : "o"); m.textContent = t; }
+  function hsync(){ $("hend").disabled = $("hdf").checked; hpv(); }
+  $("htx").oninput = hpv; $("hend").oninput = hpv; $("hdf").onchange = hsync;
+  api("/api/manage/hidden").then(function(h){ HD.off = (h.now || Date.now()) - Date.now(); HD.defEnd = h.defaultEnd; $("hon").checked = !!h.on; $("htx").value = h.text || ""; $("hur").value = h.url || ""; $("hdf").checked = h.useDefault !== false; $("hend").value = h.endAt || ""; hsync(); }).catch(function(){ hpv(); });
+  clearInterval(htm); htm = setInterval(function(){ if(document.getElementById("hpv")) hpv(); else clearInterval(htm); }, 1000);
+  api("/api/manage/dashboard?days=7").then(function(d){ var c = (d.events || {}).hidden_click || 0; $("hcl").textContent = "최근 7일 클릭 " + n(c) + "회"; }).catch(function(){});
+  $("hsv").onclick = function(){
+    var b = this; b.disabled = true; hmsg("저장 중...");
+    post("/api/manage/hidden", {on:$("hon").checked, text:$("htx").value, url:$("hur").value, useDefault:$("hdf").checked, endAt:$("hend").value}).then(function(){ hmsg($("hon").checked ? "저장했어요. 스토어에 10초 안에 반영돼요." : "저장했어요. 지금은 꺼져 있어요."); }).catch(function(e){ hmsg((e && e.message) || "저장하지 못했어요", 1); }).then(function(){ b.disabled = false; });
+  };
   $("fi").onchange = function(){ var f = this.files[0]; if(!f) return; shrink(f).then(function(u){ IMG = u; $("pv").src = u; }).catch(function(){ IMG = ""; msg("이미지를 읽지 못했어요", 1); }); };
   function msg(t, e){ var m = $("fm"); m.className = "msg " + (e ? "e" : "o"); m.textContent = t; }
   $("fs").onclick = function(){

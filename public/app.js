@@ -7,7 +7,7 @@ function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(
 function won(n){ return Number(n).toLocaleString("ko-KR") + "원"; }
 var MEM = {}, HM = "#/", HS = [], DEMO = !!CFG.DEMO, SORT = "pop", POP = {}, TOP = {}, SEEN = {};
 function sc(p){ var s = POP[p.id]; return s ? s.v + 5 * s.c + 20 * s.b : 0; }
-function buys(p){ return POP[p.id] ? POP[p.id].d || 0 : 0; } /* 화면에 표시하는 구매 수: 클릭마다 서버가 정한 값을 더한다(100 이하 +10, 300 이하 +4~9, 1000 이하 +1~3, 이후 +1). 100 이하면 화면에서 숨김 */
+function buys(p){ return POP[p.id] ? POP[p.id].d || 0 : 0; } /* 화면에 표시하는 이번 주 구매 수(매주 월요일 0시 한국 시간에 0부터 다시 센다): 클릭마다 서버가 정한 값을 더한다(100 이하 +10, 300 이하 +4~9, 1000 이하 +1~3, 이후 +1). 100 이하면 화면에서 숨김 */
 function byPop(ps){ var ix = {}; D.products.forEach(function(p, i){ ix[p.id] = i; }); return ps.slice().sort(function(a, b){ return sc(b) - sc(a) || ix[a.id] - ix[b.id]; }); }
 function rank(){ TOP = {}; byPop(D.products).slice(0, 3).forEach(function(p){ if(sc(p) > 0) TOP[p.id] = 1; }); }
 function track(id, e){ if(e === "v"){ if(SEEN[id]) return; SEEN[id] = 1; } var s = POP[id] = POP[id] || {v:0, c:0, b:0, d:0}; s[e]++; try{ fetch("/api/track", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({id:id, e:e}), keepalive:true}).then(function(r){ return r.json(); }).then(function(j){ if(j && j.inc) s.d = (s.d || 0) + j.inc; }).catch(function(){}); }catch(x){} }
@@ -103,7 +103,7 @@ function home(){
   var h = mr ? myCard(mr) : quizDone() ? '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 진단 결과를<br>다시 확인해보세요</b><span class="go">결과 보기</span></a></div>' : '<div class="sec" style="padding-bottom:8px"><a class="hero" href="' + QZ + '"' + QT + '><b>내 피부타입부터 확인하고<br>맞는 제품만 사세요</b><span>몇 가지 질문으로 결과 카드까지</span><br><span class="go">피부타입 진단하기</span></a></div>';
   h += '<div class="sec" style="padding-top:16px">' + searchForm("") + chips("") + '</div>';
   if(best){
-    var em = [buys(best) > 100 ? '지금 ' + buys(best).toLocaleString("ko-KR") + '명이 구매 중' : '', disc(best) ? '최대 ' + disc(best) + '% 할인' : ''].filter(Boolean).join(' · ');
+    var em = [buys(best) > 100 ? '이번 주 ' + buys(best).toLocaleString("ko-KR") + '명이 구매' : '', disc(best) ? '최대 ' + disc(best) + '% 할인' : ''].filter(Boolean).join(' · ');
     h += '<div class="band"></div><div class="sec"><h2>지금 가장 많이 구매하는 제품</h2><a class="best" ' + lnk(best) + '><div class="im">' + img(best) + '</div><div>' + (em ? '<div class="em">' + em + '</div>' : '') + '<div class="nm">' + esc(best.name) + '</div><div class="big">' + won(best.price) + '</div></div></a></div>';
   }
   h += '<div class="band"></div><div class="sec"><h2>인기 제품</h2><div class="grid">' + byPop(D.products).map(card).join("") + '</div></div>';
@@ -431,7 +431,7 @@ function me(){
 function route(){
   var h = getH() || "#/", m;
   $bk.hidden = !CFG.STORE_OPEN || !/^#\/(p|cart|checkout|orders|points|search|c\/)/.test(h);
-  drawTabs(); window.scrollTo(0, 0);
+  drawTabs(); window.SkHidden && SkHidden.show(CFG.STORE_OPEN && !/^#\/(p\/|cart|checkout|orders|points|done|me|admin)/.test(h)); window.scrollTo(0, 0);
   if(!CFG.STORE_OPEN) return soon();
   if((m = h.match(/^#\/p\/(.+)/))) return detail(decodeURIComponent(m[1]));
   if((m = h.match(/^#\/c\/(.+)/))){ var k = decodeURIComponent(m[1]); return list(D.categories[k] || "제품", D.products.filter(function(p){ return p.cat === k; }), k); }

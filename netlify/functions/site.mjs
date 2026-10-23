@@ -2,7 +2,29 @@ import { runBrandBatch } from "./_batch.mjs";
 import { isAdmin } from "./_auth.mjs";
 import { loadBrands, BRANDS, json, loadStock, isSoldOut, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
 
-const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done"];
+/* 히든 버튼 타이머: 시각은 모두 한국 시간(KST, UTC+9)으로 해석한다 */
+const KST = 9 * 3600e3;
+const kstEpoch = (str) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(str || ""));
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  if (y < 2000 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
+  const t = Date.UTC(y, mo - 1, d, h, mi) - KST, k = new Date(t + KST);
+  return k.getUTCMonth() === mo - 1 && k.getUTCDate() === d ? t : null; /* 2월 31일 같은 날짜 거르기 */
+};
+/* 기본 설정: 다가오는 일요일 낮 12시(KST). 일요일 12시가 지났으면 다음 주 일요일 */
+const nextSundayNoon = (now) => {
+  const k = new Date(now + KST);
+  let t = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + ((7 - k.getUTCDay()) % 7), 12, 0) - KST;
+  if (t <= now) t += 7 * 86400e3;
+  return t;
+};
+const hiddenView = (h, now) => {
+  const useDefault = h.useDefault !== false;
+  const end = useDefault ? nextSundayNoon(now) : kstEpoch(h.endAt);
+  return { useDefault, end: end || null, expired: !useDefault && !!end && end <= now };
+};
+const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done", "hidden_click"];
 
 export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, "");
@@ -26,6 +48,12 @@ export default async (req) => { await loadBrands();
     const m = s && s.match(/^data:(image\/(?:webp|jpeg|png));base64,(.+)$/);
     if (!m) return new Response("not found", { status: 404 });
     return new Response(Buffer.from(m[2], "base64"), { headers: { "content-type": m[1], "cache-control": "public, max-age=86400" } });
+  }
+  /* 히든 버튼(스토어 하단 특가 버튼): 문구·링크·노출 여부는 관리자가 정한다 */
+  if (p === "/api/hidden") {
+    const h = (await settings().get("hidden", { type: "json" })) || {}, now = Date.now(), v = hiddenView(h, now);
+    const on = !!(h.on && h.text && h.url) && !v.expired;
+    return json(on ? { on: true, text: h.text, url: h.url, end: v.end, now } : { on: false }, 200, { "cache-control": "public, max-age=10" });
   }
   if (p === "/api/kakao") {
     const k = (await settings().get("kakao", { type: "json" })) || {};
@@ -56,6 +84,20 @@ export default async (req) => { await loadBrands();
     const types = {};
     ed.forEach((o) => o && Object.keys(o).forEach((k) => { if (k.startsWith("type:")) types[k.slice(5)] = (types[k.slice(5)] || 0) + o[k]; }));
     return json({ days, top, events: evs, types, kakao: kk || { friends: 0, name: "", updated: null } });
+  }
+  if (p === "/api/manage/hidden" && req.method === "GET") {
+    const h = (await settings().get("hidden", { type: "json" })) || {}, now = Date.now(), v = hiddenView(h, now);
+    return json({ on: !!h.on, text: h.text || "", url: h.url || "", useDefault: v.useDefault, endAt: h.endAt || "", end: v.end, defaultEnd: nextSundayNoon(now), now, expired: v.expired, updated: h.updated || null });
+  }
+  if (p === "/api/manage/hidden" && req.method === "POST") {
+    const text = String(b.text || "").replace(/\s+/g, " ").trim().slice(0, 30), url = String(b.url || "").trim(), on = !!b.on, useDefault = b.useDefault !== false, endAt = String(b.endAt || "").trim();
+    if (url && !/^https?:\/\/[^\s<>"']{3,480}$/i.test(url)) return json({ error: "링크는 https:// 로 시작하는 주소만 쓸 수 있어요." }, 400);
+    if (on && (!text || !url)) return json({ error: "문구와 링크를 모두 입력해야 켤 수 있어요." }, 400);
+    if (endAt && kstEpoch(endAt) === null) return json({ error: "타이머 날짜와 시간이 올바르지 않아요." }, 400);
+    if (!useDefault && on && (!endAt || kstEpoch(endAt) <= Date.now())) return json({ error: endAt ? "타이머 종료 시각이 이미 지났어요. 앞으로의 시각을 골라주세요." : "타이머 종료 시각을 정하거나 기본 설정을 선택해주세요." }, 400);
+    const h = { on, text, url, useDefault, endAt, updated: new Date().toISOString() };
+    await settings().setJSON("hidden", h);
+    return json({ ok: true, ...h });
   }
   if (p === "/api/manage/kakao" && req.method === "POST") {
     const friends = Math.max(0, Math.min(100000000, parseInt(b.friends, 10) || 0));
@@ -94,4 +136,4 @@ export default async (req) => { await loadBrands();
   return json({ error: "not found" }, 404);
 };
 
-export const config = { path: ["/api/event", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/manage/*"] };
+export const config = { path: ["/api/event", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/hidden", "/api/manage/*"] };

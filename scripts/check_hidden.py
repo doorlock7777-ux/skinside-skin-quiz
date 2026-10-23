@@ -1,0 +1,98 @@
+"""히든 버튼 검사: 스토어에 늦게 쑥 올라오고, 반투명이며, 하단 메뉴를 가리지 않고, 제품 상세 같은 화면에서는 숨는지. 관리자 화면 저장도 확인.  사용: python3 scripts/check_hidden.py"""
+import os, subprocess, sys, tempfile
+R = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+T = tempfile.gettempdir(); o1 = os.path.join(T, "chk_hid1.html"); o2 = os.path.join(T, "chk_hid2.html"); o3 = os.path.join(T, "chk_hid3.html")
+subprocess.run([sys.executable, os.path.join(R, "scripts/build_demo.py"), o1], check=True, stdout=subprocess.DEVNULL)
+subprocess.run([sys.executable, os.path.join(R, "scripts/build_demo.py"), o2], check=True, stdout=subprocess.DEVNULL, env=dict(os.environ, DEMO_MODE="checkout"))
+subprocess.run([sys.executable, os.path.join(R, "scripts/build_admin_demo.py"), o3], check=True, stdout=subprocess.DEVNULL)
+from playwright.sync_api import sync_playwright
+err = []
+with sync_playwright() as p:
+    b = p.chromium.launch(); pg = b.new_page(viewport={"width": 400, "height": 860}); pg.goto("file://" + o1); pg.wait_for_timeout(500)
+    st0 = pg.evaluate("(()=>{var e=document.getElementById('hb');return e?e.classList.contains('show'):null})()")
+    if st0: err.append("처음부터 보이면 안 돼요(쑥 올라오는 동작이 없어요)")
+    pg.wait_for_timeout(2600)
+    info = pg.evaluate("(()=>{var e=document.getElementById('hb');if(!e)return null;var r=e.getBoundingClientRect(),t=document.querySelector('.tabs').getBoundingClientRect(),c=getComputedStyle(e);return {txt:e.innerText,href:e.getAttribute('href'),bg:c.backgroundColor,op:c.opacity,top:r.top,bot:r.bottom,tabTop:t.top,w:r.width,color:c.color,target:e.target}})()")
+    if not info: err.append("히든 버튼이 안 나와요")
+    else:
+        tm = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.textContent)")
+        if len(tm) != 4 or tm[0] != "0": err.append("왼쪽 타이머(일 시 분 초)가 안 보여요: %s" % tm)
+        pg.wait_for_timeout(2200)
+        tm2 = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.textContent)")
+        if tm2 == tm or int(tm2[3]) == int(tm[3]): err.append("타이머가 줄어들지 않아요: %s -> %s" % (tm, tm2))
+        if any(w in info["txt"] for w in ["시간", "분", "초"]): err.append("시간·분·초 글씨는 없어야 해요: " + info["txt"])
+        if "일" not in info["txt"].split("특가")[0]: err.append("'일' 글씨가 있어야 해요")
+        if pg.evaluate("(()=>{var r=[...document.querySelectorAll('#hb .tm > *')].map(e=>e.getBoundingClientRect().top);return Math.max(...r)-Math.min(...r)})()") > 12: err.append("타이머가 한 줄이 아니에요")
+        if "특가" not in info["txt"]: err.append("문구가 달라요: " + info["txt"])
+        if not info["href"].startswith("https://"): err.append("링크가 달라요")
+        if info["target"] != "_blank": err.append("새 탭으로 열려야 해요")
+        a = info["bg"].replace("rgba(", "").replace(")", "").split(",")
+        if len(a) < 4 or not (0.55 <= float(a[3]) <= 0.8): err.append("반투명이 아니에요: " + info["bg"])
+        if info["color"] != "rgb(255, 255, 255)": err.append("글자가 흰색이 아니에요")
+        if info["bot"] > info["tabTop"] + 0.5: err.append("하단 메뉴를 가려요")
+        if info["w"] > 400: err.append("화면 너비를 넘어요")
+    # 남은 시간에 따른 강조색: 3시간 이하 시간칸, 10분 이하 분칸, 20초 이하 초칸 (시계를 앞으로 돌려 확인)
+    base = 10 * 60e3 + 22e3
+    for left, want in [(5 * 86400e3 + 5 * 3600e3 + 30 * 60e3 + 40e3, ["", "", "", ""]), ((4 * 3600 + 32 * 60 + 10) * 1000, ["zero", "", "", "hot3"]), ((3 * 3600 + 20 * 60 + 49) * 1000, ["zero", "hot1", "hot1", "hot1"]), ((3 * 3600 + 20 * 60 + 10) * 1000, ["zero", "hot1", "hot1", "hot3"]), ((3 * 3600 + 10 * 60 + 10) * 1000, ["zero", "hot1", "hot2", "hot3"]), ((3 * 3600 + 59 * 60 + 50) * 1000, ["zero", "hot1", "hot1", "hot1"]), ((5 * 3600 + 5 * 60 + 30) * 1000, ["zero", "", "hot2", "hot2"]), (2 * 86400e3 + 1 * 3600e3 + 40 * 60e3 + 5e3, ["", "hot1", "hot1", "hot3"])]:
+        pg.evaluate("(l)=>{var t=[...document.querySelectorAll('#hb .tm em')].map(e=>+e.textContent),cur=((t[0]*24+t[1])*60+t[2])*60e3+t[3]*1e3,o=Date.now.bind(Date),sh=cur-l-1300;Date.now=function(){return o()+sh}}", left); pg.wait_for_timeout(1300)
+        got = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.className)")
+        if got != want: err.append("강조색이 달라요(남은 %d초): %s" % (left // 1000, got))
+        pg.reload(); pg.wait_for_timeout(2600)
+    # 0이 된 일·시·분은 흰색 한 자리 "0", 초는 항상 두 자리와 제 색
+    for left, want in [(5 * 60e3 + 30e3, [("0", "zero"), ("0", "zero"), ("05", "hot2"), ("30", "hot2")]), (3 * 60e3 + 15e3, [("0", "zero"), ("0", "zero"), ("03", "hot2"), ("15", "hot3")]), (45e3, [("0", "zero"), ("0", "zero"), ("0", "zero"), ("45", "hot2")]), (10e3, [("0", "zero"), ("0", "zero"), ("0", "zero"), ("10", "hot3")]), (3 * 86400e3 + 0 * 3600e3 + 20 * 60e3 + 30e3, [("03", ""), ("0", "zero"), ("20", "hot1"), ("30", "hot1")])]:
+        pg.evaluate("(l)=>{var t=[...document.querySelectorAll('#hb .tm em')].map(e=>+e.textContent),cur=((t[0]*24+t[1])*60+t[2])*60e3+t[3]*1e3,o=Date.now.bind(Date),sh=cur-l-1300;Date.now=function(){return o()+sh}}", left); pg.wait_for_timeout(1300)
+        got = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>[e.textContent,e.className])")
+        got = [tuple(x) for x in got]
+        sec_ok = abs(int(got[3][0]) - int(want[3][0])) <= 2  # 초 숫자는 1~2초 흔들릴 수 있어요
+        got = got[:3] + [(want[3][0] if sec_ok else got[3][0], got[3][1])]
+        if got != want: err.append("0 표시가 달라요(남은 %d초): %s" % (left // 1000, got))
+        pg.reload(); pg.wait_for_timeout(2600)
+    pg.screenshot(path=os.path.join(T, "hidden_shot.png"))
+    pg2 = b.new_page(viewport={"width": 400, "height": 860}); pg2.goto("file://" + o2); pg2.wait_for_timeout(2500)
+    if not pg2.evaluate("document.getElementById('hb') && document.getElementById('hb').classList.contains('show')"): err.append("쇼핑몰 모드 홈에서 안 보여요")
+    pg2.click(".pc >> nth=0"); pg2.wait_for_timeout(500)
+    if pg2.evaluate("document.getElementById('hb').classList.contains('show')"): err.append("제품 상세에서 구매 버튼을 가려요")
+    pg2.evaluate("window.__goto('#/cart')"); pg2.wait_for_timeout(400)
+    if pg2.evaluate("document.getElementById('hb').classList.contains('show')"): err.append("장바구니에서 주문 버튼을 가려요")
+    pg2.evaluate("window.__goto('#/')"); pg2.wait_for_timeout(700)
+    if not pg2.evaluate("document.getElementById('hb').classList.contains('show')"): err.append("홈으로 돌아와도 다시 안 보여요")
+    # 진단 결과 화면에서도 보이고, 시작 화면에서는 안 보임
+    o4 = os.path.join(T, "chk_hid4.html")
+    subprocess.run([sys.executable, os.path.join(R, "scripts/build_quiz_demo.py"), o4], check=True, stdout=subprocess.DEVNULL)
+    pg4 = b.new_page(viewport={"width": 400, "height": 860}); pg4.goto("file://" + o4); pg4.wait_for_timeout(2600)
+    sh = "(()=>{var e=document.getElementById('hb');return !!e&&e.classList.contains('show')})()"
+    if pg4.evaluate(sh): err.append("진단 시작 화면에서는 안 보여야 해요")
+    pg4.click("#pvgo"); pg4.wait_for_timeout(600)
+    if pg4.evaluate(sh): err.append("진단 분석 화면에서는 안 보여야 해요")
+    pg4.wait_for_selector("#ok", timeout=8000)
+    if pg4.evaluate(sh): err.append("카카오 안내 화면에서는 안 보여야 해요")
+    pg4.evaluate("document.getElementById('ok').disabled=false"); pg4.click("#ok"); pg4.wait_for_timeout(3000)
+    if not pg4.evaluate(sh): err.append("진단 결과 화면에서 히든 버튼이 안 보여요 (화면: %s)" % pg4.evaluate("S.screen"))
+    else:
+        q = pg4.evaluate("(()=>{var r=document.getElementById('hb').getBoundingClientRect(),t=document.querySelector('.mt').getBoundingClientRect();return {b:r.bottom,t:t.top,w:r.width}})()")
+        if q["b"] > q["t"] + 0.5: err.append("진단 하단 메뉴를 가려요 %s" % q)
+    fq = pg4.evaluate("(()=>{var e=document.getElementById('hb'),c=getComputedStyle(e),m=e.querySelector('.tm em'),g=document.createRange();g.selectNodeContents(m);var t=g.getBoundingClientRect(),b=m.getBoundingClientRect();return [c.fontFamily,c.fontWeight,c.fontSize,getComputedStyle(m).fontWeight,getComputedStyle(m).fontSize,Math.abs((t.top+t.bottom)/2-(b.top+b.bottom)/2)<1.5,e.getBoundingClientRect().height]})()")
+    fs_ = pg.evaluate("(()=>{var e=document.getElementById('hb'),c=getComputedStyle(e),m=e.querySelector('.tm em'),g=document.createRange();g.selectNodeContents(m);var t=g.getBoundingClientRect(),b=m.getBoundingClientRect();return [c.fontFamily,c.fontWeight,c.fontSize,getComputedStyle(m).fontWeight,getComputedStyle(m).fontSize,Math.abs((t.top+t.bottom)/2-(b.top+b.bottom)/2)<1.5,e.getBoundingClientRect().height]})()")
+    if fq != fs_ or not fq[5]: err.append("스토어와 진단의 히든 버튼 글꼴·굵기·크기가 다르거나 숫자가 세로 가운데가 아니에요: %s / %s" % (fs_, fq))
+    pg4.screenshot(path=os.path.join(T, "hidden_quiz_shot.png"))
+    # 관리자: 제품 탭 히든 버튼 저장
+    pg3 = b.new_page(viewport={"width": 1280, "height": 900}); pg3.goto("file://" + o3); pg3.wait_for_timeout(600)
+    a = pg3.frames[1]
+    for i in ["li", "lp", "l2"]: a.fill("#" + i, "demo1234")
+    a.locator("button:has-text('로그인')").click(); pg3.wait_for_timeout(900)
+    a.get_by_text("제품", exact=True).first.click(); pg3.wait_for_timeout(700)
+    if "히든 버튼" not in a.inner_text("body"): err.append("관리자 제품 탭에 히든 버튼이 없어요")
+    else:
+        if not a.is_checked("#hdf") or a.is_enabled("#hend"): err.append("기본 설정이 처음부터 선택돼 있고 날짜 칸이 잠겨 있어야 해요")
+        if "일요일" not in a.inner_text("#hdn"): err.append("기본 설정 종료 안내가 없어요")
+        a.uncheck("#hdf")
+        if not a.is_enabled("#hend"): err.append("기본 설정을 풀어도 날짜 칸이 안 열려요")
+        a.fill("#hend", "2099-12-31T23:59"); a.wait_for_timeout(200)
+        if "2099년 12월 31일" not in a.inner_text("#hdn"): err.append("직접 정한 종료 시각 안내가 달라요: " + a.inner_text("#hdn"))
+        a.check("#hdf")
+        if a.is_enabled("#hend"): err.append("기본 설정을 선택해도 날짜 칸이 안 잠겨요")
+        if not a.evaluate("document.querySelectorAll('#hpv .tm em').length === 4"): err.append("관리자 미리보기에 타이머가 없어요")
+        a.fill("#htx", "블랙프라이데이 특가 시작"); a.fill("#hur", "https://example.com/bf"); a.uncheck("#hon"); a.click("#hsv"); pg3.wait_for_timeout(500)
+        if "저장했어요" not in a.inner_text("#hms"): err.append("저장 안내가 안 떠요: " + a.inner_text("#hms"))
+        if "블랙프라이데이" not in a.inner_text("#hpv"): err.append("미리보기가 안 바뀌어요")
+print("OK: 히든 버튼 정상" if not err else "FAIL: " + "; ".join(err)); sys.exit(1 if err else 0)

@@ -71,6 +71,32 @@ ok(s === 200 && j.top[0].id === "bonkorea-cl" && j.top[0].clicks === 3 && j.top[
 ok(j.events.kakao_click === 1, "이벤트 집계가 달라요");
 [s, j] = await call(site, "/api/manage/kakao", "POST", { friends: "8144", name: "문장군" }, A); ok(s === 200 && j.kakao.friends === 8144, "카카오 저장 실패");
 [s, j] = await call(site, "/api/kakao"); ok(j.friends === 8144, "공개 친구 수가 달라요");
+/* 히든 버튼: 관리자만 설정, 공개는 켜져 있을 때만 문구와 링크를 준다 */
+[s, j] = await call(site, "/api/hidden"); ok(s === 200 && j.on === false, "처음엔 히든 버튼이 꺼져 있어야 해요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com" }); ok(s === 401, "토큰 없이 히든 버튼이 바뀌어요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "javascript:alert(1)" }, A); ok(s === 400, "위험한 링크가 통과해요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "", url: "https://example.com" }, A); ok(s === 400, "문구 없이 켜져요");
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "  오늘만   특가 찬스  ", url: "https://example.com/e?a=1" }, A); ok(s === 200 && j.text === "오늘만 특가 찬스" && j.useDefault === true, "히든 버튼 저장 실패 " + JSON.stringify(j));
+[s, j] = await call(site, "/api/hidden"); ok(j.on === true && j.text === "오늘만 특가 찬스" && j.url === "https://example.com/e?a=1", "공개 히든 버튼이 달라요 " + JSON.stringify(j));
+/* 기본 설정 타이머: 앞으로 7일 안의 일요일 낮 12시(KST) */
+{ const k = new Date(j.end + 9 * 3600e3); ok(j.end > j.now && j.end - j.now <= 7 * 86400e3 && k.getUTCDay() === 0 && k.getUTCHours() === 12 && k.getUTCMinutes() === 0, "기본 타이머가 일요일 낮 12시가 아니에요 " + k.toISOString()); }
+ok(await (async () => { const [, a2] = await call(site, "/api/manage/hidden", "GET", null, A); return a2.defaultEnd === j.end && a2.useDefault === true; })(), "관리자 기본 타이머 값이 달라요");
+/* 직접 정한 타이머(한국 시간) */
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com", useDefault: false, endAt: "2020-01-01T00:00" }, A); ok(s === 400, "지난 시각이 통과해요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com", useDefault: false, endAt: "" }, A); ok(s === 400, "종료 시각 없이 직접 설정이 저장돼요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com", useDefault: false, endAt: "2099-02-31T10:00" }, A); ok(s === 400, "없는 날짜가 통과해요");
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "블프 특가", url: "https://example.com/bf", useDefault: false, endAt: "2099-12-31T23:59" }, A); ok(s === 200, "직접 타이머 저장 실패 " + JSON.stringify(j));
+[s, j] = await call(site, "/api/hidden"); ok(j.on && j.end === Date.UTC(2099, 11, 31, 23, 59) - 9 * 3600e3, "직접 타이머가 한국 시간 기준이 아니에요 " + JSON.stringify(j));
+[s, j] = await call(site, "/api/manage/hidden", "GET", null, A); ok(j.useDefault === false && j.endAt === "2099-12-31T23:59", "관리자 직접 타이머 조회가 달라요");
+/* 이미 지난 직접 타이머는 공개에서 꺼진다 */
+await (await import(pathToFileURL(path.join(T, "functions/_lib.mjs")))).settings().setJSON("hidden", { on: true, text: "끝난 특가", url: "https://example.com", useDefault: false, endAt: "2020-01-01T00:00" });
+[s, j] = await call(site, "/api/hidden"); ok(j.on === false, "끝난 타이머인데 버튼이 남아요");
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "오늘만 특가 찬스", url: "https://example.com/e?a=1" }, A); ok(s === 200 && j.useDefault === true, "기본 설정으로 되돌리기 실패");
+[s, j] = await call(site, "/api/manage/hidden", "GET", null, A); ok(j.on && j.text, "관리자 히든 버튼 조회 실패");
+await call(site, "/api/event", "POST", { e: "hidden_click" });
+[s, j] = await call(site, "/api/manage/dashboard?days=1", "GET", null, A); ok(j.events.hidden_click === 1, "히든 버튼 클릭 집계가 달라요");
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: false, text: "오늘만 특가 찬스", url: "https://example.com/e?a=1" }, A); ok(s === 200 && !j.on, "히든 버튼 끄기 실패");
+[s, j] = await call(site, "/api/hidden"); ok(j.on === false && !j.text, "꺼진 히든 버튼의 문구가 공개돼요");
 const img = "data:image/webp;base64," + Buffer.from("fakeimage").toString("base64");
 const good = { name: "테스트 앰플", brandName: "TEST", list: 30000, price: 21000, cat: "sk", url: "https://example.com/a", img };
 for (const [bad, why] of [[{ ...good, cat: "zz" }, "카테고리"], [{ ...good, price: 40000 }, "가격"], [{ ...good, url: "javascript:1" }, "링크"], [{ ...good, img: "" }, "이미지"], [{ ...good, name: "" }, "이름"]]) { [s] = await call(site, "/api/manage/product", "POST", bad, A); ok(s === 400, why + " 검증이 안 돼요"); }
@@ -635,4 +661,23 @@ await call(adminApi, "/api/admin/partners/revoke", "POST", { brand: "grafen" }, 
 [s, j] = await call(brand, "/api/partner/orders", "GET", null, gh); ok(s === 401, "폐기한 브랜드가 접속돼요");
 for (let i = 0; i < 5; i++) await call(brand, "/api/partner/login", "POST", { code: "ZZZZ-ZZZZ-ZZZZ-ZZ" + i }, { "x-nf-client-connection-ip": "6.6.6.6" });
 [s, j] = await call(brand, "/api/partner/login", "POST", { code: codeB2 }, { "x-nf-client-connection-ip": "6.6.6.6" }); ok(s === 429, "코드 5회 오입력 뒤에도 로그인이 돼요");
+// 이번 주 구매 수: 매주 월요일 0시(한국 시간)에 0부터 다시 센다 (조회·클릭 점수는 최근 7일 유지)
+{
+  const realNow = Date.now, SM = (globalThis.__BL.stats = globalThis.__BL.stats || new Map());
+  const at = (y, m, d) => Date.UTC(y, m, d, 3, 0, 0); // 한국 시간 낮 12시
+  const day = (t, off) => new Date(t + 9 * 36e5 - off * 864e5).toISOString().slice(0, 10);
+  const seed = (now, ds) => { SM.clear(); ds.forEach((d, off) => SM.set(day(now, off), JSON.stringify({ "bonkorea-cl": { v: 1, c: 1, b: 0, d } }))); };
+  const wed = at(2026, 9, 21), mon = at(2026, 9, 19), sun = at(2026, 9, 25);
+  Date.now = () => wed; seed(wed, [10, 20, 30, 400, 400, 400, 400]);
+  [s, j] = await call(stats, "/api/popular"); ok(s === 200 && j.stats["bonkorea-cl"].d === 60, "수요일 구매 수는 월~수 합계(60)여야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  ok(j.stats["bonkorea-cl"].v === 7 && j.stats["bonkorea-cl"].c === 7, "조회·클릭 점수는 최근 7일 합계여야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  Date.now = () => mon; seed(mon, [30, 400, 400, 400, 400, 400, 400]);
+  [s, j] = await call(stats, "/api/popular"); ok(j.stats["bonkorea-cl"].d === 30, "월요일에는 지난주 구매 수가 0으로 초기화돼 오늘 것만 보여야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  Date.now = () => sun; seed(sun, [1, 2, 3, 4, 5, 6, 7]);
+  [s, j] = await call(stats, "/api/popular"); ok(j.stats["bonkorea-cl"].d === 28, "일요일 구매 수는 월~일 7일 합계(28)여야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  Date.now = () => mon; seed(mon, [0, 0, 0, 0, 0, 0, 0]); SM.set(day(mon, 1), JSON.stringify({ "bonkorea-cl": { v: 0, c: 0, b: 0, d: 500 } }));
+  await call(stats, "/api/track", "POST", { id: "bonkorea-cl", e: "c" }); [s, j] = await call(stats, "/api/popular");
+  ok(j.stats["bonkorea-cl"].d === 10, "월요일 첫 클릭은 지난주 값이 아니라 0에서 +10으로 시작해야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  Date.now = realNow;
+}
 console.log(errs.length ? "FAIL\n" + errs.join("\n") : "OK: 관리자 API 시험 통과"); process.exit(errs.length ? 1 : 0);
