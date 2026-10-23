@@ -2,7 +2,7 @@ import { runBrandBatch } from "./_batch.mjs";
 import { isAdmin } from "./_auth.mjs";
 import { loadBrands, BRANDS, json, loadStock, isSoldOut, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
 
-const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done"];
+const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done", "hidden_click"];
 
 export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, "");
@@ -26,6 +26,12 @@ export default async (req) => { await loadBrands();
     const m = s && s.match(/^data:(image\/(?:webp|jpeg|png));base64,(.+)$/);
     if (!m) return new Response("not found", { status: 404 });
     return new Response(Buffer.from(m[2], "base64"), { headers: { "content-type": m[1], "cache-control": "public, max-age=86400" } });
+  }
+  /* 히든 버튼(스토어 하단 특가 버튼): 문구·링크·노출 여부는 관리자가 정한다 */
+  if (p === "/api/hidden") {
+    const h = (await settings().get("hidden", { type: "json" })) || {};
+    const on = !!(h.on && h.text && h.url);
+    return json(on ? { on: true, text: h.text, url: h.url } : { on: false }, 200, { "cache-control": "public, max-age=10" });
   }
   if (p === "/api/kakao") {
     const k = (await settings().get("kakao", { type: "json" })) || {};
@@ -56,6 +62,18 @@ export default async (req) => { await loadBrands();
     const types = {};
     ed.forEach((o) => o && Object.keys(o).forEach((k) => { if (k.startsWith("type:")) types[k.slice(5)] = (types[k.slice(5)] || 0) + o[k]; }));
     return json({ days, top, events: evs, types, kakao: kk || { friends: 0, name: "", updated: null } });
+  }
+  if (p === "/api/manage/hidden" && req.method === "GET") {
+    const h = (await settings().get("hidden", { type: "json" })) || {};
+    return json({ on: !!h.on, text: h.text || "", url: h.url || "", updated: h.updated || null });
+  }
+  if (p === "/api/manage/hidden" && req.method === "POST") {
+    const text = String(b.text || "").replace(/\s+/g, " ").trim().slice(0, 40), url = String(b.url || "").trim(), on = !!b.on;
+    if (url && !/^https?:\/\/[^\s<>"']{3,480}$/i.test(url)) return json({ error: "링크는 https:// 로 시작하는 주소만 쓸 수 있어요." }, 400);
+    if (on && (!text || !url)) return json({ error: "문구와 링크를 모두 입력해야 켤 수 있어요." }, 400);
+    const h = { on, text, url, updated: new Date().toISOString() };
+    await settings().setJSON("hidden", h);
+    return json({ ok: true, ...h });
   }
   if (p === "/api/manage/kakao" && req.method === "POST") {
     const friends = Math.max(0, Math.min(100000000, parseInt(b.friends, 10) || 0));
@@ -94,4 +112,4 @@ export default async (req) => { await loadBrands();
   return json({ error: "not found" }, 404);
 };
 
-export const config = { path: ["/api/event", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/manage/*"] };
+export const config = { path: ["/api/event", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/hidden", "/api/manage/*"] };

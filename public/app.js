@@ -427,11 +427,26 @@ function me(){
   if(lo) lo.onclick = function(e){ e.preventDefault(); fetch("/api/logout", {method:"POST"}).then(function(){ user = null; setH("#/"); }); };
 }
 
+/* 히든 버튼: 스토어 하단에서 쑥 올라오는 반투명 특가 버튼. 문구·링크는 관리자 > 제품 > 히든 버튼에서 정한다 */
+var HB = null, hbSeen = false;
+function drawHB(){
+  var el = document.getElementById("hb"), h = getH() || "#/";
+  var ok = CFG.STORE_OPEN && HB && HB.on && HB.text && /^https?:\/\//i.test(HB.url || "") && !/^#\/(p\/|cart|checkout|orders|points|done|me|admin)/.test(h);
+  if(!ok){ if(el) el.classList.remove("show"); return; }
+  if(!el){
+    el = document.createElement("a"); el.id = "hb"; el.className = "hb"; el.target = "_blank"; el.rel = "noopener";
+    el.onclick = function(){ try{ fetch("/api/event", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({e:"hidden_click"}), keepalive:true}); }catch(x){} };
+    document.body.appendChild(el);
+  }
+  el.href = HB.url; el.innerHTML = '<span>' + esc(HB.text) + '</span><i>&#8250;</i>';
+  if(hbSeen) el.classList.add("show"); else { hbSeen = true; setTimeout(function(){ el.classList.add("show"); }, 1200); }
+}
+
 /* 라우터 */
 function route(){
   var h = getH() || "#/", m;
   $bk.hidden = !CFG.STORE_OPEN || !/^#\/(p|cart|checkout|orders|points|search|c\/)/.test(h);
-  drawTabs(); window.scrollTo(0, 0);
+  drawTabs(); drawHB(); window.scrollTo(0, 0);
   if(!CFG.STORE_OPEN) return soon();
   if((m = h.match(/^#\/p\/(.+)/))) return detail(decodeURIComponent(m[1]));
   if((m = h.match(/^#\/c\/(.+)/))){ var k = decodeURIComponent(m[1]); return list(D.categories[k] || "제품", D.products.filter(function(p){ return p.cat === k; }), k); }
@@ -473,5 +488,6 @@ Promise.all([
   POP = (a[3] && a[3].stats) || {};
   user = a[4] && a[4].user;
   rank(); route();
+  soft("/api/hidden").then(function(j){ HB = j; drawHB(); });
 }).catch(function(){ $app.innerHTML = '<div class="empty">제품 정보를 불러오지 못했어요.</div>'; });
 })();

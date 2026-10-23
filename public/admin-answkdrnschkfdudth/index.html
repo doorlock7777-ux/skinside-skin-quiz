@@ -214,6 +214,8 @@ button.auto{font:inherit;font-weight:800;font-size:13px;border:0;background:var(
 .aup .nw{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}.aup .nw input,.aup .nw textarea{width:100%;margin-top:6px}
 .aup .ah{font-size:12px;color:var(--mute)}
 .rv-ph{display:flex;gap:6px;margin:6px 0;flex-wrap:wrap}.rv-ph a img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.ck2{display:flex;align-items:center;gap:8px;font-weight:700;margin-top:10px}.ck2 input{width:auto}
+.hbpv{margin:14px 0 6px;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 22px;border-radius:999px;background:rgba(78,87,162,.8);color:#fff;font-weight:800;font-size:15.5px;text-shadow:0 1px 3px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.28)}.hbpv small{color:#e3e6ff;font-weight:600}.hbpv i{font-style:normal;font-size:20px}
 </style></head>
 <body>
 <div id="dm" class="demo" hidden></div>
@@ -520,7 +522,12 @@ var IMG = "";
 function add(){
   var M = document.getElementById("mn"); IMG = "";
   var opts = Object.keys(CATS).map(function(k){ return '<option value="' + esc(k) + '">' + esc(CATS[k]) + '</option>'; }).join("");
-  M.innerHTML = '<div class="card"><h2>제품 추가</h2><p class="sub">입력하고 등록하면 스토어에 바로 나타나요.</p>'
+  M.innerHTML = '<div class="card"><h2>히든 버튼</h2><p class="sub">스토어 하단에서 쑥 올라오는 반투명 특가 버튼이에요. 마켓이나 광고 기간에 문구와 링크를 바꿔 쓰세요. 껐다 켜도 문구는 그대로 남아요.</p>'
+    + '<label class="ck2"><input type="checkbox" id="hon"> 스토어에 노출하기</label>'
+    + '<label>버튼 문구 (최대 40자)</label><input id="htx" maxlength="40" placeholder="예: 오늘만 특가 찬스, 지금 확인하기">'
+    + '<label>이동할 링크</label><input id="hur" type="url" placeholder="https://">'
+    + '<div class="hbpv" id="hpv"></div><button class="pri" id="hsv">히든 버튼 저장</button><div class="msg" id="hms"></div><div class="sub" id="hcl" style="margin:10px 0 0"></div></div>'
+    + '<div class="card"><h2>제품 추가</h2><p class="sub">입력하고 등록하면 스토어에 바로 나타나요.</p>'
     + '<label>제품 이미지</label><div class="drop"><img class="pv" id="pv" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="><div><input type="file" id="fi" accept="image/*"><div class="sub" style="margin:6px 0 0">정사각형에 가까운 제품 사진을 권장해요.</div></div></div>'
     + '<label>제품명</label><input id="fn" maxlength="80" placeholder="예: 시카 진정 앰플">'
     + '<label>브랜드명</label><input id="fb" maxlength="40" placeholder="예: LIVNA">'
@@ -532,6 +539,16 @@ function add(){
   var $ = function(i){ return document.getElementById(i); };
   function disc(){ var l = +$("fl").value, p = +$("fp").value; $("fd").textContent = l > 0 && p > 0 ? (p > l ? "할인가가 정가보다 커요" : p < l ? Math.round((l - p) / l * 100) + "% 할인" : "할인 없음") : ""; }
   $("fl").oninput = disc; $("fp").oninput = disc;
+  /* 히든 버튼 */
+  function hpv(){ var t = $("htx").value.trim(); $("hpv").innerHTML = t ? '<span>' + esc(t) + '</span><i>&#8250;</i>' : '<small>문구를 입력하면 이렇게 보여요</small>'; }
+  function hmsg(t, e){ var m = $("hms"); m.className = "msg " + (e ? "e" : "o"); m.textContent = t; }
+  $("htx").oninput = hpv;
+  api("/api/manage/hidden").then(function(h){ $("hon").checked = !!h.on; $("htx").value = h.text || ""; $("hur").value = h.url || ""; hpv(); }).catch(function(){ hpv(); });
+  api("/api/manage/dashboard?days=7").then(function(d){ var c = (d.events || {}).hidden_click || 0; $("hcl").textContent = "최근 7일 클릭 " + n(c) + "회"; }).catch(function(){});
+  $("hsv").onclick = function(){
+    var b = this; b.disabled = true; hmsg("저장 중...");
+    post("/api/manage/hidden", {on:$("hon").checked, text:$("htx").value, url:$("hur").value}).then(function(){ hmsg($("hon").checked ? "저장했어요. 스토어에 10초 안에 반영돼요." : "저장했어요. 지금은 꺼져 있어요."); }).catch(function(e){ hmsg((e && e.message) || "저장하지 못했어요", 1); }).then(function(){ b.disabled = false; });
+  };
   $("fi").onchange = function(){ var f = this.files[0]; if(!f) return; shrink(f).then(function(u){ IMG = u; $("pv").src = u; }).catch(function(){ IMG = ""; msg("이미지를 읽지 못했어요", 1); }); };
   function msg(t, e){ var m = $("fm"); m.className = "msg " + (e ? "e" : "o"); m.textContent = t; }
   $("fs").onclick = function(){

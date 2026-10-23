@@ -71,6 +71,18 @@ ok(s === 200 && j.top[0].id === "bonkorea-cl" && j.top[0].clicks === 3 && j.top[
 ok(j.events.kakao_click === 1, "이벤트 집계가 달라요");
 [s, j] = await call(site, "/api/manage/kakao", "POST", { friends: "8144", name: "문장군" }, A); ok(s === 200 && j.kakao.friends === 8144, "카카오 저장 실패");
 [s, j] = await call(site, "/api/kakao"); ok(j.friends === 8144, "공개 친구 수가 달라요");
+/* 히든 버튼: 관리자만 설정, 공개는 켜져 있을 때만 문구와 링크를 준다 */
+[s, j] = await call(site, "/api/hidden"); ok(s === 200 && j.on === false, "처음엔 히든 버튼이 꺼져 있어야 해요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com" }); ok(s === 401, "토큰 없이 히든 버튼이 바뀌어요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "javascript:alert(1)" }, A); ok(s === 400, "위험한 링크가 통과해요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "", url: "https://example.com" }, A); ok(s === 400, "문구 없이 켜져요");
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "  오늘만   특가 찬스  ", url: "https://example.com/e?a=1" }, A); ok(s === 200 && j.text === "오늘만 특가 찬스", "히든 버튼 저장 실패 " + JSON.stringify(j));
+[s, j] = await call(site, "/api/hidden"); ok(j.on === true && j.text === "오늘만 특가 찬스" && j.url === "https://example.com/e?a=1", "공개 히든 버튼이 달라요 " + JSON.stringify(j));
+[s, j] = await call(site, "/api/manage/hidden", "GET", null, A); ok(j.on && j.text, "관리자 히든 버튼 조회 실패");
+await call(site, "/api/event", "POST", { e: "hidden_click" });
+[s, j] = await call(site, "/api/manage/dashboard?days=1", "GET", null, A); ok(j.events.hidden_click === 1, "히든 버튼 클릭 집계가 달라요");
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: false, text: "오늘만 특가 찬스", url: "https://example.com/e?a=1" }, A); ok(s === 200 && !j.on, "히든 버튼 끄기 실패");
+[s, j] = await call(site, "/api/hidden"); ok(j.on === false && !j.text, "꺼진 히든 버튼의 문구가 공개돼요");
 const img = "data:image/webp;base64," + Buffer.from("fakeimage").toString("base64");
 const good = { name: "테스트 앰플", brandName: "TEST", list: 30000, price: 21000, cat: "sk", url: "https://example.com/a", img };
 for (const [bad, why] of [[{ ...good, cat: "zz" }, "카테고리"], [{ ...good, price: 40000 }, "가격"], [{ ...good, url: "javascript:1" }, "링크"], [{ ...good, img: "" }, "이미지"], [{ ...good, name: "" }, "이름"]]) { [s] = await call(site, "/api/manage/product", "POST", bad, A); ok(s === 400, why + " 검증이 안 돼요"); }

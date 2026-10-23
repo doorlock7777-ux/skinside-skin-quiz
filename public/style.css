@@ -174,3 +174,9 @@ label.f{display:block;font-size:13px;color:var(--mute);font-weight:600;margin:14
 .pc .pr{padding:0 8px;gap:1px 5px;margin-top:6px}.pc .pr .d{font-size:14px}.pc .pr .p{font-size:14px}.pc .pr .l{font-size:11px;flex-basis:100%;order:-1}
 .pc .rk{position:absolute;top:6px;left:6px;min-width:20px;height:20px;line-height:20px;text-align:center;border-radius:3px;background:rgba(0,0,0,.35);color:#fff;font-size:11px;font-weight:700;padding:0 4px}
 .pc .tag{left:auto;right:6px;top:6px;padding:2px 6px;font-size:10px}
+
+/* 히든 버튼 */
+.hb{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);z-index:25;width:calc(100% - 28px);max-width:532px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 22px;border-radius:999px;background:rgba(78,87,162,.8);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fff;font-size:15.5px;font-weight:800;letter-spacing:-.2px;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.4);box-shadow:0 10px 28px rgba(40,46,110,.35);border:1px solid rgba(255,255,255,.28);transform:translate(-50%,170%);opacity:0;pointer-events:none;transition:transform .7s cubic-bezier(.2,1.25,.4,1),opacity .5s}
+.hb.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.hb i{font-style:normal;font-size:20px;line-height:1;margin-top:-2px}
+.hb:active{filter:brightness(.92)}
