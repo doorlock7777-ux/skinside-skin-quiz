@@ -550,7 +550,7 @@ function add(){
   function hend(){ return $("hdf").checked ? HD.defEnd : kst($("hend").value); }
   function hpv(){
     var t = $("htx").value.trim(), e = hend(), left = e ? Math.max(0, e - (Date.now() + HD.off)) : null, tm = "";
-    if(left !== null){ var v = [Math.floor(left / 86400e3), Math.floor(left % 86400e3 / 3600e3), Math.floor(left % 3600e3 / 60e3), Math.floor(left % 60e3 / 1e3)], c = ["", left <= 3 * 3600e3 ? "hot1" : "", left <= 600e3 ? "hot2" : "", left <= 20e3 ? "hot3" : ""], z = function(x){ return (x < 10 ? "0" : "") + x; }; tm = '<b class="tm"><em>' + z(v[0]) + '</em><u>일</u><em class="' + c[1] + '">' + z(v[1]) + '</em><s>:</s><em class="' + c[2] + '">' + z(v[2]) + '</em><s>:</s><em class="' + c[3] + '">' + z(v[3]) + '</em></b>'; }
+    if(left !== null){ var v = [Math.floor(left / 86400e3), Math.floor(left % 86400e3 / 3600e3), Math.floor(left % 3600e3 / 60e3), Math.floor(left % 60e3 / 1e3)], c = ["", "", "", ""]; if(v[1] <= 3){ c[1] = c[2] = c[3] = "hot1"; } if(v[2] <= 10){ c[2] = c[3] = "hot2"; } if(v[3] <= 20) c[3] = "hot3"; var z = function(x){ return (x < 10 ? "0" : "") + x; }; tm = '<b class="tm"><em>' + z(v[0]) + '</em><u>일</u><em class="' + c[1] + '">' + z(v[1]) + '</em><s>:</s><em class="' + c[2] + '">' + z(v[2]) + '</em><s>:</s><em class="' + c[3] + '">' + z(v[3]) + '</em></b>'; }
     $("hpv").innerHTML = t ? tm + '<span class="tx">' + esc(t) + '</span><i>&#8250;</i>' : '<small>문구를 입력하면 이렇게 보여요</small>';
     $("hdn").textContent = $("hdf").checked ? "다음 종료: " + kfmt(HD.defEnd) + "까지 (일요일 낮 12시가 지나면 자동으로 다음 주로 넘어가요)" : (e ? (e <= Date.now() + HD.off ? "이미 지난 시각이에요" : kfmt(e) + "까지") : "종료 시각을 고르면 스토어 버튼에 남은 시간이 표시돼요");
   }

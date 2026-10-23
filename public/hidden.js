@@ -12,8 +12,12 @@
     var v = [Math.floor(left / 86400e3), Math.floor(left % 86400e3 / 3600e3), Math.floor(left % 3600e3 / 60e3), Math.floor(left % 60e3 / 1e3)];
     var e = el.querySelectorAll(".tm em"); if(e.length !== 4) return;
     for(var i = 0; i < 4; i++) e[i].textContent = (v[i] < 10 ? "0" : "") + v[i];
-    /* 줄어들수록 강조: 3시간 이하 노랑, 10분 이하 주황, 20초 이하 빨강 (일은 그대로) */
-    e[1].className = left <= 3 * 3600e3 ? "hot1" : ""; e[2].className = left <= 600e3 ? "hot2" : ""; e[3].className = left <= 20e3 ? "hot3" : "";
+    /* 강조색(칸의 숫자 기준, 며칠이 남았든 같다): 시 3 이하 -> 시·분·초 노랑, 분 10 이하 -> 분·초 주황, 초 20 이하 -> 초 빨강. 뒤에 오는 규칙이 앞 규칙을 덮는다 */
+    var c = ["", "", ""];
+    if(v[1] <= 3) c = ["hot1", "hot1", "hot1"];
+    if(v[2] <= 10){ c[1] = "hot2"; c[2] = "hot2"; }
+    if(v[3] <= 20) c[2] = "hot3";
+    e[1].className = c[0]; e[2].className = c[1]; e[3].className = c[2];
   }
   function draw(){
     var el = document.getElementById("hb");

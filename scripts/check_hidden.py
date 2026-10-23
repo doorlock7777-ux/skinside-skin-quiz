@@ -33,8 +33,8 @@ with sync_playwright() as p:
         if info["w"] > 400: err.append("화면 너비를 넘어요")
     # 남은 시간에 따른 강조색: 3시간 이하 시간칸, 10분 이하 분칸, 20초 이하 초칸 (시계를 앞으로 돌려 확인)
     base = 10 * 60e3 + 22e3
-    for left, want in [(5 * 86400e3, ["", "", "", ""]), (3 * 3600e3 - 1500, ["", "hot1", "", ""]), (600e3 - 1500, ["", "hot1", "hot2", ""]), (20e3 - 1500, ["", "hot1", "hot2", "hot3"])]:
-        pg.evaluate("(l)=>{var o=Date.now.bind(Date),sh=%d-l;Date.now=function(){return o()+sh}}" % base, left); pg.wait_for_timeout(1300)
+    for left, want in [(5 * 86400e3 + 5 * 3600e3 + 30 * 60e3 + 40e3, ["", "", "", ""]), ((4 * 3600 + 32 * 60 + 10) * 1000, ["", "", "", "hot3"]), ((3 * 3600 + 20 * 60 + 49) * 1000, ["", "hot1", "hot1", "hot1"]), ((3 * 3600 + 20 * 60 + 10) * 1000, ["", "hot1", "hot1", "hot3"]), ((3 * 3600 + 10 * 60 + 10) * 1000, ["", "hot1", "hot2", "hot3"]), ((3 * 3600 + 59 * 60 + 59) * 1000, ["", "hot1", "hot1", "hot1"]), ((5 * 3600 + 5 * 60 + 30) * 1000, ["", "", "hot2", "hot2"]), (2 * 86400e3 + 1 * 3600e3 + 40 * 60e3 + 5e3, ["", "hot1", "hot1", "hot3"])]:
+        pg.evaluate("(l)=>{var o=Date.now.bind(Date),sh=%d-l+500;Date.now=function(){return o()+sh}}" % base, left); pg.wait_for_timeout(1300)
         got = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.className)")
         if got != want: err.append("강조색이 달라요(남은 %d초): %s" % (left // 1000, got))
         pg.reload(); pg.wait_for_timeout(2600)
