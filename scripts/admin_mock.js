@@ -1,6 +1,6 @@
 /* 관리자 미리보기용 가짜 서버 (예시 데이터) */
 (function(){
-  var CATS = window.__CATS || {}, extra = [], hid = {on:true, text:"오늘만 특가 찬스, 지금 확인하기", url:"https://example.com/event"}, kakao = {friends:8144, name:"문장군", updated:null};
+  var CATS = window.__CATS || {}, extra = [], hid = {on:true, text:"오늘만 특가 찬스", url:"https://example.com/event", useDefault:true, endAt:""}, kakao = {friends:8144, name:"문장군", updated:null};
   var TOP = [["엔젤 탄산 효소 세안제","본코리아",412,1380],["퍼펙트 콜라드그린 진정 올인원","MINIC",338,1190],["엔젤 비타민 앰플","본코리아",301,1024],["마데카소사이드 수분 선세럼","MEDIHEAL",244,880],["챕터3 율무 진정 앰플","LIVNA",207,760],["포어 올킬 원스텝 코팩","GRAFEN",181,702],["시티로버 레티놀 스킨부스터 세럼","본코리아",156,615],["원스탭 매트 왁스","GRAFEN",133,540],["시카 진정 시트팩","TORRIDEN",118,480],["선포켓 오일컷 스틱","GRAFEN",97,402]];
   var TYPES = {"ORNT":412,"CRNT-O":388,"OSNT":301,"CRNT-D":260,"DRNT":244,"OSPT":190,"CSNT":176,"ORPT":150,"DSNT":132,"ORNW":121,"CRPT":108,"OSPW":96,"DRNW":80,"CSNW":61,"DSPT":44,"DSPW":23};
   function res(o, s){ return Promise.resolve(new Response(JSON.stringify(o), {status:s || 200, headers:{"content-type":"application/json"}})); }
@@ -75,7 +75,7 @@
     if(u.indexOf("/api/manage/") < 0) return real.apply(this, arguments);
     if(!LOGGED) return res({error:"unauthorized"}, 401);
     if(u.indexOf("/api/manage/dashboard") >= 0){ var d = +(u.split("days=")[1] || 7), f = d === 1 ? 0.16 : d === 30 ? 3.6 : 1; return res({days:d, types:(function(){ var o = {}; Object.keys(TYPES).forEach(function(k){ o[k] = Math.max(1, Math.round(TYPES[k] * f / 4)); }); return o; })(), top:TOP.map(function(x, i){ return {id:"p" + i, name:x[0], brand:x[1], clicks:Math.round(x[2] * f), views:Math.round(x[3] * f)}; }), events:{quiz_start:Math.round(1520 * f), quiz_done:Math.round(1204 * f), kakao_click:Math.round(980 * f), kakao_unlock:Math.round(871 * f)}, kakao:kakao}); }
-    if(u.indexOf("/api/manage/hidden") >= 0){ if(o && o.method === "POST") hid = {on:!!b.on, text:String(b.text || "").slice(0, 40), url:b.url || ""}; return res(hid); }
+    if(u.indexOf("/api/manage/hidden") >= 0){ if(o && o.method === "POST"){ hid = {on:!!b.on, text:String(b.text || "").slice(0, 30), url:b.url || "", useDefault:b.useDefault !== false, endAt:b.endAt || ""}; return res(hid); } var nw = Date.now(), k = new Date(nw + 9 * 3600e3), de = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + ((7 - k.getUTCDay()) % 7), 12, 0) - 9 * 3600e3; if(de <= nw) de += 7 * 86400e3; return res(Object.assign({defaultEnd:de, now:nw}, hid)); }
     if(u.indexOf("/api/manage/kakao") >= 0){ kakao = {friends:Math.round(+b.friends || 0), name:b.name || "문장군", updated:new Date().toISOString()}; return res({ok:true, kakao:kakao}); }
     if(u.indexOf("/api/manage/brand-mail") >= 0) return res({results:[{brand:"minic", name:"MINIC", email:"order@minic.example", orders:2, late:1, cancels:0, sent:false}, {brand:"grafen", name:"GRAFEN", email:"", orders:1, late:0, cancels:0, sent:false}]});
     if(u.indexOf("/api/manage/products") >= 0) return res({products:extra});

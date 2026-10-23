@@ -428,7 +428,15 @@ function me(){
 }
 
 /* 히든 버튼: 스토어 하단에서 쑥 올라오는 반투명 특가 버튼. 문구·링크는 관리자 > 제품 > 히든 버튼에서 정한다 */
-var HB = null, hbSeen = false;
+var HB = null, hbSeen = false, hbOff = 0, hbTimer = null;
+function hbTick(){
+  var el = document.getElementById("hb"); if(!el || !HB) return;
+  if(!HB.end){ var t0 = el.querySelector(".tm"); if(t0) t0.hidden = true; return; }
+  var left = Math.max(0, HB.end - (Date.now() + hbOff));
+  if(left <= 0){ el.classList.remove("show"); HB.on = false; return; }
+  var d = Math.floor(left / 86400e3), h = Math.floor(left % 86400e3 / 3600e3), m = Math.floor(left % 3600e3 / 60e3), s = Math.floor(left % 60e3 / 1e3), v = [d, h, m, s];
+  [].forEach.call(el.querySelectorAll(".tm em"), function(e, i){ e.textContent = (v[i] < 10 ? "0" : "") + v[i]; });
+}
 function drawHB(){
   var el = document.getElementById("hb"), h = getH() || "#/";
   var ok = CFG.STORE_OPEN && HB && HB.on && HB.text && /^https?:\/\//i.test(HB.url || "") && !/^#\/(p\/|cart|checkout|orders|points|done|me|admin)/.test(h);
@@ -438,7 +446,9 @@ function drawHB(){
     el.onclick = function(){ try{ fetch("/api/event", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({e:"hidden_click"}), keepalive:true}); }catch(x){} };
     document.body.appendChild(el);
   }
-  el.href = HB.url; el.innerHTML = '<span>' + esc(HB.text) + '</span><i>&#8250;</i>';
+  el.href = HB.url;
+  el.innerHTML = (HB.end ? '<b class="tm" aria-hidden="true"><span><em>00</em><small>일</small></span><span><em>00</em><small>시간</small></span><span><em>00</em><small>분</small></span><span><em>00</em><small>초</small></span></b>' : '') + '<span class="tx">' + esc(HB.text) + '</span><i>&#8250;</i>';
+  hbTick(); clearInterval(hbTimer); hbTimer = setInterval(hbTick, 1000);
   if(hbSeen) el.classList.add("show"); else { hbSeen = true; setTimeout(function(){ el.classList.add("show"); }, 1200); }
 }
 
@@ -488,6 +498,6 @@ Promise.all([
   POP = (a[3] && a[3].stats) || {};
   user = a[4] && a[4].user;
   rank(); route();
-  soft("/api/hidden").then(function(j){ HB = j; drawHB(); });
+  soft("/api/hidden").then(function(j){ HB = j; if(j && j.now) hbOff = j.now - Date.now(); drawHB(); });
 }).catch(function(){ $app.innerHTML = '<div class="empty">제품 정보를 불러오지 못했어요.</div>'; });
 })();

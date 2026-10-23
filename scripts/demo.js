@@ -26,7 +26,7 @@ window.fetch = function(u, o){
   if(u === "/api/logout"){ state.user = null; save(); return res({ok:true}); }
   if(!state.user && /^\/api\/(order|confirm)/.test(u)) return res({error:"로그인이 필요해요"}, 401);
   if(u === "/api/stock") return res({soldOut:[]});
-  if(u === "/api/hidden") return res({on:true, text:"오늘만 특가 찬스, 지금 확인하기", url:"https://example.com/event"});
+  if(u === "/api/hidden") return res({on:true, text:"오늘만 특가 찬스", url:"https://example.com/event", end:Date.now() + (2 * 86400 + 3 * 3600 + 14 * 60 + 9) * 1000, now:Date.now()});
   if(/^\/api\/review/.test(u)){
     state.reviews = state.reviews || [{id:"R0", productId:"bonkorea-cl", photos:["data:image/svg+xml;utf8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27120%27 height=%27120%27%3E%3Crect width=%27120%27 height=%27120%27 fill=%27%23c9d3f5%27/%3E%3Ccircle cx=%2760%27 cy=%2750%27 r=%2722%27 fill=%27%235560ea%27/%3E%3Crect x=%2730%27 y=%2782%27 width=%2760%27 height=%2716%27 rx=%278%27 fill=%27%238d98ff%27/%3E%3C/svg%3E"], rating:5, text:"거품이 부드럽고 세안 후 당김이 적어요. 재구매 의사 있어요.", userName:"김*수", createdAt:"2026-10-10T03:00:00Z", best:true}, {id:"R00", productId:"bonkorea-cl", rating:4, text:"무난하게 쓰기 좋아요.", userName:"이*호", createdAt:"2026-10-12T03:00:00Z", best:false}];
     if(/^\/api\/review\?/.test(u)){ var pid = decodeURIComponent(u.split("product=")[1] || ""), l = state.reviews.filter(function(r){ return r.productId === pid; }).sort(function(a, b){ return (b.best ? 1 : 0) - (a.best ? 1 : 0) || (a.createdAt < b.createdAt ? 1 : -1); }); return res({count:l.length, avg:l.length ? Math.round(l.reduce(function(a, r){ return a + r.rating; }, 0) / l.length * 10) / 10 : 0, reviews:l}); }

@@ -76,8 +76,22 @@ ok(j.events.kakao_click === 1, "이벤트 집계가 달라요");
 [s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com" }); ok(s === 401, "토큰 없이 히든 버튼이 바뀌어요");
 [s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "javascript:alert(1)" }, A); ok(s === 400, "위험한 링크가 통과해요");
 [s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "", url: "https://example.com" }, A); ok(s === 400, "문구 없이 켜져요");
-[s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "  오늘만   특가 찬스  ", url: "https://example.com/e?a=1" }, A); ok(s === 200 && j.text === "오늘만 특가 찬스", "히든 버튼 저장 실패 " + JSON.stringify(j));
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "  오늘만   특가 찬스  ", url: "https://example.com/e?a=1" }, A); ok(s === 200 && j.text === "오늘만 특가 찬스" && j.useDefault === true, "히든 버튼 저장 실패 " + JSON.stringify(j));
 [s, j] = await call(site, "/api/hidden"); ok(j.on === true && j.text === "오늘만 특가 찬스" && j.url === "https://example.com/e?a=1", "공개 히든 버튼이 달라요 " + JSON.stringify(j));
+/* 기본 설정 타이머: 앞으로 7일 안의 일요일 낮 12시(KST) */
+{ const k = new Date(j.end + 9 * 3600e3); ok(j.end > j.now && j.end - j.now <= 7 * 86400e3 && k.getUTCDay() === 0 && k.getUTCHours() === 12 && k.getUTCMinutes() === 0, "기본 타이머가 일요일 낮 12시가 아니에요 " + k.toISOString()); }
+ok(await (async () => { const [, a2] = await call(site, "/api/manage/hidden", "GET", null, A); return a2.defaultEnd === j.end && a2.useDefault === true; })(), "관리자 기본 타이머 값이 달라요");
+/* 직접 정한 타이머(한국 시간) */
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com", useDefault: false, endAt: "2020-01-01T00:00" }, A); ok(s === 400, "지난 시각이 통과해요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com", useDefault: false, endAt: "" }, A); ok(s === 400, "종료 시각 없이 직접 설정이 저장돼요");
+[s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com", useDefault: false, endAt: "2099-02-31T10:00" }, A); ok(s === 400, "없는 날짜가 통과해요");
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "블프 특가", url: "https://example.com/bf", useDefault: false, endAt: "2099-12-31T23:59" }, A); ok(s === 200, "직접 타이머 저장 실패 " + JSON.stringify(j));
+[s, j] = await call(site, "/api/hidden"); ok(j.on && j.end === Date.UTC(2099, 11, 31, 23, 59) - 9 * 3600e3, "직접 타이머가 한국 시간 기준이 아니에요 " + JSON.stringify(j));
+[s, j] = await call(site, "/api/manage/hidden", "GET", null, A); ok(j.useDefault === false && j.endAt === "2099-12-31T23:59", "관리자 직접 타이머 조회가 달라요");
+/* 이미 지난 직접 타이머는 공개에서 꺼진다 */
+await (await import(pathToFileURL(path.join(T, "functions/_lib.mjs")))).settings().setJSON("hidden", { on: true, text: "끝난 특가", url: "https://example.com", useDefault: false, endAt: "2020-01-01T00:00" });
+[s, j] = await call(site, "/api/hidden"); ok(j.on === false, "끝난 타이머인데 버튼이 남아요");
+[s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "오늘만 특가 찬스", url: "https://example.com/e?a=1" }, A); ok(s === 200 && j.useDefault === true, "기본 설정으로 되돌리기 실패");
 [s, j] = await call(site, "/api/manage/hidden", "GET", null, A); ok(j.on && j.text, "관리자 히든 버튼 조회 실패");
 await call(site, "/api/event", "POST", { e: "hidden_click" });
 [s, j] = await call(site, "/api/manage/dashboard?days=1", "GET", null, A); ok(j.events.hidden_click === 1, "히든 버튼 클릭 집계가 달라요");
