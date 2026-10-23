@@ -570,8 +570,17 @@ function makeCard(R, cb){
 }
 
 load();
-/* 진단을 끝낸 사람은 결과 화면, 아직 안 끝낸 사람은 항상 시작 화면(질문 중간·타이머에서 다시 열어도 시작 화면부터) */
-if(S.screen !== "result"){ S.screen = "start"; S.i = 0; }
+/* 진입 화면: 끝낸 사람은 결과, 시작만 눌렀고 답이 하나도 없는 사람은 시작 화면.
+   답을 하나라도 했거나 세안 후 대기 테스트(소개·30분 타이머·확인 질문) 중이면 이어서 한다(새로고침·앱 전환·탭 복구에도 리셋되면 안 됨).
+   타이머·확인 질문은 6시간이 지났으면 오래된 진행이라 시작 화면으로 */
+(function(){
+  var sc = S.screen, got = (S.a && S.a.length) || (S.c && S.c.length);
+  if(sc === "result") return;
+  if(sc === "timer" || sc === "check"){ if(!S.start || Date.now() - S.start > 6 * 3600e3) S.screen = "start", S.i = 0; return; }
+  if(sc === "intro") return;
+  if(sc === "q" && got) return;
+  S.screen = "start"; S.i = 0;
+})();
 render();
 
 /* 런타임 기능 연결 (없으면 해당 기능만 숨김) */
