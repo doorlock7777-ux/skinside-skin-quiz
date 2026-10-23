@@ -84,7 +84,7 @@ with sync_playwright() as p:
     if "히든 버튼" not in a.inner_text("body"): err.append("관리자 제품 탭에 히든 버튼이 없어요")
     else:
         if not a.is_checked("#hdf") or a.is_enabled("#hend"): err.append("기본 설정이 처음부터 선택돼 있고 날짜 칸이 잠겨 있어야 해요")
-        if "일요일" not in a.inner_text("#hdn"): err.append("기본 설정 종료 안내가 없어요")
+        if "일요일" not in a.inner_text("#hdn") or "밤 12시" not in a.inner_text("#hdn"): err.append("기본 설정 종료 안내(일요일 밤 12시)가 없어요: " + a.inner_text("#hdn"))
         a.uncheck("#hdf")
         if not a.is_enabled("#hend"): err.append("기본 설정을 풀어도 날짜 칸이 안 열려요")
         a.fill("#hend", "2099-12-31T23:59"); a.wait_for_timeout(200)
