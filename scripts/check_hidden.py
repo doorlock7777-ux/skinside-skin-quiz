@@ -62,6 +62,9 @@ with sync_playwright() as p:
     else:
         q = pg4.evaluate("(()=>{var r=document.getElementById('hb').getBoundingClientRect(),t=document.querySelector('.mt').getBoundingClientRect();return {b:r.bottom,t:t.top,w:r.width}})()")
         if q["b"] > q["t"] + 0.5: err.append("진단 하단 메뉴를 가려요 %s" % q)
+    fq = pg4.evaluate("(()=>{var e=document.getElementById('hb'),c=getComputedStyle(e),m=e.querySelector('.tm em'),g=document.createRange();g.selectNodeContents(m);var t=g.getBoundingClientRect(),b=m.getBoundingClientRect();return [c.fontFamily,c.fontWeight,c.fontSize,getComputedStyle(m).fontWeight,getComputedStyle(m).fontSize,Math.abs((t.top+t.bottom)/2-(b.top+b.bottom)/2)<1.5,e.getBoundingClientRect().height]})()")
+    fs_ = pg.evaluate("(()=>{var e=document.getElementById('hb'),c=getComputedStyle(e),m=e.querySelector('.tm em'),g=document.createRange();g.selectNodeContents(m);var t=g.getBoundingClientRect(),b=m.getBoundingClientRect();return [c.fontFamily,c.fontWeight,c.fontSize,getComputedStyle(m).fontWeight,getComputedStyle(m).fontSize,Math.abs((t.top+t.bottom)/2-(b.top+b.bottom)/2)<1.5,e.getBoundingClientRect().height]})()")
+    if fq != fs_ or not fq[5]: err.append("스토어와 진단의 히든 버튼 글꼴·굵기·크기가 다르거나 숫자가 세로 가운데가 아니에요: %s / %s" % (fs_, fq))
     pg4.screenshot(path=os.path.join(T, "hidden_quiz_shot.png"))
     # 관리자: 제품 탭 히든 버튼 저장
     pg3 = b.new_page(viewport={"width": 1280, "height": 900}); pg3.goto("file://" + o3); pg3.wait_for_timeout(600)
