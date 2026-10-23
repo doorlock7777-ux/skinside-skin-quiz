@@ -20,6 +20,9 @@ with sync_playwright() as p:
         pg.wait_for_timeout(2200)
         tm2 = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.textContent)")
         if tm2 == tm or int(tm2[3]) == int(tm[3]): err.append("타이머가 줄어들지 않아요: %s -> %s" % (tm, tm2))
+        if any(w in info["txt"] for w in ["시간", "분", "초"]): err.append("시간·분·초 글씨는 없어야 해요: " + info["txt"])
+        if "일" not in info["txt"].split("특가")[0]: err.append("'일' 글씨가 있어야 해요")
+        if pg.evaluate("(()=>{var r=[...document.querySelectorAll('#hb .tm > *')].map(e=>e.getBoundingClientRect().top);return Math.max(...r)-Math.min(...r)})()") > 12: err.append("타이머가 한 줄이 아니에요")
         if "특가" not in info["txt"]: err.append("문구가 달라요: " + info["txt"])
         if not info["href"].startswith("https://"): err.append("링크가 달라요")
         if info["target"] != "_blank": err.append("새 탭으로 열려야 해요")
@@ -28,6 +31,13 @@ with sync_playwright() as p:
         if info["color"] != "rgb(255, 255, 255)": err.append("글자가 흰색이 아니에요")
         if info["bot"] > info["tabTop"] + 0.5: err.append("하단 메뉴를 가려요")
         if info["w"] > 400: err.append("화면 너비를 넘어요")
+    # 남은 시간에 따른 강조색: 3시간 이하 시간칸, 10분 이하 분칸, 20초 이하 초칸 (시계를 앞으로 돌려 확인)
+    base = 2 * 86400e3 + 3 * 3600e3 + 14 * 60e3 + 9e3
+    for left, want in [(5 * 86400e3, ["", "", "", ""]), (3 * 3600e3 - 1500, ["", "hot1", "", ""]), (600e3 - 1500, ["", "hot1", "hot2", ""]), (20e3 - 1500, ["", "hot1", "hot2", "hot3"])]:
+        pg.evaluate("(l)=>{var o=Date.now.bind(Date),sh=%d-l;Date.now=function(){return o()+sh}}" % base, left); pg.wait_for_timeout(1300)
+        got = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.className)")
+        if got != want: err.append("강조색이 달라요(남은 %d초): %s" % (left // 1000, got))
+        pg.reload(); pg.wait_for_timeout(2600)
     pg.screenshot(path=os.path.join(T, "hidden_shot.png"))
     pg2 = b.new_page(viewport={"width": 400, "height": 860}); pg2.goto("file://" + o2); pg2.wait_for_timeout(2500)
     if not pg2.evaluate("document.getElementById('hb') && document.getElementById('hb').classList.contains('show')"): err.append("쇼핑몰 모드 홈에서 안 보여요")
@@ -37,6 +47,22 @@ with sync_playwright() as p:
     if pg2.evaluate("document.getElementById('hb').classList.contains('show')"): err.append("장바구니에서 주문 버튼을 가려요")
     pg2.evaluate("window.__goto('#/')"); pg2.wait_for_timeout(700)
     if not pg2.evaluate("document.getElementById('hb').classList.contains('show')"): err.append("홈으로 돌아와도 다시 안 보여요")
+    # 진단 결과 화면에서도 보이고, 시작 화면에서는 안 보임
+    o4 = os.path.join(T, "chk_hid4.html")
+    subprocess.run([sys.executable, os.path.join(R, "scripts/build_quiz_demo.py"), o4], check=True, stdout=subprocess.DEVNULL)
+    pg4 = b.new_page(viewport={"width": 400, "height": 860}); pg4.goto("file://" + o4); pg4.wait_for_timeout(2600)
+    sh = "(()=>{var e=document.getElementById('hb');return !!e&&e.classList.contains('show')})()"
+    if pg4.evaluate(sh): err.append("진단 시작 화면에서는 안 보여야 해요")
+    pg4.click("#pvgo"); pg4.wait_for_timeout(600)
+    if pg4.evaluate(sh): err.append("진단 분석 화면에서는 안 보여야 해요")
+    pg4.wait_for_selector("#ok", timeout=8000)
+    if pg4.evaluate(sh): err.append("카카오 안내 화면에서는 안 보여야 해요")
+    pg4.evaluate("document.getElementById('ok').disabled=false"); pg4.click("#ok"); pg4.wait_for_timeout(3000)
+    if not pg4.evaluate(sh): err.append("진단 결과 화면에서 히든 버튼이 안 보여요 (화면: %s)" % pg4.evaluate("S.screen"))
+    else:
+        q = pg4.evaluate("(()=>{var r=document.getElementById('hb').getBoundingClientRect(),t=document.querySelector('.mt').getBoundingClientRect();return {b:r.bottom,t:t.top,w:r.width}})()")
+        if q["b"] > q["t"] + 0.5: err.append("진단 하단 메뉴를 가려요 %s" % q)
+    pg4.screenshot(path=os.path.join(T, "hidden_quiz_shot.png"))
     # 관리자: 제품 탭 히든 버튼 저장
     pg3 = b.new_page(viewport={"width": 1280, "height": 900}); pg3.goto("file://" + o3); pg3.wait_for_timeout(600)
     a = pg3.frames[1]
