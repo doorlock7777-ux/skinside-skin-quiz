@@ -570,7 +570,8 @@ function makeCard(R, cb){
 }
 
 load();
-if(S.screen === "timer" && !S.start) S.screen = "start";
+/* 진단을 끝낸 사람은 결과 화면, 아직 안 끝낸 사람은 항상 시작 화면(질문 중간·타이머에서 다시 열어도 시작 화면부터) */
+if(S.screen !== "result"){ S.screen = "start"; S.i = 0; }
 render();
 
 /* 런타임 기능 연결 (없으면 해당 기능만 숨김) */

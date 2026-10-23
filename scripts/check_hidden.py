@@ -16,7 +16,7 @@ with sync_playwright() as p:
     if not info: err.append("히든 버튼이 안 나와요")
     else:
         tm = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.textContent)")
-        if len(tm) != 4 or tm[0] != "00": err.append("왼쪽 타이머(일 시 분 초)가 안 보여요: %s" % tm)
+        if len(tm) != 4 or tm[0] != "0": err.append("왼쪽 타이머(일 시 분 초)가 안 보여요: %s" % tm)
         pg.wait_for_timeout(2200)
         tm2 = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.textContent)")
         if tm2 == tm or int(tm2[3]) == int(tm[3]): err.append("타이머가 줄어들지 않아요: %s -> %s" % (tm, tm2))
@@ -33,10 +33,19 @@ with sync_playwright() as p:
         if info["w"] > 400: err.append("화면 너비를 넘어요")
     # 남은 시간에 따른 강조색: 3시간 이하 시간칸, 10분 이하 분칸, 20초 이하 초칸 (시계를 앞으로 돌려 확인)
     base = 10 * 60e3 + 22e3
-    for left, want in [(5 * 86400e3 + 5 * 3600e3 + 30 * 60e3 + 40e3, ["", "", "", ""]), ((4 * 3600 + 32 * 60 + 10) * 1000, ["", "", "", "hot3"]), ((3 * 3600 + 20 * 60 + 49) * 1000, ["", "hot1", "hot1", "hot1"]), ((3 * 3600 + 20 * 60 + 10) * 1000, ["", "hot1", "hot1", "hot3"]), ((3 * 3600 + 10 * 60 + 10) * 1000, ["", "hot1", "hot2", "hot3"]), ((3 * 3600 + 59 * 60 + 59) * 1000, ["", "hot1", "hot1", "hot1"]), ((5 * 3600 + 5 * 60 + 30) * 1000, ["", "", "hot2", "hot2"]), (2 * 86400e3 + 1 * 3600e3 + 40 * 60e3 + 5e3, ["", "hot1", "hot1", "hot3"])]:
-        pg.evaluate("(l)=>{var o=Date.now.bind(Date),sh=%d-l+500;Date.now=function(){return o()+sh}}" % base, left); pg.wait_for_timeout(1300)
+    for left, want in [(5 * 86400e3 + 5 * 3600e3 + 30 * 60e3 + 40e3, ["", "", "", ""]), ((4 * 3600 + 32 * 60 + 10) * 1000, ["zero", "", "", "hot3"]), ((3 * 3600 + 20 * 60 + 49) * 1000, ["zero", "hot1", "hot1", "hot1"]), ((3 * 3600 + 20 * 60 + 10) * 1000, ["zero", "hot1", "hot1", "hot3"]), ((3 * 3600 + 10 * 60 + 10) * 1000, ["zero", "hot1", "hot2", "hot3"]), ((3 * 3600 + 59 * 60 + 50) * 1000, ["zero", "hot1", "hot1", "hot1"]), ((5 * 3600 + 5 * 60 + 30) * 1000, ["zero", "", "hot2", "hot2"]), (2 * 86400e3 + 1 * 3600e3 + 40 * 60e3 + 5e3, ["", "hot1", "hot1", "hot3"])]:
+        pg.evaluate("(l)=>{var t=[...document.querySelectorAll('#hb .tm em')].map(e=>+e.textContent),cur=((t[0]*24+t[1])*60+t[2])*60e3+t[3]*1e3,o=Date.now.bind(Date),sh=cur-l-1300;Date.now=function(){return o()+sh}}", left); pg.wait_for_timeout(1300)
         got = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.className)")
         if got != want: err.append("강조색이 달라요(남은 %d초): %s" % (left // 1000, got))
+        pg.reload(); pg.wait_for_timeout(2600)
+    # 0이 된 일·시·분은 흰색 한 자리 "0", 초는 항상 두 자리와 제 색
+    for left, want in [(5 * 60e3 + 30e3, [("0", "zero"), ("0", "zero"), ("05", "hot2"), ("30", "hot2")]), (3 * 60e3 + 15e3, [("0", "zero"), ("0", "zero"), ("03", "hot2"), ("15", "hot3")]), (45e3, [("0", "zero"), ("0", "zero"), ("0", "zero"), ("45", "hot2")]), (10e3, [("0", "zero"), ("0", "zero"), ("0", "zero"), ("10", "hot3")]), (3 * 86400e3 + 0 * 3600e3 + 20 * 60e3 + 30e3, [("03", ""), ("0", "zero"), ("20", "hot1"), ("30", "hot1")])]:
+        pg.evaluate("(l)=>{var t=[...document.querySelectorAll('#hb .tm em')].map(e=>+e.textContent),cur=((t[0]*24+t[1])*60+t[2])*60e3+t[3]*1e3,o=Date.now.bind(Date),sh=cur-l-1300;Date.now=function(){return o()+sh}}", left); pg.wait_for_timeout(1300)
+        got = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>[e.textContent,e.className])")
+        got = [tuple(x) for x in got]
+        sec_ok = abs(int(got[3][0]) - int(want[3][0])) <= 2  # 초 숫자는 1~2초 흔들릴 수 있어요
+        got = got[:3] + [(want[3][0] if sec_ok else got[3][0], got[3][1])]
+        if got != want: err.append("0 표시가 달라요(남은 %d초): %s" % (left // 1000, got))
         pg.reload(); pg.wait_for_timeout(2600)
     pg.screenshot(path=os.path.join(T, "hidden_shot.png"))
     pg2 = b.new_page(viewport={"width": 400, "height": 860}); pg2.goto("file://" + o2); pg2.wait_for_timeout(2500)
