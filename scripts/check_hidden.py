@@ -16,7 +16,7 @@ with sync_playwright() as p:
     if not info: err.append("히든 버튼이 안 나와요")
     else:
         tm = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.textContent)")
-        if len(tm) != 4 or tm[0] != "02": err.append("왼쪽 타이머(일 시 분 초)가 안 보여요: %s" % tm)
+        if len(tm) != 4 or tm[0] != "00": err.append("왼쪽 타이머(일 시 분 초)가 안 보여요: %s" % tm)
         pg.wait_for_timeout(2200)
         tm2 = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.textContent)")
         if tm2 == tm or int(tm2[3]) == int(tm[3]): err.append("타이머가 줄어들지 않아요: %s -> %s" % (tm, tm2))
@@ -32,7 +32,7 @@ with sync_playwright() as p:
         if info["bot"] > info["tabTop"] + 0.5: err.append("하단 메뉴를 가려요")
         if info["w"] > 400: err.append("화면 너비를 넘어요")
     # 남은 시간에 따른 강조색: 3시간 이하 시간칸, 10분 이하 분칸, 20초 이하 초칸 (시계를 앞으로 돌려 확인)
-    base = 2 * 86400e3 + 3 * 3600e3 + 14 * 60e3 + 9e3
+    base = 10 * 60e3 + 22e3
     for left, want in [(5 * 86400e3, ["", "", "", ""]), (3 * 3600e3 - 1500, ["", "hot1", "", ""]), (600e3 - 1500, ["", "hot1", "hot2", ""]), (20e3 - 1500, ["", "hot1", "hot2", "hot3"])]:
         pg.evaluate("(l)=>{var o=Date.now.bind(Date),sh=%d-l;Date.now=function(){return o()+sh}}" % base, left); pg.wait_for_timeout(1300)
         got = pg.evaluate("[...document.querySelectorAll('#hb .tm em')].map(e=>e.className)")
