@@ -78,8 +78,8 @@ ok(j.events.kakao_click === 1, "이벤트 집계가 달라요");
 [s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "", url: "https://example.com" }, A); ok(s === 400, "문구 없이 켜져요");
 [s, j] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "  오늘만   특가 찬스  ", url: "https://example.com/e?a=1" }, A); ok(s === 200 && j.text === "오늘만 특가 찬스" && j.useDefault === true, "히든 버튼 저장 실패 " + JSON.stringify(j));
 [s, j] = await call(site, "/api/hidden"); ok(j.on === true && j.text === "오늘만 특가 찬스" && j.url === "https://example.com/e?a=1", "공개 히든 버튼이 달라요 " + JSON.stringify(j));
-/* 기본 설정 타이머: 앞으로 7일 안의 일요일 낮 12시(KST) */
-{ const k = new Date(j.end + 9 * 3600e3); ok(j.end > j.now && j.end - j.now <= 7 * 86400e3 && k.getUTCDay() === 0 && k.getUTCHours() === 12 && k.getUTCMinutes() === 0, "기본 타이머가 일요일 낮 12시가 아니에요 " + k.toISOString()); }
+/* 기본 설정 타이머: 앞으로 7일 안의 일요일 밤 12시 = 월요일 0시(KST) */
+{ const k = new Date(j.end + 9 * 3600e3); ok(j.end > j.now && j.end - j.now <= 7 * 86400e3 && k.getUTCDay() === 1 && k.getUTCHours() === 0 && k.getUTCMinutes() === 0, "기본 타이머가 일요일 밤 12시(월요일 0시)가 아니에요 " + k.toISOString()); }
 ok(await (async () => { const [, a2] = await call(site, "/api/manage/hidden", "GET", null, A); return a2.defaultEnd === j.end && a2.useDefault === true; })(), "관리자 기본 타이머 값이 달라요");
 /* 직접 정한 타이머(한국 시간) */
 [s] = await call(site, "/api/manage/hidden", "POST", { on: true, text: "특가", url: "https://example.com", useDefault: false, endAt: "2020-01-01T00:00" }, A); ok(s === 400, "지난 시각이 통과해요");
@@ -661,6 +661,13 @@ await call(adminApi, "/api/admin/partners/revoke", "POST", { brand: "grafen" }, 
 [s, j] = await call(brand, "/api/partner/orders", "GET", null, gh); ok(s === 401, "폐기한 브랜드가 접속돼요");
 for (let i = 0; i < 5; i++) await call(brand, "/api/partner/login", "POST", { code: "ZZZZ-ZZZZ-ZZZZ-ZZ" + i }, { "x-nf-client-connection-ip": "6.6.6.6" });
 [s, j] = await call(brand, "/api/partner/login", "POST", { code: codeB2 }, { "x-nf-client-connection-ip": "6.6.6.6" }); ok(s === 429, "코드 5회 오입력 뒤에도 로그인이 돼요");
+// 기본 설정 종료 시각: 어느 요일에 봐도 다음 일요일 밤 12시(월요일 0시 KST)
+{
+  const realNow = Date.now, kst = (y, m, d, h, mi) => Date.UTC(y, m, d, h, mi) - 9 * 3600e3;
+  const cases = [[kst(2026, 9, 25, 23, 59), kst(2026, 9, 26, 0, 0)], [kst(2026, 9, 26, 0, 0), kst(2026, 9, 26, 0, 0) + 7 * 86400e3], [kst(2026, 9, 19, 9, 0), kst(2026, 9, 26, 0, 0)], [kst(2026, 9, 23, 15, 0), kst(2026, 9, 26, 0, 0)], [kst(2026, 9, 25, 12, 0), kst(2026, 9, 26, 0, 0)]];
+  let ip = 0; for (const [now, want] of cases) { Date.now = () => now; await call(adminApi, "/api/admin/login", "POST", { id: "tester", pw: "pw-one-123", pw2: "2222" }, { "x-nf-client-connection-ip": "9.9.9." + (++ip) }); const [s2, j2] = await call(site, "/api/manage/hidden", "GET", null, { cookie: LAST.cookie, "content-type": "application/json" }); ok(s2 === 200 && j2.defaultEnd === want, "기본 종료가 일요일 밤 12시가 아니에요 " + new Date(now + 9 * 36e5).toISOString() + " -> " + new Date(j2.defaultEnd + 9 * 36e5).toISOString()); }
+  Date.now = realNow;
+}
 // 이번 주 구매 수: 매주 월요일 0시(한국 시간)에 0부터 다시 센다 (조회·클릭 점수는 최근 7일 유지)
 {
   const realNow = Date.now, SM = (globalThis.__BL.stats = globalThis.__BL.stats || new Map());

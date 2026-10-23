@@ -12,16 +12,14 @@ const kstEpoch = (str) => {
   const t = Date.UTC(y, mo - 1, d, h, mi) - KST, k = new Date(t + KST);
   return k.getUTCMonth() === mo - 1 && k.getUTCDate() === d ? t : null; /* 2월 31일 같은 날짜 거르기 */
 };
-/* 기본 설정: 다가오는 일요일 낮 12시(KST). 일요일 12시가 지났으면 다음 주 일요일 */
-const nextSundayNoon = (now) => {
-  const k = new Date(now + KST);
-  let t = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + ((7 - k.getUTCDay()) % 7), 12, 0) - KST;
-  if (t <= now) t += 7 * 86400e3;
-  return t;
+/* 기본 설정: 다가오는 일요일 밤 12시(= 월요일 0시, KST). 이미 지났으면 다음 주. 스토어의 주간 구매 수 초기화 시각과 같다 */
+const nextSundayEnd = (now) => {
+  const k = new Date(now + KST), add = (8 - k.getUTCDay()) % 7 || 7;
+  return Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() + add, 0, 0) - KST;
 };
 const hiddenView = (h, now) => {
   const useDefault = h.useDefault !== false;
-  const end = useDefault ? nextSundayNoon(now) : kstEpoch(h.endAt);
+  const end = useDefault ? nextSundayEnd(now) : kstEpoch(h.endAt);
   return { useDefault, end: end || null, expired: !useDefault && !!end && end <= now };
 };
 const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done", "hidden_click"];
@@ -87,7 +85,7 @@ export default async (req) => { await loadBrands();
   }
   if (p === "/api/manage/hidden" && req.method === "GET") {
     const h = (await settings().get("hidden", { type: "json" })) || {}, now = Date.now(), v = hiddenView(h, now);
-    return json({ on: !!h.on, text: h.text || "", url: h.url || "", useDefault: v.useDefault, endAt: h.endAt || "", end: v.end, defaultEnd: nextSundayNoon(now), now, expired: v.expired, updated: h.updated || null });
+    return json({ on: !!h.on, text: h.text || "", url: h.url || "", useDefault: v.useDefault, endAt: h.endAt || "", end: v.end, defaultEnd: nextSundayEnd(now), now, expired: v.expired, updated: h.updated || null });
   }
   if (p === "/api/manage/hidden" && req.method === "POST") {
     const text = String(b.text || "").replace(/\s+/g, " ").trim().slice(0, 30), url = String(b.url || "").trim(), on = !!b.on, useDefault = b.useDefault !== false, endAt = String(b.endAt || "").trim();
