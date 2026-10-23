@@ -661,4 +661,23 @@ await call(adminApi, "/api/admin/partners/revoke", "POST", { brand: "grafen" }, 
 [s, j] = await call(brand, "/api/partner/orders", "GET", null, gh); ok(s === 401, "폐기한 브랜드가 접속돼요");
 for (let i = 0; i < 5; i++) await call(brand, "/api/partner/login", "POST", { code: "ZZZZ-ZZZZ-ZZZZ-ZZ" + i }, { "x-nf-client-connection-ip": "6.6.6.6" });
 [s, j] = await call(brand, "/api/partner/login", "POST", { code: codeB2 }, { "x-nf-client-connection-ip": "6.6.6.6" }); ok(s === 429, "코드 5회 오입력 뒤에도 로그인이 돼요");
+// 이번 주 구매 수: 매주 월요일 0시(한국 시간)에 0부터 다시 센다 (조회·클릭 점수는 최근 7일 유지)
+{
+  const realNow = Date.now, SM = (globalThis.__BL.stats = globalThis.__BL.stats || new Map());
+  const at = (y, m, d) => Date.UTC(y, m, d, 3, 0, 0); // 한국 시간 낮 12시
+  const day = (t, off) => new Date(t + 9 * 36e5 - off * 864e5).toISOString().slice(0, 10);
+  const seed = (now, ds) => { SM.clear(); ds.forEach((d, off) => SM.set(day(now, off), JSON.stringify({ "bonkorea-cl": { v: 1, c: 1, b: 0, d } }))); };
+  const wed = at(2026, 9, 21), mon = at(2026, 9, 19), sun = at(2026, 9, 25);
+  Date.now = () => wed; seed(wed, [10, 20, 30, 400, 400, 400, 400]);
+  [s, j] = await call(stats, "/api/popular"); ok(s === 200 && j.stats["bonkorea-cl"].d === 60, "수요일 구매 수는 월~수 합계(60)여야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  ok(j.stats["bonkorea-cl"].v === 7 && j.stats["bonkorea-cl"].c === 7, "조회·클릭 점수는 최근 7일 합계여야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  Date.now = () => mon; seed(mon, [30, 400, 400, 400, 400, 400, 400]);
+  [s, j] = await call(stats, "/api/popular"); ok(j.stats["bonkorea-cl"].d === 30, "월요일에는 지난주 구매 수가 0으로 초기화돼 오늘 것만 보여야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  Date.now = () => sun; seed(sun, [1, 2, 3, 4, 5, 6, 7]);
+  [s, j] = await call(stats, "/api/popular"); ok(j.stats["bonkorea-cl"].d === 28, "일요일 구매 수는 월~일 7일 합계(28)여야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  Date.now = () => mon; seed(mon, [0, 0, 0, 0, 0, 0, 0]); SM.set(day(mon, 1), JSON.stringify({ "bonkorea-cl": { v: 0, c: 0, b: 0, d: 500 } }));
+  await call(stats, "/api/track", "POST", { id: "bonkorea-cl", e: "c" }); [s, j] = await call(stats, "/api/popular");
+  ok(j.stats["bonkorea-cl"].d === 10, "월요일 첫 클릭은 지난주 값이 아니라 0에서 +10으로 시작해야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
+  Date.now = realNow;
+}
 console.log(errs.length ? "FAIL\n" + errs.join("\n") : "OK: 관리자 API 시험 통과"); process.exit(errs.length ? 1 : 0);

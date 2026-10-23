@@ -92,6 +92,8 @@ export const tossAuth = () => "Basic " + Buffer.from((process.env.TOSS_SECRET_KE
 /* 실시간 인기 집계: 날짜별 {제품id:{v:조회, c:담기/구매클릭, b:구매수량, d:화면에 표시하는 구매 수}} */
 export const stats = () => getStore({ name: "stats", consistency: "strong" });
 export const kday = (off = 0) => new Date(Date.now() + 9 * 36e5 - off * 864e5).toISOString().slice(0, 10);
+/* 이번 주(월요일 0시 한국 시간부터 오늘까지)의 kday 오프셋. 구매 수는 매주 월요일 0시에 0부터 다시 센다 */
+export const weekOffs = () => Array.from({ length: ((new Date(Date.now() + 9 * 36e5).getUTCDay() + 6) % 7) + 1 }, (_, i) => i);
 export async function addStat(list) {
   const st = stats(), k = kday();
   const o = (await st.get(k, { type: "json" })) || {};
