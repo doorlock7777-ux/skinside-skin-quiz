@@ -158,6 +158,10 @@ with sync_playwright() as p:
         if True:  # 공지 띠
             pg.wait_for_timeout(400)
             if F.locator("#ntc #ntx").input_value() == "" or "무료배송" not in F.locator("#npv").inner_text(): err.append("관리자 공지 띠 칸이 저장된 공지를 불러오지 않아요")
+            F.locator("#non").uncheck(); pg.wait_for_timeout(100)
+            if "off" not in (F.locator("#npv").get_attribute("class") or "") or not F.locator("#npo").is_visible(): err.append("공지 띠를 끄면 미리보기가 흐려지고 '사이트에는 보이지 않아요' 안내가 나와야 해요")
+            F.locator("#non").check(); pg.wait_for_timeout(100)
+            if "off" in (F.locator("#npv").get_attribute("class") or "") or F.locator("#npo").is_visible(): err.append("공지 띠를 켜면 미리보기가 원래대로 보여야 해요")
             F.locator("#ntx").fill(""); F.locator("#non").check(); F.locator("#nsv").click(); pg.wait_for_timeout(300)
             if "켤 수" not in F.locator("#nms").inner_text(): err.append("문구 없이 공지 띠가 켜져요(안내 없음)")
             F.locator("#ntx").fill("주말 배송 안내예요."); F.locator("#nlk").fill("/store"); F.locator("#nlt").fill("스토어 보기"); pg.wait_for_timeout(100)
