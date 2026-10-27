@@ -22,7 +22,7 @@ const hiddenView = (h, now) => {
   const end = useDefault ? nextSundayEnd(now) : kstEpoch(h.endAt);
   return { useDefault, end: end || null, expired: !useDefault && !!end && end <= now };
 };
-const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done", "hidden_click", "cafe_click"];
+const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done", "hidden_click"];
 
 export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, "");

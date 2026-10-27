@@ -489,7 +489,7 @@ function dash(){
 }
 function paint(d, st){
   var ev = d.events || {}, top = d.top || [], mx = top.length ? top[0].clicks : 1, k = d.kakao || {};
-  var h = '<div class="kpi"><div><small>진단 시작</small><b>' + n(ev.quiz_start) + '</b></div><div><small>진단 완료</small><b>' + n(ev.quiz_done) + '</b></div><div><small>채널 추가 버튼 클릭</small><b>' + n(ev.kakao_click) + '</b></div><div><small>채널 추가 후 결과 보기</small><b>' + n(ev.kakao_unlock) + '</b></div><div><small>카페 공유 클릭</small><b>' + n(ev.cafe_click) + '</b></div></div>';
+  var h = '<div class="kpi"><div><small>진단 시작</small><b>' + n(ev.quiz_start) + '</b></div><div><small>진단 완료</small><b>' + n(ev.quiz_done) + '</b></div><div><small>채널 추가 버튼 클릭</small><b>' + n(ev.kakao_click) + '</b></div><div><small>채널 추가 후 결과 보기</small><b>' + n(ev.kakao_unlock) + '</b></div></div>';
   h += '<div class="grid2"><div class="card"><h2>클릭수 TOP 10 제품</h2><p class="sub">최근 ' + (days === 1 ? '오늘' : days + '일') + ' 동안 구매 링크를 누른 횟수예요.</p>';
   h += top.length ? '<ol class="bars" style="padding:0">' + top.map(function(p, i){ return '<li><span class="rk">' + (i + 1) + '</span><div class="nm"><b>' + esc(p.name) + '</b><span>' + esc(p.brand) + '</span><div class="tr"><i style="width:' + Math.max(4, Math.round(p.clicks / mx * 100)) + '%"></i></div></div><div class="n">' + n(p.clicks) + '회<small>조회 ' + n(p.views) + '</small></div></li>'; }).join("") + '</ol>' : '<div class="empty">아직 클릭 기록이 없어요.</div>';
   h += '</div><div class="card"><h2>피부타입 통계</h2>' + types(st) + '</div></div>';
