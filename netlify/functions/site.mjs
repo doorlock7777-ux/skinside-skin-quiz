@@ -1,5 +1,6 @@
 import { runBrandBatch } from "./_batch.mjs";
 import { isAdmin } from "./_auth.mjs";
+import { beat } from "./_live.mjs";
 import { loadBrands, BRANDS, json, loadStock, isSoldOut, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
 
 /* 히든 버튼 타이머: 시각은 모두 한국 시간(KST, UTC+9)으로 해석한다 */
@@ -35,6 +36,11 @@ export default async (req) => { await loadBrands();
     /* 진단 완료에는 피부타입(예: CRNT-O)을 함께 모은다. 형식이 맞는 것만 받는다 (간이 진단은 타입을 보내지 않는다) */
     if (b.e === "quiz_done" && /^[DOC][SR][PN][WT](-[OD])?$/.test(String(b.t || ""))) await addEvent("type:" + b.t);
     return json({ ok: true });
+  }
+  /* 실시간 접속 신호(스토어·진단 화면이 열려 있는 동안 1분마다). 임의 id와 화면 이름만 받는다 */
+  if (p === "/api/live" && req.method === "POST") {
+    const r = await beat(await req.json().catch(() => ({})));
+    return json(r, r.error ? 400 : 200, { "cache-control": "no-store" });
   }
   if (p === "/api/stock") {
     const st = await loadStock();
@@ -134,4 +140,4 @@ export default async (req) => { await loadBrands();
   return json({ error: "not found" }, 404);
 };
 
-export const config = { path: ["/api/event", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/hidden", "/api/manage/*"] };
+export const config = { path: ["/api/event", "/api/live", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/hidden", "/api/manage/*"] };

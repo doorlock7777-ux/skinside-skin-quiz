@@ -34,7 +34,10 @@
       late:[{id:"SK2610170009", brand:"minic", name:"MINIC", hours:27, state:"wait"}],
       brands:[{brand:"minic", name:"MINIC", today:1, open:2, late:1, hasCode:true, hasEmail:true}, {brand:"grafen", name:"GRAFEN", today:1, open:1, late:0, hasCode:false, hasEmail:false}, {brand:"bonkorea", name:"본코리아", today:0, open:0, late:0, hasCode:true, hasEmail:true}, {brand:"livna", name:"LIVNA", today:0, open:0, late:0, hasCode:false, hasEmail:false}],
       todo:[{k:"late", label:"발송이 지연된 주문", n:1, tab:"orders"}, {k:"reviewDel", label:"리뷰 삭제 요청 승인·거부", n:1, tab:"reviews"}, {k:"escalated", label:"운영자 확인이 필요한 CS", n:1, tab:"cs"}, {k:"confirm", label:"9월 정산 확정 필요", n:1, tab:"settle"}, {k:"noemail", label:"이메일이 없어 알림을 못 받는 브랜드", n:1, tab:"brands"}, {k:"nocode", label:"접속 코드가 없는 주문 브랜드", n:1, tab:"brands"}],
-      month:HM()});
+      month:HM(),
+      totals:{revenue:1263000 + 48200, orders:71, refunds:3, refundAmount:45900, csOpen:2},
+      recent:O.slice().map(function(o){ return {id:o.id, at:o.paidAt || o.createdAt, name:o.ship.name, item:o.items[0].name + (o.items.length > 1 ? " 외 " + (o.items.length - 1) + "개" : ""), total:o.total, refund:o.status === "canceled" ? o.total : 0, status:o.status}; })});
+    if(u.indexOf("/api/admin/live") >= 0){ var tk = Date.now(), base = [3,4,4,5,3,6,7,6,8,9,7,8,10,9,11,12,10,9,11,13,12,14,12,11,13,15,14,12,13,14]; return res({now:14 + (Math.floor(tk / 15000) % 3), pages:{store:9, quiz:5 + (Math.floor(tk / 15000) % 3)}, today:286, peak:15, series:base.map(function(v, i){ var t = new Date(tk + 9 * 36e5 - (29 - i) * 6e4).toISOString().slice(11, 16); return {t:t, n:v}; }), at:new Date(tk).toISOString()}); }
     if(u.indexOf("/api/admin/orders") >= 0) return res({orders:O, brands:BR});
     if(u.indexOf("/api/admin/ship") >= 0){ O.forEach(function(x){ if(x.id === b.orderId){ x.shipments = x.shipments || {}; x.shipments[b.brand] = {carrier:b.carrier, tracking:b.tracking}; x.status = "shipped"; } }); return res({ok:true}); }
     if(u.indexOf("/api/admin/cancel") >= 0){ O.forEach(function(x){ if(x.id === b.orderId) x.status = "canceled"; }); return res({ok:true}); }

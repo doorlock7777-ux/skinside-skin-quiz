@@ -46,6 +46,14 @@ with sync_playwright() as p:
         # --- 홈: 읽기 전용 대시보드 ---
         if F.locator(".todo").count() != 1 or F.locator(".kpi div").count() < 4 or F.locator(".flow i").count() < 3 or F.locator(".bt").count() < 3: err.append("관리자 홈 요약이 부족해요 (%dpx)" % w)
         if fa.evaluate(READ_ONLY) != 0: err.append("관리자 홈에 입력/버튼이 있어요(읽기 전용이어야 해요)")
+        pg.wait_for_timeout(500)
+        if F.locator(".kpi.top > div").count() != 8: err.append("관리자 홈 맨 위 지표가 8칸이 아니에요 (%dpx)" % w)
+        tops = F.locator(".kpi.top").inner_text()
+        for kw in ("결제 완료", "환불", "누적 매출"):
+            if kw not in tops: err.append("관리자 홈 맨 위에 '%s'가 없어요" % kw)
+        if F.locator("#live .lv-now b").count() != 1 or F.locator("#live .lv-bars i").count() != 30: err.append("관리자 홈에 실시간 접속(지금 접속 중, 30분 그래프)이 없어요 (%dpx)" % w)
+        if fa.evaluate("document.querySelector('.kpi.top').getBoundingClientRect().top > document.getElementById('live').getBoundingClientRect().top || document.getElementById('live').getBoundingClientRect().top > document.querySelector('.todo').getBoundingClientRect().top"): err.append("맨 위 지표 -> 실시간 접속 -> 처리할 일 순서가 아니에요")
+        if F.locator("text=최근 결제").count() < 1 or F.locator(".tbl tbody tr").count() < 1: err.append("관리자 홈에 최근 결제 표가 없어요")
         if fa.evaluate("document.querySelectorAll('[data-go]').length") < 4: err.append("관리자 홈에서 각 탭으로 가는 링크가 없어요")
         if fa.evaluate("document.documentElement.scrollWidth") > w: err.append("관리자 홈이 가로로 넘쳐요 (%dpx)" % w)
         for tab, sel in (("orders", ".o2"), ("cs", ".o2"), ("brands", "table.tbl"), ("settle", "table.tbl")):

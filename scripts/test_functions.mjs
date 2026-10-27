@@ -702,4 +702,25 @@ for (let i = 0; i < 5; i++) await call(brand, "/api/partner/login", "POST", { co
   ok(r.status === 200 && h.includes('"@type":"Product"') && h.includes('"price":"29900"') && h.includes("InStock"), "상품 페이지에 구조화 데이터(가격 29900)가 있어야 해요");
   r = await feed(new Request(H + "/product/none")); ok(r.status === 404, "없는 제품은 404");
 }
+/* 홈 맨 위 지표: 누적 매출(환불 차감)·결제 완료·환불 건수·최근 결제 */
+{ const [s2, j2] = await call(adminApi, "/api/admin/home", "GET", null, A);
+  const t = j2.totals || {};
+  ok(s2 === 200 && t.orders >= 1 && t.revenue >= 0 && t.refunds >= 1 && t.refundAmount > 0 && Number.isInteger(t.csOpen), "홈 맨 위 지표(결제 완료·환불·누적 매출)가 없어요 " + JSON.stringify(t));
+  ok(Array.isArray(j2.recent) && j2.recent.length >= 1 && j2.recent.length <= 8 && j2.recent.every((o, i, a) => !i || new Date(a[i - 1].at) >= new Date(o.at)), "최근 결제가 최신순 8건 이하가 아니에요"); }
+/* 실시간 접속: 신호 → 지금 접속 중·화면별·오늘 방문자, 잘못된 id 거절, 오래된 기록 정리 */
+{ const live = await import(pathToFileURL(path.join(T, "functions/_live.mjs")));
+  const t0 = Date.parse("2026-10-27T07:00:30Z");
+  let [sx] = await call(site, "/api/live", "POST", { v: "bad id!", p: "store" }); ok(sx === 400, "잘못된 접속 id를 받아요");
+  [sx] = await call(site, "/api/live", "POST", { v: "abcd1234efgh", p: "quiz", f: 1 }); ok(sx === 200, "접속 신호를 못 받아요");
+  await live.beat({ v: "aaaa1111bbbb", p: "store", f: 1 }, t0); await live.beat({ v: "cccc2222dddd", p: "quiz", f: 1 }, t0);
+  await live.beat({ v: "aaaa1111bbbb", p: "store" }, t0 + 20e3); /* 같은 분 다시 신호: 한 명 */
+  await live.beat({ v: "eeee3333ffff", p: "store", f: 1 }, t0 - 10 * 6e4); /* 10분 전에만 있었던 사람 */
+  let v = await live.liveView(t0 + 25e3);
+  ok(v.now === 2 && v.pages.store === 1 && v.pages.quiz === 1, "지금 접속 중 수가 달라요 " + JSON.stringify(v.pages) + " " + v.now);
+  ok(v.today >= 3 && v.series.length === 30 && v.series[29].n === 2 && v.series.some((x) => x.n === 1) && v.peak === 2, "오늘 방문자·분당 그래프가 달라요 " + JSON.stringify({ today: v.today, last: v.series[29], peak: v.peak }));
+  v = await live.liveView(t0 + 3 * 6e4); ok(v.now === 0, "3분 지나도 접속 중으로 보여요");
+  const nd = await live.sweepLive(t0 + 4 * 36e5); v = await live.liveView(t0 + 4 * 36e5);
+  ok(nd >= 3 && v.series.every((x) => !x.n), "오래된 접속 기록이 정리되지 않아요 " + nd);
+  [sx, v] = await call(adminApi, "/api/admin/live", "GET", null, A); ok(sx === 200 && typeof v.now === "number" && v.series.length === 30, "관리자 실시간 접속 API가 달라요");
+  [sx] = await call(adminApi, "/api/admin/live", "GET", null, {}); ok(sx === 401, "로그인 없이 실시간 접속을 볼 수 있어요"); }
 console.log(errs.length ? "FAIL\n" + errs.join("\n") : "OK: 관리자 API 시험 통과"); process.exit(errs.length ? 1 : 0);

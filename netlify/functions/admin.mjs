@@ -4,6 +4,7 @@ import { isAdmin, adminLogin, adminLogout, partnerIdx, issueCode, revokeCode, PA
 import { monthSettle } from "./_home.mjs";
 import { notifyCancel } from "./_batch.mjs";
 import { adminSummary, allOrders } from "./_ctx.mjs";
+import { liveView } from "./_live.mjs";
 import { allTickets, getTicket, addMessage, close, receiveAndRefund } from "./_cs.mjs";
 import { allReviews, getReview, manageView, markRead, setBest, decide as decideReview } from "./_reviews.mjs";
 import { confirmSettlement, markPaid, getSettlement, listSettlements, settleReport } from "./_settle.mjs";
@@ -25,6 +26,7 @@ export default async (req) => { await loadBrands();
   if (p === "/api/admin/me") return json({ ok: true });
 
   if (p === "/api/admin/home") return json(await adminSummary(req));
+  if (p === "/api/admin/live") return json(await liveView(), 200, { "cache-control": "no-store" });
   if (p === "/api/admin/orders") {
     return json({ orders: (await all()).filter((o) => o.status !== "pending"), brands: BRANDS });
   }

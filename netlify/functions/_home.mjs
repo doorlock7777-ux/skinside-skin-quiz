@@ -76,7 +76,12 @@ export function adminHome(os, ctx = {}, now = Date.now()) {
     { k: "noemail", label: "이메일이 없어 알림을 못 받는 브랜드", n: Object.values(rows).filter((r) => r.open && !r.hasEmail).length, tab: "brands" },
     { k: "nocode", label: "접속 코드가 없는 주문 브랜드", n: withOrders.filter((r) => !r.hasCode).length, tab: "brands" },
   ].filter((x) => x.n > 0);
+  /* 맨 위 지표(강의사이트 관리자와 같은 구성): 누적 매출(환불 차감), 결제 완료·환불 건수, 최근 결제 */
+  const sold = os.filter(isSale), refAmt = (o) => refundsOf(o).reduce((a, r) => a + r.amount, 0);
+  const totals = { revenue: sold.reduce((a, o) => a + (o.total || 0) - refAmt(o), 0), orders: sold.length, refunds: sold.filter((o) => refundsOf(o).length).length, refundAmount: sold.reduce((a, o) => a + refAmt(o), 0), csOpen: cs.open };
+  const recent = sold.slice().sort((a, b) => new Date(when(b)) - new Date(when(a))).slice(0, 8).map((o) => ({ id: o.id, at: when(o), name: (o.ship && o.ship.name) || "", item: o.items.length ? o.items[0].name + (o.items.length > 1 ? " 외 " + (o.items.length - 1) + "개" : "") : "", total: o.total || 0, refund: refAmt(o), status: o.status }));
   return {
+    totals, recent,
     today: { sales: sales(today), orders: cnt(today), yestSales: sales(yest), yestOrders: cnt(yest) },
     flow, late: late.slice(0, 20), cs, brands: Object.values(rows).sort((a, b) => b.today - a.today || b.open - a.open),
     reviews: rv, stock: sk, todo, month: { m, sales: sum("sales"), refund: sum("refund"), fee: sum("fee"), adj: sum("adj"), payout: sum("payout"), rows: settle.slice(0, 8) },
