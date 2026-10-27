@@ -146,7 +146,9 @@ var LINKS = {
   patch: "https://brand.naver.com/grafen/products/13325759434",
   calm:  "https://smartstore.naver.com/livna/products/12410370676",
   cream: "https://smartstore.naver.com/livna/products/13031203956",
-  store: "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store"
+  store: "https://generalstudio.co.kr/channels/L2NoYW5uZWxzLzE5MzMz/pages/store",
+  /* 스킨인사이드 네이버 카페 글쓰기(또는 게시판) 주소. 비워두면 카페 공유 버튼이 숨겨져요. */
+  cafe:  ""
 };
 var PR = {
   cl:   {n:"본코리아 엔젤 탄산 효소 세안제", url:LINKS.cl, img:"data:image/webp;base64,UklGRmYFAABXRUJQVlA4IFoFAABwIACdASqwALAAPp1On0ylpCaoIncaaQATiWVu4W8b6tgjrSW7dHCP7ZfbzN9P9ADpXK0zXs8F8vAx/xI6XqaR4+vrj0cBsm+ftTw+8ktpp/Htx2hIruwWZ0Wj+fwYqgYADabwjOqUZJz14ywxXElHShCm0WOCY9zHiC/kSwNl2nsZ5GhdE8vh9kh+b+VHjObZIbQN1ASUM3vLkf8C3KXm+KXn6xo4oOxb0HwbFLMRfWRSO1rJvzbZxHrv17TDftPUDktrHRAy1S/axYh8jaQ5B1T5G2sgIHGVjuVX0WM0BCmVmFJGTKxgqTqc9dN+Wmkv857tkmPfoar6rKTXumGtCR5+DAEgedrh4wQAAP7+k3EPtxhEDjeZh8cJ+JYVUYkfQKisORX8W3bTZm9u2amlzI8Sigwc7wZvCzLG/NpvOOpabG/OkBiLwXBHH92pcB/VHHEnhh++IRjV+4LVuo5f82rBWuTvIAAM53xgQm2L2HRbrrPdnVGraHzPWYtsDVdrl3f1SF92cuPSyAiR1lKJQsSeTrIVLMruiD+2yKYUWXlTZU1AzgupIVF8Th+zxUYoVFqSR+lewtGfENQeSwo6sv3BHxZi2tRAdcn6FRDgH3fQRQoeKfCe1X+UOFD5ZfjWnmQzgQdmQeSSbtbP9ncfaX58Z5/25b5oH/j//UgJpVs1ntOq1S1OxN4ofX35XhF+qnH3afgHeVUkAN08Akd2Ij3K8ltc96pFYH1a6bgF/Qf08Utzyh6jKQkIMeVPJotNHvrUAlPO2lk/ufRZnjK44RE74ujKSVbG/ku8Bd3jN/0fdwgtkbDVS9fS/UaW3E62iQk2/hm8nhFtLIOCUuz+sDLpwUOi6xRrJOjXBsaeGVPGiAeqf8TSUd8eNsDQNwGKSeUFHqLN655XVPcO3lPdALPHA0RpVGGQgPl1fC0Y7byy1d+su76+9zfOEuNTyjCWBUociJ56V+q9u/2OhlOhJFXFqHFV8tBQ9+Z1I1wB3+MGzytxUFuoRLmzcVTYjvM1vwAEcw7ADnHXUP6JNahlM+a+w+qHRmA1QO/Mc1Es47xpnSbmslUbjtt34b4U2MLHUKdeRY35/Mw6jOpby7OwY04gAjz31ldmp4vlWtIrGtovt6TQW7+Pfa1BcGGZZ+nG1qPnm38+epUXWL8eZP4t5Apm/IlyLLs8IXDdWdA5HZ8v4WXB9imlhx3lz4ydeEjxus9gmn8visTa9n5QP+eipl9M7iAG+cQ2jS0b2c0c/vMA3WMlo2DPxNItViGUVItfJtq5stspTa36dMK0esNxqEgykRb5qYMbdbWWWe4qB1xGPl4NP/A94kH6gM9+vVrGFMQ2944Axnv2aUasWQvm2zXZ8+tL9uQ8M4AE3nZSScOXi9mfNvnhFo9Pr/VXcFNBWkBcB3QhYVXK3e5PQcUdPdSb5WxyrCtOu2BzTWuB/fje56hEhfff00WD/SCSPSnhkHYCnoayhEagYuVa9xP0awjv7fTX34FxdZKHHMJ3UCr3K6gb2cDIRbCW8uml3zB+AtbNc6lPidvT1yB0gEGzqivPnPwHtTd+eJNCYDpeVm+nbc7n5GWDXZ6BQyWlHHrqbaw3B6uWEkObcaf+5X1apj0tf/M6Sbu0p6QHFywqnAF99GRrdxeIb65aBYIrEWYP4cg60wOHAJcAoxszZy7iwPc/K9RVULdtjRlkc90Wo3/Zuog/wkLbxRsVXI45zW7FsBT/ducTuF8e+gf+rTgRYqK1e++A60KlalaCr82ERiN0lg3ZIuWjZKnVoetJ8SMoBzzU0Cn8tvJdjHLL72WmjbZsKp5P4AAAAA=="},
@@ -241,7 +243,7 @@ function track(n, d){
   try{ window.dataLayer = window.dataLayer || []; window.dataLayer.push(p); }catch(e){}
   try{ if(window.gtag) window.gtag("event", n, d); }catch(e){}
   try{ if(window.fbq) window.fbq("trackCustom", n, d); }catch(e){}
-  var EV = {quiz_start:"quiz_start", quiz_complete:"quiz_done", kakao_click:"kakao_click", kakao_unlock:"kakao_unlock"};
+  var EV = {quiz_start:"quiz_start", quiz_complete:"quiz_done", kakao_click:"kakao_click", kakao_unlock:"kakao_unlock", cafe_click:"cafe_click"};
   if(EV[n]){ try{ fetch("/api/event", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(n === "quiz_complete" && !d.simple && d.type ? {e:EV[n], t:String(d.type)} : {e:EV[n]}), keepalive:true}).catch(function(){}); }catch(e){} }
   if(ANALYTICS_ENDPOINT){ try{ navigator.sendBeacon(ANALYTICS_ENDPOINT, JSON.stringify(p)); }catch(e){} }
 }
@@ -506,10 +508,19 @@ function result(){
      + '<div class="box" style="margin-top:18px"><b>결과 카드</b><p class="muted">인스타 스토리에 올려보세요. 친구들은 어떤 타입인지 물어봐도 좋아요.</p>'
      + '<img class="card-img" id="card" alt="내 피부타입 결과 카드"><button class="btn small" id="sv">이미지 저장</button><button class="btn ghost small" id="sh" style="display:none">공유하기</button>'
      + '<p class="note" style="margin-top:8px">저장이 안 되면 이미지를 길게 눌러 저장하세요.</p></div>'
+     + (LINKS.cafe ? '<div class="box" style="margin-top:18px"><b>카페에 공유하고 질문하기</b><p class="muted">내 결과가 복사돼요. 스킨인사이드 카페 글쓰기에서 붙여넣고 궁금한 점을 남겨보세요.</p><button class="btn small" id="cf">결과 복사하고 카페 열기</button><p class="note" id="cfm" style="margin-top:8px;display:none">복사됐어요. 카페 글쓰기에서 붙여넣기 하세요.</p></div>' : '')
      + '<button class="link" id="rs">다시 진단하기</button>'
      + '<p class="note">이 결과는 바우만 피부타입 분류(BSTI)를 바탕으로 한 참고용 가이드이며 의학적 진단이 아닙니다. 피부 질환이 의심되면 피부과 진료를 받으세요.</p>';
   $(h);
   document.getElementById("rs").onclick = reset;
+  var cf = document.getElementById("cf");
+  if(cf) cf.onclick = function(){
+    var txt = "[피부타입 진단 결과]\n내 피부타입: " + key + " (" + lineDesc(R) + ")\n진단 해보기: https://skinside.co.kr\n\n[질문]\n";
+    try{ window.open(LINKS.cafe, "_blank", "noopener"); }catch(e){}
+    var done = function(){ var m = document.getElementById("cfm"); if(m) m.style.display = "block"; track("cafe_click", {type:key}); };
+    var fb = function(){ try{ var t = document.createElement("textarea"); t.value = txt; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }catch(e){} done(); };
+    try{ navigator.clipboard.writeText(txt).then(done, fb); }catch(e){ fb(); }
+  };
   var blob = null;
   makeCard(R, function(cv){
     document.getElementById("card").src = cv.toDataURL("image/png");
