@@ -687,4 +687,19 @@ for (let i = 0; i < 5; i++) await call(brand, "/api/partner/login", "POST", { co
   ok(j.stats["bonkorea-cl"].d === 10, "월요일 첫 클릭은 지난주 값이 아니라 0에서 +10으로 시작해야 해요 " + JSON.stringify(j.stats["bonkorea-cl"]));
   Date.now = realNow;
 }
+
+/* 구글 판매자 센터 피드 */
+{
+  const feed = (await import(pathToFileURL(path.join(T, "functions/feed.mjs")))).default;
+  let r = await feed(new Request(H + "/feed/google.xml")); const x = await r.text();
+  const n = (x.match(/<item>/g) || []).length;
+  ok(r.status === 200 && /xml/.test(r.headers.get("content-type")) && n === 31, "피드는 31개 제품 XML이어야 해요 " + n);
+  ok(x.includes("<g:price>69000.00 KRW</g:price>") && x.includes("<g:sale_price>29900.00 KRW</g:sale_price>"), "정가·할인가가 KRW로 들어가야 해요");
+  ok(x.includes("<g:link>https://skinside.co.kr/product/bonkorea-cl</g:link>") && x.includes("<g:image_link>https://skinside.co.kr/images/p/bonkorea-cl.webp</g:image_link>"), "링크·이미지는 절대 주소여야 해요");
+  ok(!/<g:link>[^<]*#/.test(x), "링크에 # 가 있으면 안 돼요");
+  const ids = [...x.matchAll(/<g:id>([^<]+)/g)].map((m) => m[1]); ok(new Set(ids).size === ids.length, "id 중복");
+  r = await feed(new Request(H + "/product/bonkorea-cl")); const h = await r.text();
+  ok(r.status === 200 && h.includes('"@type":"Product"') && h.includes('"price":"29900"') && h.includes("InStock"), "상품 페이지에 구조화 데이터(가격 29900)가 있어야 해요");
+  r = await feed(new Request(H + "/product/none")); ok(r.status === 404, "없는 제품은 404");
+}
 console.log(errs.length ? "FAIL\n" + errs.join("\n") : "OK: 관리자 API 시험 통과"); process.exit(errs.length ? 1 : 0);

@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="referrer" content="no-referrer"><title>관리자</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 :root{--pri:#4E57A2;--pri-soft:#eceef8;--ink:#191f28;--mute:#6b7684;--line:#e5e8eb;--bg:#f2f4f6;--card:#fff;--red:#f04452;--ok:#12b886}
 *{box-sizing:border-box}
@@ -103,106 +104,122 @@ button.g{font:inherit;font-weight:700;border:1px solid var(--pri);background:#ff
 button.g:disabled{opacity:.5}
 .lgp{max-width:380px;margin:60px auto;padding:0 20px}.lgp h2{text-align:center;margin:0 0 4px}
 textarea{font:inherit;padding:10px;border:1px solid var(--line,#e5e8eb);border-radius:10px;background:var(--card,#fff);color:var(--ink,#191f28)}
-/* ===== 스킨인사이드 운영 화면 테마: 터미널형 대시보드 (다크 전용, 스킨인사이드 인디고) ===== */
-:root{--pri:#5560ea;--pri-soft:#1b2052;--ink:#eceef8;--mute:#8b91ab;--line:#252840;--bg:#0a0b11;--card:#10121b;--card2:#151827;--red:#ff6577;--ok:#35f0b0;--warn:#ffb54a;--warn-bg:#2a2010;--neon:#8d98ff;--neon-glow:none;--glow:0 0 0 1px var(--neon);--hd:#0a0b11;--ok-bg:#0d2a22;--red-bg:#33121a;--inp:#0b0c14;color-scheme:dark;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,"Liberation Mono",monospace;}
-body{background:var(--bg);color:var(--ink);letter-spacing:-.005em;-webkit-font-smoothing:antialiased}
-/* 머리글 */
-header{background:var(--hd)!important;color:var(--ink)!important;border-bottom:1px solid var(--line);padding:13px max(16px,env(safe-area-inset-left,0px))!important;gap:12px}
-header b{display:flex!important;align-items:center;gap:10px;font-size:15px!important;font-weight:800;letter-spacing:.01em}
-header b:before{content:"S";display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;background:var(--neon);color:#fff;font-family:var(--mono);font-weight:800;box-shadow:var(--neon-glow)}
-header span{color:var(--mute)!important;font-size:12px!important;opacity:1!important}
-header button{border:1px solid var(--line)!important;background:transparent!important;color:var(--ink)!important;border-radius:8px!important;padding:7px 12px!important;font-size:13px}
-header button:hover{border-color:var(--neon)!important;box-shadow:var(--glow)}
-/* 탭 */
-nav,#tb .tabs{border-bottom:1px solid var(--line);max-width:none!important;margin:0!important;padding:0 max(16px,env(safe-area-inset-left,0px))!important;gap:2px!important;background:var(--hd);overflow-x:auto;scrollbar-width:none}
-nav button,#tb .tabs button{border-radius:0!important;background:transparent!important;color:var(--mute)!important;padding:13px 16px!important;border-bottom:2px solid transparent!important;font-weight:700;white-space:nowrap}
+/* ===== 스킨인사이드 운영 화면 테마: 강의사이트(GNRL STUDIO) 관리자 UI 구조 + 스킨인사이드 색 (다크) ===== */
+/* 색은 이전 테마 그대로. 모양(머리글·탭·지표·카드·표·버튼·배지)만 강의사이트 관리자와 같게. 관리자·파트너 공용(scripts/theme.css). */
+:root{--pri:#5560ea;--pri-soft:#1b2052;--ink:#eceef8;--mute:#8b91ab;--line:#252840;--bg:#0a0b11;--card:#10121b;--card2:#151827;--red:#ff6577;--ok:#35f0b0;--warn:#ffb54a;--warn-bg:#2a2010;--neon:#8d98ff;--neon-glow:none;--glow:0 0 0 1px var(--neon);--hd:#0a0b11;--ok-bg:#0d2a22;--red-bg:#33121a;--inp:#0b0c14;color-scheme:dark;
+  --body:"Noto Sans KR","Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;--wrap:1180px;--gut:max(16px,calc((100% - var(--wrap)) / 2 + 16px))}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--body);word-break:keep-all;letter-spacing:0;-webkit-font-smoothing:antialiased}
+/* 머리글: 56px 한 줄, 기울인 굵은 로고 + 작은 회색 보조 글씨 */
+header{background:var(--hd)!important;color:var(--ink)!important;border-bottom:1px solid var(--line);height:56px;padding:0 var(--gut)!important;display:flex;align-items:center;gap:16px;flex-wrap:nowrap!important}
+header b{display:flex!important;align-items:baseline;gap:8px;font-size:16px!important;font-weight:800;font-style:italic;letter-spacing:.02em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header b span,header span{font-style:normal;font-weight:500!important;font-size:12px!important;color:var(--mute)!important;opacity:1!important;letter-spacing:0}
+header>div{display:flex;align-items:baseline;gap:8px;min-width:0;overflow:hidden}header>div b{display:inline!important}
+header button{border:0!important;background:none!important;color:var(--ink)!important;opacity:.75;padding:6px 0!important;font-size:13px!important;font-weight:500!important;border-radius:0!important;margin-left:auto;cursor:pointer}
+header button:hover{opacity:1}
+/* 탭: 머리글 아래 별도 띠, 위에 붙어 따라옴, 선택 탭은 3px 밑줄 */
+nav,#tb .tabs{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);max-width:none!important;margin:0!important;padding:0 var(--gut)!important;display:flex;gap:4px!important;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar,#tb .tabs::-webkit-scrollbar{display:none}
+nav button,#tb .tabs button{flex:none;border:0!important;border-radius:0!important;background:none!important;color:var(--mute)!important;padding:14px 14px 12px!important;border-bottom:3px solid transparent!important;font-weight:700;font-size:15px;white-space:nowrap;cursor:pointer}
 nav button:hover,#tb .tabs button:hover{color:var(--ink)!important}
-nav button.on,#tb .tabs button.on{color:var(--neon)!important;border-bottom-color:var(--neon)!important;text-shadow:var(--neon-glow)}
-#tb .tabs{display:flex;margin-bottom:0!important}
-main{max-width:1040px!important}
-/* 카드: 얇은 테두리, 작은 모서리 */
-.card,.o,.o2,.kpi div,.big,.lgp,.tk{border:1px solid var(--line);border-radius:10px!important;background:var(--card)}
-.card h2,.lgp h2{font-size:15px!important;font-weight:800;display:flex;align-items:center;gap:8px}
-.card h2:before{content:"";width:3px;height:14px;border-radius:2px;background:var(--neon);box-shadow:var(--neon-glow)}
-.lgp h2:before{display:none}
-.sub,.s{color:var(--mute)}
-.go{color:var(--neon)!important;text-shadow:var(--neon-glow);font-family:var(--mono);font-size:12px!important}
-/* 핵심 지표: 칸으로 이어 붙인 표 */
-.kpi{gap:0!important;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--line);gap:1px!important}
-.kpi div{border:0!important;border-radius:0!important;background:var(--card)!important;padding:14px 16px!important}
-.kpi small{font-size:11.5px!important;letter-spacing:.04em;color:var(--mute)}
-.kpi b{font-family:var(--mono);font-size:24px!important;font-weight:700;letter-spacing:-.02em;color:var(--ink);text-shadow:var(--glow)}
-.kpi b{text-shadow:none}
+nav button.on,#tb .tabs button.on{color:var(--ink)!important;border-bottom-color:var(--neon)!important;background:none!important}
+#tb .tabs{margin-bottom:0!important}
+main{max-width:var(--wrap)!important;margin:0 auto!important;padding:24px 16px 80px!important}
+/* 카드: 1px 테두리, 10px 모서리, 그림자 없음 */
+.card,.o,.o2,.lgp,.rv{border:1px solid var(--line)!important;border-radius:10px!important;background:var(--card)!important;box-shadow:none!important}
+.card,.o,.o2{padding:16px!important;margin-bottom:14px!important}
+.card h2,.lgp h2{font-size:17px!important;font-weight:800;margin:0 0 4px!important;display:block}
+.card h2:before{content:none}
+.sub,.s{color:var(--mute)!important;font-size:13px}
+.go{color:var(--neon)!important;font-family:var(--body)!important;font-size:13px!important;font-weight:700}
+.grid2{gap:14px!important}
+/* 핵심 지표: 한 칸씩 떨어진 카드, 작은 회색 이름 + 고정폭 숫자 */
+.kpi,.cnt{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px!important;border:0!important;background:none!important;overflow:visible!important;margin-bottom:24px}
+.card .kpi,.card .cnt{grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:0}
+.kpi div,.cnt button,.cnt a.cb,.big{background:var(--card)!important;border:1px solid var(--line)!important;border-radius:10px!important;padding:16px!important;box-shadow:none!important}
+.card .kpi div,.card .cnt button,.card .cnt a.cb{background:var(--card2)!important}
+.kpi small,.cnt button small,.cnt a.cb small{display:block;font-size:12px!important;letter-spacing:0;color:var(--mute)}
+.kpi b,.cnt button b,.cnt a.cb b{display:block;font:600 24px/1.3 var(--mono)!important;margin-top:4px;letter-spacing:0;color:var(--ink);text-shadow:none}
+.cnt button.on{border-color:var(--neon)!important;box-shadow:inset 0 -3px 0 var(--neon)!important}
 .up{color:var(--ok)!important;font-family:var(--mono)}.dn{color:var(--red)!important;font-family:var(--mono)}
-/* 처리할 일 / 안내 */
-.todo{border:1px solid var(--warn);background:var(--warn-bg)!important;color:var(--warn)!important;border-radius:10px!important}
-.todo.ok{border-color:var(--ok);background:var(--ok-bg)!important;color:var(--ok)!important;box-shadow:var(--glow)}
-.todo a{background:var(--card)!important;color:var(--ink)!important;border:1px solid var(--line);border-radius:8px!important}
-.todo a:hover{border-color:var(--neon);box-shadow:var(--glow)}
-.todo a i{background:var(--red)!important;color:#fff;font-family:var(--mono)}
-.note,.help{background:var(--warn-bg)!important;color:var(--warn)!important;border:1px solid var(--line);border-radius:10px!important}
-.big{background:var(--card)!important;color:var(--ink)!important;border-color:var(--neon);box-shadow:var(--glow);position:relative}
-.big b{font-family:var(--mono);color:var(--neon);text-shadow:var(--neon-glow)}
-.big small,.big a{color:var(--mute)!important}.big a{color:var(--neon)!important;text-shadow:var(--neon-glow)}
-.big.late{border-color:var(--red);box-shadow:0 0 0 1px var(--red)}.big.late b{color:var(--red);text-shadow:none}
-.big.zero{border-color:var(--ok)}.big.zero b{color:var(--ok)}
-/* 흐름 막대, 점, 태그 */
+/* 파트너 홈 큰 숫자 */
+.big{color:var(--ink)!important;border-left:3px solid var(--neon)!important;margin-bottom:14px}
+.big small{color:var(--mute)!important;font-size:12px!important;opacity:1}
+.big b{font:600 32px/1.25 var(--mono)!important;color:var(--ink)!important;margin-top:4px}
+.big a{color:var(--neon)!important;font-weight:700}
+.big.late{border-left-color:var(--red)!important}.big.late b{color:var(--red)!important}
+.big.zero{border-left-color:var(--ok)!important}.big.zero b{color:var(--ok)!important}
+/* 처리할 일 / 안내: 연한 바탕 상자, 8px 모서리 */
+.todo{border:1px solid var(--warn)!important;background:var(--warn-bg)!important;color:var(--warn)!important;border-radius:8px!important;padding:14px 16px!important;margin-bottom:14px!important}
+.todo.ok{border-color:var(--ok)!important;background:var(--ok-bg)!important;color:var(--ok)!important}
+.todo b{font-size:15px}
+.todo a{background:var(--card)!important;color:var(--ink)!important;border:1px solid var(--line);border-radius:6px!important;padding:5px 10px!important;font-size:13px}
+.todo a:hover{border-color:var(--neon)}
+.todo a i{display:inline-block;min-width:18px;padding:0 5px!important;border-radius:9px!important;background:var(--red)!important;color:#fff;font:700 11px/18px var(--body)!important;text-align:center}
+.note,.help{background:var(--warn-bg)!important;color:var(--warn)!important;border:1px solid #4a3a18!important;border-radius:8px!important;padding:10px 12px!important;font-size:13px!important}
+/* 막대, 점 */
 .flow,.seg,.bars .tr,.tp .tr{background:var(--pri-soft)!important;border-radius:6px!important}
-.f1,.c0{background:var(--pri)!important;box-shadow:var(--glow)}.f2{background:#0aa774!important}.f3{background:#7a8099!important}
-.bars .tr i,.tp .tr i{background:var(--neon)!important;box-shadow:var(--neon-glow)}
+.flow{height:30px!important}
+.f1,.c0{background:var(--pri)!important}.f2{background:#0aa774!important}.f3{background:#7a8099!important}
+.bars .tr i,.tp .tr i,.meter i{background:var(--neon)!important;box-shadow:none}
 .bars .rk,.tp code,.code{font-family:var(--mono);color:var(--neon)!important}
-.code{text-shadow:var(--neon-glow)}
-.dot{background:var(--ok)!important;box-shadow:none}.dot.w{background:var(--warn)!important;box-shadow:none}.dot.r{background:var(--red)!important;box-shadow:none}.dot.g{background:var(--mute)!important;box-shadow:none}
-.tag,.st{background:var(--pri-soft)!important;color:var(--neon)!important;border:1px solid var(--line);border-radius:6px!important;font-family:var(--mono);font-size:11.5px!important}
-.tag.w{background:var(--warn-bg)!important;color:var(--warn)!important}.tag.r,.st.c{background:var(--red-bg)!important;color:var(--red)!important}.st.d{background:var(--ok-bg)!important;color:var(--ok)!important}
+.dot{background:var(--ok)!important}.dot.w{background:var(--warn)!important}.dot.r{background:var(--red)!important}.dot.g{background:var(--mute)!important}
+/* 배지: 4px 모서리, 11px 굵게, 연한 바탕 */
+.tag,.st,.bd,.al{display:inline-block;font:700 11px/1.6 var(--body)!important;padding:1px 7px!important;border-radius:4px!important;border:0!important;background:var(--line)!important;color:var(--mute)!important;white-space:nowrap;margin-right:4px}
+.tag,.st,.bd.n{background:var(--pri-soft)!important;color:var(--neon)!important}
+.tag.w,.bd.b{background:var(--warn-bg)!important;color:var(--warn)!important}
+.tag.r,.st.c,.bd.l,.al{background:var(--red-bg)!important;color:var(--red)!important}
+.st.d{background:var(--ok-bg)!important;color:var(--ok)!important}
 .okc{color:var(--ok)!important}.wn{color:var(--red)!important}
-/* 표 */
-.tbl th,.rw .s,.tbl td{border-color:var(--line)!important}.tbl th{font-size:11.5px!important;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}
-.tbl td.r,.tbl th.r,.rw b,.wk b,.bt span,.bars .n,.tp span{font-family:var(--mono)}
-.bt,.rw,.bars li,.pl,.o2 .br,.ax,.tk{border-color:var(--line)!important}
-/* 입력과 버튼 */
-input,select,textarea{background:var(--inp)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important}
-input::placeholder,textarea::placeholder{color:var(--mute)}
-input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(--neon)!important;box-shadow:var(--glow)}
-button.pri,button.sm,button.sv,.big+.x{background:var(--pri)!important;color:#fff!important;border-radius:8px!important}
-button.pri:hover,button.sm:hover,button.sv:hover{box-shadow:var(--glow);filter:brightness(1.08)}
-button.g,.bt2,button.del,.more,.chips button,a.dl{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important}
-button.g,.bt2:not(.red),.more{color:var(--neon)!important}
-a.dl{background:var(--pri)!important;color:#fff!important;border-color:transparent!important}
-button.del,.bt2.red{color:var(--red)!important;border-color:var(--red)!important}
-button.g:hover,.bt2:hover,.chips button:hover,.more:hover{border-color:var(--neon)!important;box-shadow:var(--glow)}
-.chips button.on{background:var(--pri-soft)!important;color:var(--neon)!important;border-color:var(--neon)!important;box-shadow:var(--glow);text-shadow:var(--neon-glow)}
-.drop{background:var(--card2)!important;border-color:var(--line)!important;border-radius:10px!important}
-.drop .pv,.pl img{background:var(--card2)!important;border-color:var(--line)!important}
-.newc{background:var(--pri-soft)!important;border:1px solid var(--neon);box-shadow:var(--glow);border-radius:10px!important}
-.it,.ms{background:var(--card2)!important;border:1px solid var(--line);border-radius:8px!important}.ms.p{background:var(--pri-soft)!important}
-.al{background:var(--red-bg)!important;color:var(--red)!important;border-radius:6px!important}
-.msg.e{color:var(--red)}.msg.o{color:var(--ok)}
-.wk i{background:var(--neon)!important;box-shadow:var(--neon-glow);border-radius:4px 4px 0 0!important}.wk b{color:var(--ink)}
-.empty{color:var(--mute)}
-.demo{background:var(--warn-bg)!important;color:var(--warn)!important}
-/* 라벨(작은 대문자 느낌) */
-label{font-size:12px!important;letter-spacing:.03em;color:var(--mute)}
-/* 본문 안의 하위 탭 (발송 대기 / 완료 / 취소) */
-main .tabs{display:flex;gap:6px;flex-wrap:wrap}
-main .tabs button{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important;padding:8px 14px}
-main .tabs button:hover{border-color:var(--neon)!important}
-main .tabs button.on{background:var(--pri-soft)!important;color:var(--neon)!important;border-color:var(--neon)!important}
-/* 표와 공통 부품 (파트너 페이지에서도 사용) */
-.tbl{width:100%;border-collapse:collapse;font-size:13.5px}.tbl th,.tbl td{padding:9px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap}.tbl td.r,.tbl th.r{text-align:right}.tw{overflow-x:auto}
+/* 표: 회색 머리줄, 행 구분선, 숫자 오른쪽 정렬 고정폭 */
+.tw{overflow-x:auto}
+.card .tw,.card>.tbl{margin:0 -16px}.card .tw:last-child,.card>.tbl:last-child{margin-bottom:-16px}.card .tw:first-child,.card>.tbl:first-child{margin-top:-16px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th,.tbl td{padding:10px 12px!important;border:0!important;border-bottom:1px solid var(--line)!important;text-align:left;vertical-align:middle;white-space:nowrap}
+.tbl th{font-size:12px!important;font-weight:500!important;letter-spacing:0;text-transform:none;color:var(--mute);background:var(--card2)}
+.tbl tr:last-child td{border-bottom:0!important}
+.tbl td.r,.tbl th.r{text-align:right}.tbl td.r{font-family:var(--mono);font-size:13px}
 .tbl tr.tot td{font-weight:800;background:var(--card2)}
 .tbl a.ml{color:var(--neon);cursor:pointer;text-decoration:underline;font-weight:700}
+.rw .s,.bt,.rw,.bars li,.pl,.o2 .br,.ax,.tk{border-color:var(--line)!important}
+.rw b,.wk b,.bt span,.bars .n,.tp span{font-family:var(--mono)}
+/* 입력: 6px 모서리, 얇은 테두리 */
+input,select,textarea{background:var(--inp)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:6px!important;padding:8px 10px;font-size:14px}
+input::placeholder,textarea::placeholder{color:var(--mute)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--neon)!important;outline-offset:-1px;border-color:var(--line)!important;box-shadow:none!important}
+input[type=checkbox],input[type=radio]{accent-color:var(--pri);padding:0}
+label{font-size:13px!important;font-weight:600!important;letter-spacing:0;color:var(--ink)}
+/* 버튼: 6px 모서리, 13px 굵게. 주 버튼=브랜드색, 보조=테두리만 */
+button.pri,button.sm,button.sv,a.dl,.big+.x{background:var(--pri)!important;color:#fff!important;border:1px solid var(--pri)!important;border-radius:6px!important;font-weight:700;box-shadow:none!important}
+button.sm,button.sv,a.dl{padding:7px 12px!important;font-size:13px!important}
+button.pri{padding:11px 14px!important;font-size:14px!important}
+button.pri:hover,button.sm:hover,button.sv:hover,a.dl:hover{filter:brightness(1.1)}
+button.g,.bt2,button.del,.more,.chips button,main .tabs button{background:var(--card)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:6px!important;padding:7px 12px!important;font-size:13px!important;font-weight:700;box-shadow:none!important;text-shadow:none!important}
+button.g,.bt2:not(.red),.more{color:var(--neon)!important}
+button.del,.bt2.red{color:var(--red)!important;border-color:var(--red)!important}
+button.g:hover,.bt2:hover,.chips button:hover,.more:hover,main .tabs button:hover{border-color:var(--neon)!important}
+button:disabled{opacity:.4;cursor:default}
+/* 필터 칩·하위 탭: 선택은 브랜드색 채움 */
+.chips,main .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chips button.on,main .tabs button.on{background:var(--pri)!important;color:#fff!important;border-color:var(--pri)!important}
+/* 기타 부품 */
+.drop{background:var(--card2)!important;border:1px dashed var(--line)!important;border-radius:8px!important}
+.drop .pv,.pl img{background:var(--card2)!important;border-color:var(--line)!important;border-radius:6px!important}
+.newc{background:var(--pri-soft)!important;border:1px solid var(--neon);border-radius:10px!important}
+.it,.ms{background:var(--card2)!important;border:1px solid var(--line);border-radius:8px!important}.ms.p{background:var(--pri-soft)!important}
+.msg.e{color:var(--red)}.msg.o{color:var(--ok)}
+.wk i{background:var(--neon)!important;border-radius:4px 4px 0 0!important}.wk b{color:var(--ink)}
+.empty{color:var(--mute);padding:36px 0!important;text-align:center}
+.demo{background:var(--warn-bg)!important;color:var(--warn)!important}
+.lgp{padding:28px!important;margin:12vh auto!important}
+.lgp h2{text-align:center}
+/* 리뷰, 별점 */
 .stars{color:#ffc447;letter-spacing:1px;font-size:14px}.stars i{font-style:normal;color:var(--line)}
-.cnt{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
-.cnt button{font:inherit;text-align:left;background:var(--card)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:10px!important;padding:14px 16px;cursor:pointer}
-.cnt button small{display:block;color:var(--mute);font-size:12px}.cnt button b{font-family:var(--mono);font-size:26px}
-.cnt button.on{border-color:var(--neon)!important;box-shadow:0 0 0 1px var(--neon)}
-.rv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px}.rv.low{border-color:var(--red)}
+.rv{padding:16px!important;margin-bottom:10px}.rv.low{border-color:var(--red)!important}
 .rv .rh{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}.rv p{margin:8px 0;white-space:pre-wrap;word-break:break-word}
-.bd{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:6px;border:1px solid var(--line);margin-right:4px;font-family:var(--mono)}
-.bd.n{color:var(--neon);border-color:var(--neon)}.bd.l{color:var(--red);border-color:var(--red)}.bd.b{color:var(--warn);border-color:var(--warn)}
-.cnt a.cb{display:block;text-decoration:none;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
-.cnt a.cb small{display:block;color:var(--mute);font-size:12px}.cnt a.cb b{font-family:var(--mono);font-size:26px}
+.cnt button{font:inherit;text-align:left;color:var(--ink)!important;cursor:pointer}
+.cnt a.cb{display:block;text-decoration:none;color:var(--ink)}
+.kpi>div,.cnt>button,.cnt>a,.grid2>*{min-width:0}.kpi b,.cnt b,.big b{overflow-wrap:anywhere}
+@media (max-width:600px){.kpi b,.cnt button b,.cnt a.cb b{font-size:20px!important}main{padding:16px 12px 70px!important}.card .tw,.card>.tbl{margin:0 -16px}nav button,#tb .tabs button{padding:13px 10px 11px!important;font-size:14px}}
 
 .autr{display:flex;gap:8px;align-items:center;margin-top:6px}
 button.auto{font:inherit;font-weight:800;font-size:13px;border:0;background:var(--ok);color:#04130d;padding:8px 14px;border-radius:9px;cursor:pointer;width:auto;margin:0}
@@ -256,7 +273,7 @@ function login(bad){
 }
 
 function show(){
-  A.innerHTML = '<header><b>SKININSIDE <span style="font-weight:600">ADMIN</span></b><button id="lo">로그아웃</button></header><nav>' + TABS.map(function(t){ return '<button data-t="' + t[0] + '" class="' + (t[0] === tab ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</nav><main id="mn"></main>';
+  A.innerHTML = '<header><b>SKININSIDE<span>관리자</span></b><button id="lo">로그아웃</button></header><nav>' + TABS.map(function(t){ return '<button data-t="' + t[0] + '" class="' + (t[0] === tab ? "on" : "") + '">' + t[1] + '</button>'; }).join("") + '</nav><main id="mn"></main>';
   [].forEach.call(A.querySelectorAll("nav button"), function(b){ b.onclick = function(){ go(b.dataset.t); }; });
   document.getElementById("lo").onclick = function(){ fetch("/api/admin/logout", {method:"POST", credentials:"same-origin"}).then(function(){ login(false); }); };
   ({home:home, reviews:reviews, cs:cs, orders:orders, brands:brands, settle:settle, add:add, stats:dash})[tab]();
