@@ -327,7 +327,6 @@ function home(){
     top += '<div class="card live" id="live"><h2><i class="pulse"></i>실시간 접속</h2><div class="empty">불러오는 중...</div></div>';
     var h = top + (d.todo.length ? '<div class="todo"><b>처리할 일이 ' + d.todo.length + '가지 있어요</b>' + d.todo.map(function(t){ return '<a data-go="' + t.tab + '">' + esc(t.label) + ' <i>' + t.n + '</i></a>'; }).join("") + '</div>'
       : '<div class="todo ok"><b>지금 처리할 일이 없어요</b>모든 주문이 제때 흘러가고 있어요.</div>');
-    h += '<div class="card ntrow" id="hnt"><a class="go" data-go="add">공지 띠 고치기 →</a><h2>사이트 공지 띠</h2><div class="sub" style="margin:0">불러오는 중...</div></div>';
     var ST = {paid:["결제 완료", "tag"], partial:["일부 발송", "tag"], shipped:["발송 완료", "st d"], canceled:["환불(취소)", "st c"]};
     h += '<div class="card"><a class="go" data-go="orders">주문 보기 →</a><h2>최근 결제</h2>' + ((d.recent || []).length ? '<div class="tw"><table class="tbl"><thead><tr><th>일시</th><th>주문번호</th><th>받는 분</th><th>상품</th><th>상태</th><th class="r">금액</th></tr></thead><tbody>' + d.recent.map(function(o){
       var s = ST[o.status] || [o.status, "tag"]; if(o.refund && o.status !== "canceled") s = ["부분 환불", "tag w"];
@@ -343,6 +342,7 @@ function home(){
     h += '<div class="card"><a class="go" data-go="settle">정산 보기 →</a><h2>' + d.month.m.slice(5) + '월 정산</h2><p class="sub">이번 달 누적이에요.</p><div class="kpi" style="grid-template-columns:1fr 1fr;margin:0"><div style="background:var(--bg)"><small>수수료(우리 수익)</small><b style="font-size:22px">' + n(d.month.fee) + '원</b></div><div style="background:var(--bg)"><small>브랜드 정산 예정</small><b style="font-size:22px">' + n(d.month.payout) + '원</b></div></div>'
       + (d.month.rows.length ? '<div style="margin-top:8px">' + d.month.rows.slice(0, 4).map(function(x){ return '<div class="bt" style="grid-template-columns:minmax(0,1fr) auto"><b>' + esc(x.name) + '</b><span>' + n(x.sales) + '원</span></div>'; }).join("") + '</div>' : '') + '</div></div>';
     h += '<div class="card"><a class="go" data-go="stats">통계 보기 →</a><h2>오늘의 진단</h2><div class="kpi" style="margin:8px 0 0"><div style="background:var(--bg)"><small>진단 시작</small><b>' + n(ev.quiz_start) + '</b></div><div style="background:var(--bg)"><small>진단 완료</small><b>' + n(ev.quiz_done) + '</b></div><div style="background:var(--bg)"><small>채널 추가 클릭</small><b>' + n(ev.kakao_click) + '</b></div><div style="background:var(--bg)"><small>카카오 친구</small><b>' + n(k.friends) + '</b></div></div></div>';
+    h += '<div class="card ntrow" id="hnt"><a class="go" data-go="add">공지 띠 고치기 →</a><h2>사이트 공지 띠</h2><div class="sub" style="margin:0">불러오는 중...</div></div>';
     M().innerHTML = h; links(M()); liveStart();
     api("/api/manage/notice").then(function(r){ var x = r.notice, el = document.querySelector("#hnt .sub"); if(!el) return; el.innerHTML = r.live ? '<span class="st d">켜짐</span> ' + esc(x.text) + (x.until ? ' <span class="s">· ' + esc(x.until) + '까지</span>' : '') : (x && x.on ? '<span class="tag w">종료일 지남</span> 사이트에 보이지 않아요.' : '<span class="tag">꺼짐</span> 지금은 사이트에 공지가 없어요.'); }).catch(function(){ var el = document.querySelector("#hnt .sub"); if(el) el.textContent = "공지 상태를 불러오지 못했어요."; });
   }).catch(fail);
@@ -597,12 +597,7 @@ var IMG = "";
 function add(){
   var M = document.getElementById("mn"); IMG = "";
   var opts = Object.keys(CATS).map(function(k){ return '<option value="' + esc(k) + '">' + esc(CATS[k]) + '</option>'; }).join("");
-  M.innerHTML = '<div class="card" id="ntc"><h2>사이트 공지 띠</h2><p class="sub">스토어와 진단 모든 화면 맨 위(로고 아래)에 노란 띠로 보여요. 방문자는 접었다 펼 수만 있고(접어도 얇은 띠로 남음) 닫을 수는 없어요. 내용을 고쳐 저장하면 모두에게 다시 펼쳐져 보여요.</p>'
-    + '<label class="ck2"><input type="checkbox" id="non"> 공지 띠 켜기</label>'
-    + '<label>공지 문구 (최대 150자)</label><input id="ntx" maxlength="150" placeholder="예: 10월 31일까지 전 제품 무료배송이에요.">'
-    + '<div class="nt3"><div><label>버튼 링크 (선택)</label><input id="nlk" maxlength="300" placeholder="https://… 또는 /store"></div><div><label>버튼 글자 (선택)</label><input id="nlt" maxlength="20" placeholder="자세히 보기"></div><div><label>노출 종료일 (선택)</label><input id="nun" type="date"></div></div>'
-    + '<div class="ntpv" id="npv"></div><div class="sub" id="npo" hidden style="margin:0 0 6px">꺼져 있어서 사이트에는 보이지 않아요. 켜고 저장하면 위처럼 보여요.</div><button class="pri" id="nsv">공지 띠 저장</button><div class="msg" id="nms"></div><div class="sub" id="nst" style="margin:10px 0 0"></div></div>'
-    + '<div class="card"><h2>히든 버튼</h2><p class="sub">스토어 하단에서 쑥 올라오는 반투명 특가 버튼이에요. 마켓이나 광고 기간에 문구와 링크를 바꿔 쓰세요. 껐다 켜도 문구는 그대로 남아요.</p>'
+  M.innerHTML = '<div class="card"><h2>히든 버튼</h2><p class="sub">스토어 하단에서 쑥 올라오는 반투명 특가 버튼이에요. 마켓이나 광고 기간에 문구와 링크를 바꿔 쓰세요. 껐다 켜도 문구는 그대로 남아요.</p>'
     + '<label class="ck2"><input type="checkbox" id="hon"> 스토어에 노출하기</label>'
     + '<label>버튼 문구 (최대 30자)</label><input id="htx" maxlength="30" placeholder="예: 오늘만 특가 찬스">'
     + '<label>이동할 링크</label><input id="hur" type="url" placeholder="https://">'
@@ -617,7 +612,12 @@ function add(){
     + '<label>카테고리</label><select id="fc">' + opts + '</select>'
     + '<label>바로가기 링크</label><input id="fu" type="url" placeholder="https://">'
     + '<button class="pri" id="fs">제품 등록</button><div class="msg" id="fm"></div></div>'
-    + '<div class="card"><h2>추가한 제품</h2><div id="pl"><div class="empty">불러오는 중...</div></div></div>';
+    + '<div class="card"><h2>추가한 제품</h2><div id="pl"><div class="empty">불러오는 중...</div></div></div>'
+    + '<div class="card" id="ntc"><h2>사이트 공지 띠</h2><p class="sub">스토어와 진단 모든 화면 맨 위(로고 아래)에 노란 띠로 보여요. 방문자는 접었다 펼 수만 있고(접어도 얇은 띠로 남음) 닫을 수는 없어요. 내용을 고쳐 저장하면 모두에게 다시 펼쳐져 보여요.</p>'
+    + '<label class="ck2"><input type="checkbox" id="non"> 공지 띠 켜기</label>'
+    + '<label>공지 문구 (최대 150자)</label><input id="ntx" maxlength="150" placeholder="예: 10월 31일까지 전 제품 무료배송이에요.">'
+    + '<div class="nt3"><div><label>버튼 링크 (선택)</label><input id="nlk" maxlength="300" placeholder="https://… 또는 /store"></div><div><label>버튼 글자 (선택)</label><input id="nlt" maxlength="20" placeholder="자세히 보기"></div><div><label>노출 종료일 (선택)</label><input id="nun" type="date"></div></div>'
+    + '<div class="ntpv" id="npv"></div><div class="sub" id="npo" hidden style="margin:0 0 6px">꺼져 있어서 사이트에는 보이지 않아요. 켜고 저장하면 위처럼 보여요.</div><button class="pri" id="nsv">공지 띠 저장</button><div class="msg" id="nms"></div><div class="sub" id="nst" style="margin:10px 0 0"></div></div>';
   var $ = function(i){ return document.getElementById(i); };
   function disc(){ var l = +$("fl").value, p = +$("fp").value; $("fd").textContent = l > 0 && p > 0 ? (p > l ? "할인가가 정가보다 커요" : p < l ? Math.round((l - p) / l * 100) + "% 할인" : "할인 없음") : ""; }
   $("fl").oninput = disc; $("fp").oninput = disc;
