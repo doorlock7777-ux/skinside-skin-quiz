@@ -46,6 +46,14 @@ with sync_playwright() as p:
         # --- 홈: 읽기 전용 대시보드 ---
         if F.locator(".todo").count() != 1 or F.locator(".kpi div").count() < 4 or F.locator(".flow i").count() < 3 or F.locator(".bt").count() < 3: err.append("관리자 홈 요약이 부족해요 (%dpx)" % w)
         if fa.evaluate(READ_ONLY) != 0: err.append("관리자 홈에 입력/버튼이 있어요(읽기 전용이어야 해요)")
+        pg.wait_for_timeout(500)
+        if F.locator(".kpi.top > div").count() != 8: err.append("관리자 홈 맨 위 지표가 8칸이 아니에요 (%dpx)" % w)
+        tops = F.locator(".kpi.top").inner_text()
+        for kw in ("결제 완료", "환불", "누적 매출"):
+            if kw not in tops: err.append("관리자 홈 맨 위에 '%s'가 없어요" % kw)
+        if F.locator("#live .lv-now b").count() != 1 or F.locator("#live .lv-bars i").count() != 30: err.append("관리자 홈에 실시간 접속(지금 접속 중, 30분 그래프)이 없어요 (%dpx)" % w)
+        if fa.evaluate("document.querySelector('.kpi.top').getBoundingClientRect().top > document.getElementById('live').getBoundingClientRect().top || document.getElementById('live').getBoundingClientRect().top > document.querySelector('.todo').getBoundingClientRect().top"): err.append("맨 위 지표 -> 실시간 접속 -> 처리할 일 순서가 아니에요")
+        if F.locator("text=최근 결제").count() < 1 or F.locator(".tbl tbody tr").count() < 1: err.append("관리자 홈에 최근 결제 표가 없어요")
         if fa.evaluate("document.querySelectorAll('[data-go]').length") < 4: err.append("관리자 홈에서 각 탭으로 가는 링크가 없어요")
         if fa.evaluate("document.documentElement.scrollWidth") > w: err.append("관리자 홈이 가로로 넘쳐요 (%dpx)" % w)
         for tab, sel in (("orders", ".o2"), ("cs", ".o2"), ("brands", "table.tbl"), ("settle", "table.tbl")):
@@ -147,6 +155,23 @@ with sync_playwright() as p:
         if fa.evaluate("[...document.querySelectorAll('.tp span')].some(e=>e.scrollWidth>e.clientWidth+1)"): err.append("피부타입 통계 글자가 잘려요 (%dpx)" % w)
         # 제품 추가
         F.locator("nav button[data-t=add]").click(); pg.wait_for_timeout(300)
+        if True:  # 공지 띠
+            pg.wait_for_timeout(400)
+            if F.locator("#ntc #ntx").input_value() == "" or "무료배송" not in F.locator("#npv").inner_text(): err.append("관리자 공지 띠 칸이 저장된 공지를 불러오지 않아요")
+            F.locator("#non").uncheck(); pg.wait_for_timeout(100)
+            if "off" not in (F.locator("#npv").get_attribute("class") or "") or not F.locator("#npo").is_visible(): err.append("공지 띠를 끄면 미리보기가 흐려지고 '사이트에는 보이지 않아요' 안내가 나와야 해요")
+            F.locator("#non").check(); pg.wait_for_timeout(100)
+            if "off" in (F.locator("#npv").get_attribute("class") or "") or F.locator("#npo").is_visible(): err.append("공지 띠를 켜면 미리보기가 원래대로 보여야 해요")
+            F.locator("#ntx").fill(""); F.locator("#non").check(); F.locator("#nsv").click(); pg.wait_for_timeout(300)
+            if "켤 수" not in F.locator("#nms").inner_text(): err.append("문구 없이 공지 띠가 켜져요(안내 없음)")
+            F.locator("#ntx").fill("주말 배송 안내예요."); F.locator("#nlk").fill("/store"); F.locator("#nlt").fill("스토어 보기"); pg.wait_for_timeout(100)
+            if "주말 배송 안내" not in F.locator("#npv").inner_text() or "스토어 보기" not in F.locator("#npv").inner_text(): err.append("공지 띠 미리보기가 입력을 따라가지 않아요")
+            F.locator("#nsv").click(); pg.wait_for_timeout(300)
+            if "저장했어요" not in F.locator("#nms").inner_text() or "보이는 중" not in F.locator("#nst").inner_text(): err.append("공지 띠 저장 후 상태가 달라요")
+            if fa.evaluate("document.documentElement.scrollWidth") > w: err.append("제품 탭(공지 띠)이 가로로 넘쳐요 (%dpx)" % w)
+            F.locator("nav button[data-t=home]").click(); pg.wait_for_timeout(700)
+            if "주말 배송 안내" not in F.locator("#hnt").inner_text() or F.locator("#hnt [data-go=add]").count() != 1: err.append("관리자 홈에 공지 띠 상태가 없어요")
+            F.locator("nav button[data-t=add]").click(); pg.wait_for_timeout(300)
         for lab in ["제품 이미지", "제품명", "브랜드명", "정가", "할인가", "카테고리", "바로가기 링크"]:
             if lab not in F.locator("#mn").inner_text(): err.append("제품 추가 입력칸이 없어요: " + lab)
         F.locator("#fi").set_input_files(os.path.join(T, "chk_prod.png")); pg.wait_for_timeout(600)

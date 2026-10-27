@@ -1,5 +1,6 @@
 import { runBrandBatch } from "./_batch.mjs";
 import { isAdmin } from "./_auth.mjs";
+import { beat } from "./_live.mjs";
 import { loadBrands, BRANDS, json, loadStock, isSoldOut, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
 
 /* 히든 버튼 타이머: 시각은 모두 한국 시간(KST, UTC+9)으로 해석한다 */
@@ -24,6 +25,13 @@ const hiddenView = (h, now) => {
 };
 const EVENTS = ["kakao_click", "kakao_unlock", "quiz_start", "quiz_done", "hidden_click"];
 
+/* 공지 띠: 켜짐 + 문구 있음 + 종료일(한국 시간 그날 밤 끝)이 안 지났을 때만 보인다. updatedAt은 접은 상태를 새 공지에서 다시 펼치는 기준 */
+export function noticeView(n, now = Date.now()) {
+  if (!n || !n.on || !n.text) return null;
+  if (n.until && Date.parse(n.until + "T23:59:59+09:00") < now) return null;
+  return { text: n.text, link: n.link || "", linkText: n.linkText || "", until: n.until || "", updatedAt: n.updatedAt || "" };
+}
+
 export default async (req) => { await loadBrands();
   const u = new URL(req.url), p = u.pathname.replace(/\/$/, "");
 
@@ -35,6 +43,11 @@ export default async (req) => { await loadBrands();
     /* 진단 완료에는 피부타입(예: CRNT-O)을 함께 모은다. 형식이 맞는 것만 받는다 (간이 진단은 타입을 보내지 않는다) */
     if (b.e === "quiz_done" && /^[DOC][SR][PN][WT](-[OD])?$/.test(String(b.t || ""))) await addEvent("type:" + b.t);
     return json({ ok: true });
+  }
+  /* 실시간 접속 신호(스토어·진단 화면이 열려 있는 동안 1분마다). 임의 id와 화면 이름만 받는다 */
+  if (p === "/api/live" && req.method === "POST") {
+    const r = await beat(await req.json().catch(() => ({})));
+    return json(r, r.error ? 400 : 200, { "cache-control": "no-store" });
   }
   if (p === "/api/stock") {
     const st = await loadStock();
@@ -53,6 +66,8 @@ export default async (req) => { await loadBrands();
     const on = !!(h.on && h.text && h.url) && !v.expired;
     return json(on ? { on: true, text: h.text, url: h.url, end: v.end, now } : { on: false }, 200, { "cache-control": "public, max-age=10" });
   }
+  /* 사이트 공지 띠(강의사이트와 같은 방식): 켜져 있고 종료일이 지나지 않았을 때만 내보낸다 */
+  if (p === "/api/notice") return json({ notice: noticeView((await settings().get("notice", { type: "json" })) || null) }, 200, { "cache-control": "public, max-age=10" });
   if (p === "/api/kakao") {
     const k = (await settings().get("kakao", { type: "json" })) || {};
     return json({ friends: k.friends || 0, name: k.name || "" }, 200, { "cache-control": "public, max-age=300" });
@@ -97,6 +112,20 @@ export default async (req) => { await loadBrands();
     await settings().setJSON("hidden", h);
     return json({ ok: true, ...h });
   }
+  if (p === "/api/manage/notice" && req.method === "GET") {
+    const n = (await settings().get("notice", { type: "json" })) || null;
+    return json({ notice: n, live: !!noticeView(n) });
+  }
+  if (p === "/api/manage/notice" && req.method === "POST") {
+    const text = String(b.text || "").replace(/\s+/g, " ").trim().slice(0, 150), link = String(b.link || "").trim().slice(0, 300), until = String(b.until || "").trim();
+    if (b.on && !text) return json({ error: "공지 문구를 입력해야 켤 수 있어요." }, 400);
+    if (link && !/^(https:\/\/[^\s<>"']{3,}|\/[^\s<>"']*|#[\w-]*)$/i.test(link)) return json({ error: "버튼 링크는 https:// 로 시작하는 주소나 /store 같은 사이트 안 주소만 쓸 수 있어요." }, 400);
+    if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) return json({ error: "노출 종료일 형식이 올바르지 않아요." }, 400);
+    if (b.on && until && Date.parse(until + "T23:59:59+09:00") < Date.now()) return json({ error: "노출 종료일이 이미 지났어요. 오늘 이후 날짜를 고르거나 비워주세요." }, 400);
+    const n = { on: !!b.on, text, link, linkText: String(b.linkText || "").replace(/\s+/g, " ").trim().slice(0, 20), until, updatedAt: new Date().toISOString() };
+    await settings().setJSON("notice", n);
+    return json({ ok: true, notice: n, live: !!noticeView(n) });
+  }
   if (p === "/api/manage/kakao" && req.method === "POST") {
     const friends = Math.max(0, Math.min(100000000, parseInt(b.friends, 10) || 0));
     const k = { friends, name: String(b.name || "").slice(0, 40), updated: new Date().toISOString() };
@@ -134,4 +163,4 @@ export default async (req) => { await loadBrands();
   return json({ error: "not found" }, 404);
 };
 
-export const config = { path: ["/api/event", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/hidden", "/api/manage/*"] };
+export const config = { path: ["/api/event", "/api/live", "/api/notice", "/api/stock", "/api/extra", "/api/extra-img", "/api/kakao", "/api/hidden", "/api/manage/*"] };
