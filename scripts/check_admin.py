@@ -155,6 +155,19 @@ with sync_playwright() as p:
         if fa.evaluate("[...document.querySelectorAll('.tp span')].some(e=>e.scrollWidth>e.clientWidth+1)"): err.append("피부타입 통계 글자가 잘려요 (%dpx)" % w)
         # 제품 추가
         F.locator("nav button[data-t=add]").click(); pg.wait_for_timeout(300)
+        if True:  # 공지 띠
+            pg.wait_for_timeout(400)
+            if F.locator("#ntc #ntx").input_value() == "" or "무료배송" not in F.locator("#npv").inner_text(): err.append("관리자 공지 띠 칸이 저장된 공지를 불러오지 않아요")
+            F.locator("#ntx").fill(""); F.locator("#non").check(); F.locator("#nsv").click(); pg.wait_for_timeout(300)
+            if "켤 수" not in F.locator("#nms").inner_text(): err.append("문구 없이 공지 띠가 켜져요(안내 없음)")
+            F.locator("#ntx").fill("주말 배송 안내예요."); F.locator("#nlk").fill("/store"); F.locator("#nlt").fill("스토어 보기"); pg.wait_for_timeout(100)
+            if "주말 배송 안내" not in F.locator("#npv").inner_text() or "스토어 보기" not in F.locator("#npv").inner_text(): err.append("공지 띠 미리보기가 입력을 따라가지 않아요")
+            F.locator("#nsv").click(); pg.wait_for_timeout(300)
+            if "저장했어요" not in F.locator("#nms").inner_text() or "보이는 중" not in F.locator("#nst").inner_text(): err.append("공지 띠 저장 후 상태가 달라요")
+            if fa.evaluate("document.documentElement.scrollWidth") > w: err.append("제품 탭(공지 띠)이 가로로 넘쳐요 (%dpx)" % w)
+            F.locator("nav button[data-t=home]").click(); pg.wait_for_timeout(700)
+            if "주말 배송 안내" not in F.locator("#hnt").inner_text() or F.locator("#hnt [data-go=add]").count() != 1: err.append("관리자 홈에 공지 띠 상태가 없어요")
+            F.locator("nav button[data-t=add]").click(); pg.wait_for_timeout(300)
         for lab in ["제품 이미지", "제품명", "브랜드명", "정가", "할인가", "카테고리", "바로가기 링크"]:
             if lab not in F.locator("#mn").inner_text(): err.append("제품 추가 입력칸이 없어요: " + lab)
         F.locator("#fi").set_input_files(os.path.join(T, "chk_prod.png")); pg.wait_for_timeout(600)

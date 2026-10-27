@@ -252,6 +252,14 @@ input:disabled{opacity:.45}
 .lv-bars i{flex:1;min-width:0;background:var(--neon);border-radius:2px 2px 0 0}.lv-bars i.z{background:var(--line)}
 .lv-ax{display:flex;justify-content:space-between;gap:8px;font:12px var(--mono);color:var(--mute);margin-top:6px}.lv-ax span:nth-child(2){font-family:var(--body)}
 @media (max-width:760px){.lv{grid-template-columns:1fr 1fr;gap:16px}.lv-ch{grid-column:1/-1}}
+
+/* 공지 띠 관리 */
+.nt3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}@media (max-width:720px){.nt3{grid-template-columns:1fr}}
+.ntpv{margin:14px 0 6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:#fee500;color:#171a33;font:700 14px/1.5 "Noto Sans KR","Pretendard",sans-serif;border-bottom:3px solid #171a33;border-radius:6px;padding:10px 14px}
+.ntpv .tg{background:#171a33;color:#fee500;font-size:11.5px;padding:2px 7px;border-radius:3px}.ntpv .m{flex:1;min-width:0}
+.ntpv u{text-decoration:none;background:#171a33;color:#fff;border-radius:999px;padding:3px 12px;font-size:13px;white-space:nowrap}
+.ntpv i{font-style:normal;border:1px solid currentColor;border-radius:999px;padding:1px 9px;font-size:11.5px;opacity:.8}.ntpv small{opacity:.7;font-weight:500}
+.ntrow .sub{display:flex;flex-wrap:wrap;gap:6px;align-items:center;color:var(--ink)!important;font-size:14px}
 </style></head>
 <body>
 <div id="dm" class="demo" hidden></div>
@@ -318,6 +326,7 @@ function home(){
     top += '<div class="card live" id="live"><h2><i class="pulse"></i>실시간 접속</h2><div class="empty">불러오는 중...</div></div>';
     var h = top + (d.todo.length ? '<div class="todo"><b>처리할 일이 ' + d.todo.length + '가지 있어요</b>' + d.todo.map(function(t){ return '<a data-go="' + t.tab + '">' + esc(t.label) + ' <i>' + t.n + '</i></a>'; }).join("") + '</div>'
       : '<div class="todo ok"><b>지금 처리할 일이 없어요</b>모든 주문이 제때 흘러가고 있어요.</div>');
+    h += '<div class="card ntrow" id="hnt"><a class="go" data-go="add">공지 띠 고치기 →</a><h2>사이트 공지 띠</h2><div class="sub" style="margin:0">불러오는 중...</div></div>';
     var ST = {paid:["결제 완료", "tag"], partial:["일부 발송", "tag"], shipped:["발송 완료", "st d"], canceled:["환불(취소)", "st c"]};
     h += '<div class="card"><a class="go" data-go="orders">주문 보기 →</a><h2>최근 결제</h2>' + ((d.recent || []).length ? '<div class="tw"><table class="tbl"><thead><tr><th>일시</th><th>주문번호</th><th>받는 분</th><th>상품</th><th>상태</th><th class="r">금액</th></tr></thead><tbody>' + d.recent.map(function(o){
       var s = ST[o.status] || [o.status, "tag"]; if(o.refund && o.status !== "canceled") s = ["부분 환불", "tag w"];
@@ -334,6 +343,7 @@ function home(){
       + (d.month.rows.length ? '<div style="margin-top:8px">' + d.month.rows.slice(0, 4).map(function(x){ return '<div class="bt" style="grid-template-columns:minmax(0,1fr) auto"><b>' + esc(x.name) + '</b><span>' + n(x.sales) + '원</span></div>'; }).join("") + '</div>' : '') + '</div></div>';
     h += '<div class="card"><a class="go" data-go="stats">통계 보기 →</a><h2>오늘의 진단</h2><div class="kpi" style="margin:8px 0 0"><div style="background:var(--bg)"><small>진단 시작</small><b>' + n(ev.quiz_start) + '</b></div><div style="background:var(--bg)"><small>진단 완료</small><b>' + n(ev.quiz_done) + '</b></div><div style="background:var(--bg)"><small>채널 추가 클릭</small><b>' + n(ev.kakao_click) + '</b></div><div style="background:var(--bg)"><small>카카오 친구</small><b>' + n(k.friends) + '</b></div></div></div>';
     M().innerHTML = h; links(M()); liveStart();
+    api("/api/manage/notice").then(function(r){ var x = r.notice, el = document.querySelector("#hnt .sub"); if(!el) return; el.innerHTML = r.live ? '<span class="st d">켜짐</span> ' + esc(x.text) + (x.until ? ' <span class="s">· ' + esc(x.until) + '까지</span>' : '') : (x && x.on ? '<span class="tag w">종료일 지남</span> 사이트에 보이지 않아요.' : '<span class="tag">꺼짐</span> 지금은 사이트에 공지가 없어요.'); }).catch(function(){ var el = document.querySelector("#hnt .sub"); if(el) el.textContent = "공지 상태를 불러오지 못했어요."; });
   }).catch(fail);
 }
 
@@ -586,7 +596,12 @@ var IMG = "";
 function add(){
   var M = document.getElementById("mn"); IMG = "";
   var opts = Object.keys(CATS).map(function(k){ return '<option value="' + esc(k) + '">' + esc(CATS[k]) + '</option>'; }).join("");
-  M.innerHTML = '<div class="card"><h2>히든 버튼</h2><p class="sub">스토어 하단에서 쑥 올라오는 반투명 특가 버튼이에요. 마켓이나 광고 기간에 문구와 링크를 바꿔 쓰세요. 껐다 켜도 문구는 그대로 남아요.</p>'
+  M.innerHTML = '<div class="card" id="ntc"><h2>사이트 공지 띠</h2><p class="sub">스토어와 진단 모든 화면 맨 위(로고 아래)에 노란 띠로 보여요. 방문자는 접었다 펼 수만 있고(접어도 얇은 띠로 남음) 닫을 수는 없어요. 내용을 고쳐 저장하면 모두에게 다시 펼쳐져 보여요.</p>'
+    + '<label class="ck2"><input type="checkbox" id="non"> 공지 띠 켜기</label>'
+    + '<label>공지 문구 (최대 150자)</label><input id="ntx" maxlength="150" placeholder="예: 10월 31일까지 전 제품 무료배송이에요.">'
+    + '<div class="nt3"><div><label>버튼 링크 (선택)</label><input id="nlk" maxlength="300" placeholder="https://… 또는 /store"></div><div><label>버튼 글자 (선택)</label><input id="nlt" maxlength="20" placeholder="자세히 보기"></div><div><label>노출 종료일 (선택)</label><input id="nun" type="date"></div></div>'
+    + '<div class="ntpv" id="npv"></div><button class="pri" id="nsv">공지 띠 저장</button><div class="msg" id="nms"></div><div class="sub" id="nst" style="margin:10px 0 0"></div></div>'
+    + '<div class="card"><h2>히든 버튼</h2><p class="sub">스토어 하단에서 쑥 올라오는 반투명 특가 버튼이에요. 마켓이나 광고 기간에 문구와 링크를 바꿔 쓰세요. 껐다 켜도 문구는 그대로 남아요.</p>'
     + '<label class="ck2"><input type="checkbox" id="hon"> 스토어에 노출하기</label>'
     + '<label>버튼 문구 (최대 30자)</label><input id="htx" maxlength="30" placeholder="예: 오늘만 특가 찬스">'
     + '<label>이동할 링크</label><input id="hur" type="url" placeholder="https://">'
@@ -605,6 +620,19 @@ function add(){
   var $ = function(i){ return document.getElementById(i); };
   function disc(){ var l = +$("fl").value, p = +$("fp").value; $("fd").textContent = l > 0 && p > 0 ? (p > l ? "할인가가 정가보다 커요" : p < l ? Math.round((l - p) / l * 100) + "% 할인" : "할인 없음") : ""; }
   $("fl").oninput = disc; $("fp").oninput = disc;
+  /* 공지 띠 */
+  function npv(){
+    var t = $("ntx").value.trim(), lk = $("nlk").value.trim();
+    $("npv").innerHTML = t ? '<span class="tg">공지</span><span class="m">' + esc(t) + '</span>' + (lk ? '<u>' + esc($("nlt").value.trim() || "자세히 보기") + ' &#8250;</u>' : '') + '<i>접기 ▲</i>' : '<small>문구를 입력하면 사이트에 이렇게 보여요</small>';
+  }
+  function nmsg(t, e){ var m = $("nms"); m.className = "msg " + (e ? "e" : "o"); m.textContent = t; }
+  function nstat(n, live){ $("nst").textContent = n ? (live ? "지금 사이트에 보이는 중" : n.on ? "종료일이 지나 숨겨진 상태" : "꺼져 있음") + " · 마지막 저장 " + new Date(new Date(n.updatedAt).getTime() + 9 * 36e5).toISOString().slice(5, 16).replace("T", " ") : "아직 공지가 없어요"; }
+  ["ntx", "nlk", "nlt"].forEach(function(i){ $(i).oninput = npv; });
+  api("/api/manage/notice").then(function(r){ var x = r.notice; if(x){ $("non").checked = !!x.on; $("ntx").value = x.text || ""; $("nlk").value = x.link || ""; $("nlt").value = x.linkText || ""; $("nun").value = x.until || ""; } nstat(x, r.live); npv(); }).catch(function(){ npv(); });
+  $("nsv").onclick = function(){
+    var b = this; b.disabled = true; nmsg("저장 중...");
+    post("/api/manage/notice", {on:$("non").checked, text:$("ntx").value, link:$("nlk").value, linkText:$("nlt").value, until:$("nun").value}).then(function(r){ nmsg(r.live ? "저장했어요. 사이트에 10초 안에 반영되고, 접어둔 사람에게도 다시 펼쳐져요." : "저장했어요. 지금은 사이트에 보이지 않아요."); nstat(r.notice, r.live); }).catch(function(e){ nmsg((e && e.message) || "저장하지 못했어요", 1); }).then(function(){ b.disabled = false; });
+  };
   /* 히든 버튼 */
   var HD = {now:0, off:0, defEnd:0}, htm = null;
   function kst(str){ var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(str || ""); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - 9 * 3600e3 : null; }
