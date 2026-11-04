@@ -68,7 +68,7 @@ window.fetch = function(u, o){
     if(u === "/api/feed/like"){ var f2 = state.feed.filter(function(x){ return x.id === b.id; })[0]; if(!f2) return res({error:"삭제된 후기예요"}, 400); if(state.liked[b.id]){ delete state.liked[b.id]; f2.likes--; } else { state.liked[b.id] = 1; f2.likes++; } save(); return res({liked:!!state.liked[b.id], likes:f2.likes}); }
     if(u === "/api/feed/comment"){ var f3 = state.feed.filter(function(x){ return x.id === b.id; })[0]; if(!f3 || !String(b.text || "").trim()) return res({error:"댓글을 입력해주세요"}, 400); var c3 = {id:"c" + Date.now(), name:"홍*동", text:String(b.text).slice(0, 200), at:new Date().toISOString(), mine:true}; f3.comments.push(c3); save(); return res({comment:c3}); }
     if(u === "/api/feed/comment/delete"){ var f4 = state.feed.filter(function(x){ return x.id === b.id; })[0]; if(f4) f4.comments = f4.comments.filter(function(c){ return c.id !== b.cid; }); save(); return res({ok:true}); }
-    if(u === "/api/feed/report") return res({ok:true});
+    if(u === "/api/feed/report" || u === "/api/feed/buy") return res({ok:true});
     var one = u.indexOf("id=") >= 0 ? decodeURIComponent(u.split("id=")[1].split("&")[0]) : "";
     var mine = (state.reviews || []).filter(function(r){ return r.mine; }).map(function(r){ return {id:r.id, productId:r.productId, userName:"홍*동", badge:false, rating:r.rating, best:false, text:r.text, photos:r.photos || [], likes:0, comments:[], createdAt:r.createdAt, mine:true}; });
     var all = mine.concat(state.feed).filter(function(x){ return !one || x.id === one; });

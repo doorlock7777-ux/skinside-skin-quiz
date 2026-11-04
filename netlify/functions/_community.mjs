@@ -46,8 +46,51 @@ export async function rateFor(uid, cfg) { cfg = cfg || (await loadCfg()); return
 /* ---------- 피드 ---------- */
 const getReact = async (rid) => (await reactStore().get("r-" + rid, { type: "json" })) || { likes: [], comments: [] };
 const vis = (r) => r && r.status !== "deleted";
-export async function feedPage(all, { page = 1, size = 10, me, productsMap, product, only }) {
+/* 반응 집계(좋아요 수, 구매하기 누른 사람 수): 후기 순서를 정할 때 후기마다 읽지 않으려고 한 문서에 모은다 */
+const getIdx = async () => (await reactStore().get("idx", { type: "json" })) || {};
+async function bump(rid, key, n) { const d = await getIdx(); d[rid] = d[rid] || { l: 0, b: 0 }; d[rid][key] = Math.max(0, (d[rid][key] || 0) + n); await reactStore().setJSON("idx", d); }
+export async function recordBuy(rid, uid) {
+  const r = await getReview(rid); if (!vis(r)) return { error: "삭제된 후기예요" };
+  const x = await getReact(rid); x.buyers = x.buyers || [];
+  if (x.buyers.includes(uid) || r.userId === uid) return { ok: true, counted: false };
+  x.buyers.push(uid); await reactStore().setJSON("r-" + rid, x); await bump(rid, "b", 1); return { ok: true, counted: true };
+}
+/* 후기 노출 순서. 별 5개 후기를 먼저 보여주되 다섯 갈래 줄에서 번갈아 한 개씩 꺼내 섞는다.
+   1) 내가 최근에 본 제품의 후기  2) 좋아요 많은 후기  3) 구매하기 많이 받은 후기  4) 최신 후기  5) 별점 높은 후기
+   한 제품이 몰리지 않게(최근 6개 중 2개까지), 같은 사람 글이 연달아 나오지 않게 건너뛴다. */
+const PATTERN = [1, 2, 1, 3, 1, 4, 2, 1, 3, 5], PATTERN0 = [2, 3, 4, 2, 3, 5, 2, 4, 3, 5]; /* 최근 본 제품이 없으면 1번 줄 자리를 나머지로 채운다 */
+export function rankFeed(list, idx, recent) {
+  const rec = Array.isArray(recent) ? recent.filter(Boolean).slice(0, 5) : [];
+  const L = (r) => (idx[r.id] || {}).l || 0, B = (r) => (idx[r.id] || {}).b || 0, T = (r) => new Date(r.createdAt).getTime() || 0;
+  const tier = (r) => (r.rating >= 5 ? 0 : r.rating === 4 ? 1 : 2);
+  const by = (...f) => (a, b) => { for (const g of f) { const d = g(a, b); if (d) return d; } return 0; };
+  const star = (a, b) => tier(a) - tier(b), likes = (a, b) => L(b) - L(a), buys = (a, b) => B(b) - B(a), fresh = (a, b) => T(b) - T(a);
+  const q = {
+    1: list.filter((r) => rec.includes(r.productId)).sort(by((a, b) => rec.indexOf(a.productId) - rec.indexOf(b.productId), star, likes, buys, fresh)),
+    2: [...list].sort(by(star, likes, buys, fresh)),
+    3: [...list].sort(by(star, buys, likes, fresh)),
+    4: [...list].sort(by(star, fresh, likes)),
+    5: [...list].sort(by((a, b) => b.rating - a.rating, likes, fresh)),
+  };
+  const out = [], used = new Set(), order = (k) => [k, 2, 3, 4, 5, 1].filter((v, i, a) => a.indexOf(v) === i);
+  const okNext = (r) => {
+    const last = out[out.length - 1];
+    if (last && last.userId === r.userId) return false;
+    return out.slice(-6).filter((o) => o.productId === r.productId).length < 2;
+  };
+  const pick = (k, strict) => { for (const r of q[k]) if (!used.has(r.id) && (!strict || okNext(r))) return r; return null; };
+  for (let i = 0; out.length < list.length; i++) {
+    const want = (rec.length ? PATTERN : PATTERN0)[i % PATTERN.length];
+    let r = null;
+    for (const strict of [true, false]) { for (const k of order(want)) { r = pick(k, strict); if (r) break; } if (r) break; }
+    if (!r) break;
+    used.add(r.id); out.push(r);
+  }
+  return out;
+}
+export async function feedPage(all, { page = 1, size = 10, me, productsMap, product, only, recent }) {
   let l = all.filter((r) => vis(r) && (!product || r.productId === product) && (!only || r.id === only));
+  if (!only) l = rankFeed(l, await getIdx(), recent);
   const total = l.length, from = (Math.max(1, page) - 1) * size;
   l = l.slice(from, from + size);
   const badges = await badgeDoc();
@@ -61,7 +104,7 @@ export async function toggleLike(rid, uid) {
   const r = await getReview(rid); if (!vis(r)) return { error: "삭제된 후기예요" };
   const x = await getReact(rid), i = x.likes.indexOf(uid);
   if (i >= 0) x.likes.splice(i, 1); else x.likes.push(uid);
-  await reactStore().setJSON("r-" + rid, x); return { liked: i < 0, likes: x.likes.length };
+  await reactStore().setJSON("r-" + rid, x); await bump(rid, "l", i < 0 ? 1 : -1); return { liked: i < 0, likes: x.likes.length };
 }
 export async function listComments(rid, me) {
   const r = await getReview(rid); if (!vis(r)) return { error: "삭제된 후기예요" };

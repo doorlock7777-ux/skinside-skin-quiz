@@ -31,5 +31,5 @@ html = """<title>스킨인사이드 스토어 미리보기</title>
 <script>%s</script>
 <script>%s</script>
 <script>%s</script>
-""" % (css, BANNER, uri("images/logo.webp"), json.dumps(cfg), json.dumps(d, ensure_ascii=False), "" if os.environ.get("DEMO_SEED") else "window.__NOSEED=1;", rd("scripts/demo.js"), rd("public/hidden.js"), rd("public/app.js"))
+""" % (css, BANNER, uri("images/logo.webp"), json.dumps(cfg), json.dumps(d, ensure_ascii=False), "" if os.environ.get("DEMO_SEED") else "window.__NOSEED=1;", rd("scripts/demo.js"), rd("public/hidden.js"), rd("public/tabs.js") + "\n" + rd("public/app.js"))
 open(sys.argv[1], "w", encoding="utf-8").write(html); print(len(html))

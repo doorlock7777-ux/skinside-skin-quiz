@@ -23,6 +23,19 @@ const vis = (r) => r.status !== "deleted";
 export const imgStore = () => getStore({ name: "reviewimg", consistency: "strong" });
 export const MAX_PHOTOS = 3, MAX_PHOTO_BYTES = 700 * 1024;
 const MAGIC = { jpeg: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff, png: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47, webp: (b) => b.slice(0, 4).toString() === "RIFF" && b.slice(8, 12).toString() === "WEBP" };
+/* JPEG 헤더(SOF)에서 가로·세로를 읽는다. 후기 사진은 정사각형만 받는다. */
+function jpegSize(b) {
+  let i = 2;
+  while (i + 9 < b.length) {
+    if (b[i] !== 0xff) { i++; continue; }
+    const m = b[i + 1];
+    if (m === 0xff) { i++; continue; }
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { h: b.readUInt16BE(i + 5), w: b.readUInt16BE(i + 7) };
+    if (m === 0xd8 || (m >= 0xd0 && m <= 0xd7) || m === 0x01) { i += 2; continue; }
+    i += 2 + b.readUInt16BE(i + 2);
+  }
+  return null;
+}
 export function parsePhotos(arr) {
   const list = Array.isArray(arr) ? arr : [];
   if (list.length > MAX_PHOTOS) return { error: `사진은 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요` };
@@ -33,6 +46,8 @@ export function parsePhotos(arr) {
     const buf = Buffer.from(m[2], "base64");
     if (buf.length > MAX_PHOTO_BYTES) return { error: "사진 한 장이 너무 커요. 다시 선택해주세요" };
     if (!MAGIC[m[1]](buf)) return { error: "사진 파일이 올바르지 않아요" };
+    const sz = m[1] === "jpeg" ? jpegSize(buf) : null;
+    if (!sz || sz.w !== sz.h) return { error: "후기 사진은 정사각형으로 잘라서 올려주세요" };
     out.push({ t: m[1], d: m[2] });
   }
   return { files: out };

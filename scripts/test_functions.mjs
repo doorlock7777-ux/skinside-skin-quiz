@@ -606,12 +606,13 @@ const paidOrder = async (U, body) => { const [s1, o] = await mkOrder(U, body); i
 }
 // 포토리뷰
 {
-  const jpg = (n = 100) => "data:image/jpeg;base64," + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(n, 1)]).toString("base64");
+  const jpg = (n = 100, w = 64, h = 64) => "data:image/jpeg;base64," + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0, 0x11, 8, h >> 8, h & 255, w >> 8, w & 255]), Buffer.alloc(n - 7, 1)]).toString("base64");
   await lib.orders().setJSON("OPH", mk("OPH", [BK(1)], "paid", 2));
   const rvP = (photos, orderId = "OPH") => call(reviewsApi, "/api/review/new", "POST", { orderId, productId: "bonkorea-cl", rating: 5, text: "사진도 같이 올려요 좋아요", photos }, U1);
   [s, j] = await rvP([jpg(), jpg(), jpg(), jpg()]); ok(s === 400 && /3장/.test(j.error), "사진이 4장 이상 올라가요 " + JSON.stringify(j));
   [s, j] = await rvP(["data:text/html;base64,PGI+"]); ok(s === 400, "이미지가 아닌 파일이 통과해요");
   [s, j] = await rvP(["data:image/jpeg;base64," + Buffer.from("not a jpeg at all").toString("base64")]); ok(s === 400 && /올바르지/.test(j.error), "가짜 사진 파일이 통과해요 " + JSON.stringify(j));
+  [s, j] = await rvP([jpg(100, 80, 60)]); ok(s === 400 && /정사각형/.test(j.error), "정사각형이 아닌 사진이 통과해요 " + JSON.stringify(j));
   [s, j] = await rvP([jpg(800 * 1024)]); ok(s === 400 && /커요/.test(j.error), "너무 큰 사진이 통과해요");
   [s, j] = await call(reviewsApi, "/api/review/mine", "GET", null, U1); ok(!j.done.includes("OPH|bonkorea-cl"), "실패한 사진 리뷰가 등록돼요");
   [s, j] = await rvP([jpg(), jpg()]); ok(s === 200, "사진 리뷰 작성 실패 " + JSON.stringify(j));
@@ -833,5 +834,29 @@ for (let i = 0; i < 5; i++) await call(brand, "/api/partner/login", "POST", { co
   [s, j] = await call(orderApi, "/api/order", "GET", null, UE); ok(j.orders.find((x) => x.id === oe).confirmedAt, "10일이 지나도 자동 구매확정이 안 돼요");
   /* 후기 삭제 시 피드에서 사라진다 */
   [s, j] = await call(site, "/api/manage/community", "POST", { action: "badge", uid: "", on: true }, A); ok(s === 400, "회원 없이 뱃지가 부여돼요");
+}
+/* 후기 노출 순서 */
+{
+  const com = await import(pathToFileURL(path.join(T, "functions/_community.mjs")));
+  const R = (id, pid, uid, rating, at) => ({ id, productId: pid, userId: uid, rating, createdAt: new Date(Date.UTC(2026, 0, at)).toISOString() });
+  const list = []; let n = 0;
+  for (const [pid, cnt] of [["angel", 14], ["sun", 4], ["cl", 4], ["pack", 3]]) for (let k = 0; k < cnt; k++) { n++; list.push(R("r" + n, pid, "u" + (n % 9), k % 5 === 4 ? 3 : 5, n)); }
+  const idx = { r20: { l: 30, b: 0 }, r21: { l: 5, b: 9 }, r25: { l: 0, b: 20 } };
+  const out = com.rankFeed(list, idx, ["angel"]);
+  ok(out.length === list.length && new Set(out.map((r) => r.id)).size === list.length, "순서를 정하면 후기가 빠지거나 겹쳐요");
+  ok(out[0].productId === "angel", "최근 본 제품 후기가 맨 위가 아니에요");
+  const f10 = out.slice(0, 10); ok(f10.filter((r) => r.productId === "angel").length <= 6, "최근 본 제품 후기만 도배돼요 " + f10.map((r) => r.productId));
+  ok(new Set(f10.map((r) => r.productId)).size >= 3, "첫 10개에 제품이 다양하지 않아요");
+  let run = 0, maxRun = 0; out.slice(0, 15).forEach((r, i, a) => { run = i && a[i - 1].productId === r.productId ? run + 1 : 1; maxRun = Math.max(maxRun, run); }); ok(maxRun <= 2, "같은 제품이 3개 연달아 나와요");
+  ok(out.slice(0, 15).every((r, i, a) => !i || a[i - 1].userId !== r.userId), "같은 사람 후기가 연달아 나와요");
+  ok(out.slice(0, 10).includes(list[19]) && out.slice(0, 10).includes(list[24]), "좋아요/구매하기 많은 후기가 위쪽에 없어요");
+  const low = list.filter((r) => r.rating === 3).map((r) => out.indexOf(r)), hi = list.filter((r) => r.rating === 5).map((r) => out.indexOf(r)); ok(Math.min(...low) > 3 && hi.filter((i) => i < 10).length >= 8, "별 5개 후기가 우선이 아니에요");
+  const o2 = com.rankFeed(list, idx, []); ok(o2.length === list.length && o2[0].rating === 5, "최근 본 제품이 없을 때 순서가 깨져요");
+  /* 구매하기 집계: 본인, 같은 사람 중복은 세지 않는다 */
+  await (await import(pathToFileURL(path.join(T, "functions/_reviews.mjs")))).reviewStore().setJSON("RB1", { id: "RB1", productId: "bonkorea-cl", userId: "uA", rating: 5, text: "순서용 후기", createdAt: new Date().toISOString(), status: "approved", userName: "홍*동" });
+  let rb = await com.recordBuy("RB1", "uB"); ok(rb.counted === true, "구매하기가 집계되지 않아요");
+  rb = await com.recordBuy("RB1", "uB"); ok(rb.counted === false, "같은 사람의 구매하기가 중복 집계돼요");
+  rb = await com.recordBuy("RB1", "uA"); ok(rb.counted === false, "내 후기 구매하기가 집계돼요");
+  const cx = await call((await import(pathToFileURL(path.join(T, "functions/community.mjs")))).default, "/api/feed/buy", "POST", { id: "RB1" }, U1); ok(cx[0] === 200, "구매하기 집계 API 실패 " + JSON.stringify(cx[1]));
 }
 console.log(errs.length ? "FAIL\n" + errs.join("\n") : "OK: 관리자 API 시험 통과"); process.exit(errs.length ? 1 : 0);

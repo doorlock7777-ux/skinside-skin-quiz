@@ -10,7 +10,7 @@ def frag(h):
 R = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 h = open(os.path.join(R, "public/quiz/index.html"), encoding="utf-8").read()
 bar = '''<div id="pvbar" style="background:#fff8e6;color:#8a5a00;font-size:13px;text-align:center;padding:10px 16px;line-height:1.6">미리보기 화면이에요. 질문 30개를 풀지 않고 결과 직전 화면부터 볼 수 있어요.<br><button id="pvgo" style="font:inherit;font-weight:700;color:#8a5a00;background:none;border:0;text-decoration:underline;cursor:pointer;padding:4px">결과 직전 화면 보기 (분석 중 4초 후 카카오 화면)</button></div>
-<script>document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href");if(h==="/store"){e.preventDefault();try{parent.postMessage({skgo:"store"},"*")}catch(x){}}else if(h==="/"){e.preventDefault()}},true);
+<script>document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href");if(h.indexOf("/store")===0){e.preventDefault();try{parent.postMessage({skgo:"store",h:h.slice(6)},"*")}catch(x){}}else if(h==="/"){e.preventDefault()}},true);
 document.addEventListener("DOMContentLoaded",function(){
 try{var R0=JSON.parse(localStorage.getItem("skinside_result")||"null");
 if(R0&&R0.t===1&&S.screen==="result"&&!(S.a&&S.a.length)){var r=function(n){var a=[];for(var i=0;i<n;i++)a.push(Math.floor(Math.random()*4));return a};
@@ -23,6 +23,11 @@ assert '<script src="/hidden.js"></script>' in h
 hb = open(os.path.join(R, "public/hidden.js"), encoding="utf-8").read()
 demo = "window.__HB_DEMO=function(){return {on:true,text:'오늘만 특가 찬스',url:'https://example.com/event',end:Date.now()+(10*60+22)*1000,now:Date.now()}};"
 h = h.replace('<script src="/hidden.js"></script>', "<script>" + demo + hb + "</script>", 1)
+CHK = os.environ.get("DEMO_MODE") == "checkout"
+sk = "window.SK={MODE:%s,STORE_OPEN:true,LOGIN:%s};" % ('"checkout"' if CHK else '"link"', "true" if CHK else "false")
+assert '<script src="../config.js"></script>' in h and '<script src="../tabs.js"></script>' in h
+h = h.replace('<script src="../config.js"></script>', "<script>" + sk + "</script>", 1)
+h = h.replace('<script src="../tabs.js"></script>', "<script>" + open(os.path.join(R, "public/tabs.js"), encoding="utf-8").read() + "</script>", 1)
 assert "<body>" in h
 h = h.replace("<body>", "<body>\n" + bar, 1)
 open(sys.argv[1], "w", encoding="utf-8").write(frag(h)); print(len(h))

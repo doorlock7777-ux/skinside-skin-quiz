@@ -38,6 +38,7 @@ function saved(p){ var m = 0; (p.options || [0]).forEach(function(o, i){ var l =
 /* 장바구니 */
 function cart(){ return ls("sk_cart") || []; }
 function setCart(c){ ls("sk_cart", c); drawTabs(); }
+function seeRecent(id){ var a = (ls("sk_recent") || []).filter(function(x){ return x !== id; }); a.unshift(id); ls("sk_recent", a.slice(0, 5)); }
 function cartCount(){ return cart().reduce(function(a, x){ return a + x.q; }, 0); }
 /* 후기를 보고 구매하기: 후기 번호를 7일 동안 기억해서 장바구니·주문에 붙인다(후기 작성자 적립용) */
 function refFor(id){ var m = ls("sk_ref") || {}, r = m[id]; return r && r.rid && Date.now() - r.t < 7 * 864e5 ? r.rid : ""; }
@@ -72,11 +73,9 @@ function chips(cur){
 }
 function drawTabs(){
   var h = getH() || "#/", n = cartCount(), open = CFG.STORE_OPEN;
-  function t(href, label, on, extra){ return '<a href="' + href + '"' + (/^http/.test(href) ? QT : '') + ' class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
   document.querySelector(".tabs").hidden = open && /^#\/(p\/|checkout)/.test(h);
-  $nv.innerHTML = t(DEMO ? "#/" : "/store", "스토어", !/^#\/(cart|checkout|me|orders|points|done|admin|feed)/.test(h)) + t(QZ, "피부 진단", false)
-    + (open && CHECKOUT ? t("#/feed", "후기", /^#\/feed/.test(h)) : '')
-    + (open && CHECKOUT ? t("#/cart", "장바구니", /^#\/(cart|checkout)/.test(h), n ? '<span class="bd">' + n + '</span>' : '') + t("#/me", "내 정보", /^#\/(me|orders|points|done)/.test(h)) : '');
+  var act = /^#\/feed/.test(h) ? "feed" : /^#\/(cart|checkout)/.test(h) ? "cart" : /^#\/(me|orders|points|done)/.test(h) ? "me" : /^#\/admin/.test(h) ? "" : "store";
+  $nv.innerHTML = SkTabs.html({inStore:true, active:act, demo:DEMO, quizHref:QZ, attr:QT, cart:n});
 }
 function searchForm(q){ return '<form class="search" id="sf"><input id="q" value="' + esc(q || "") + '" placeholder="제품이나 브랜드 검색" enterkeyhint="search"></form>'; }
 function bindSearch(){ var f = document.getElementById("sf"); if(f) f.onsubmit = function(e){ e.preventDefault(); var q = document.getElementById("q").value.trim(); if(q) setH("#/search/" + encodeURIComponent(q)); }; }
@@ -162,7 +161,7 @@ function detail(id){
     if(ad) ad.onclick = function(){ track(p.id, "c"); addCart(p.id, oi, 1); toast("장바구니에 담았어요"); };
     if(by) by.onclick = function(){ track(p.id, "c"); ls("sk_direct", [refFor(p.id) ? {id:p.id, opt:oi, q:1, ref:refFor(p.id)} : {id:p.id, opt:oi, q:1}]); setH("#/checkout/direct"); };
   }
-  track(p.id, "v");
+  track(p.id, "v"); seeRecent(p.id);
   draw();
 }
 
@@ -337,8 +336,8 @@ function csBox(o, l, tks){
   return h;
 }
 function brandLabel(l){ var p = P[l.id]; return (p && p.brandName) || (p && p.brand) || ""; }
-/* 포토리뷰: 사진은 올리기 전에 화면에서 줄인다 (긴 변 1280px, 장당 약 600KB 이하) */
-function shrink(file){
+/* 후기 사진은 항상 정사각형: 올리기 전에 직접 움직이고 확대해서 정사각형으로 자른다 (1000x1000, 약 600KB 이하) */
+function cropSquare(file){
   return new Promise(function(res, rej){
     var fr = new FileReader();
     fr.onerror = function(){ rej(new Error("사진을 읽지 못했어요")); };
@@ -346,12 +345,36 @@ function shrink(file){
       var im = new Image();
       im.onerror = function(){ rej(new Error("사진 형식을 확인해주세요")); };
       im.onload = function(){
-        var sc = Math.min(1, 1280 / Math.max(im.width, im.height)), c = document.createElement("canvas");
-        c.width = Math.max(1, Math.round(im.width * sc)); c.height = Math.max(1, Math.round(im.height * sc));
-        var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
-        var q = .85, d = c.toDataURL("image/jpeg", q);
-        while(d.length * .75 > 600 * 1024 && q > .3){ q -= .1; d = c.toDataURL("image/jpeg", q); }
-        if(d.length * .75 > 690 * 1024) rej(new Error("사진이 너무 커요")); else res(d);
+        var W = Math.max(220, Math.min(innerWidth - 80, 380)), OUT = 1000, iw = im.width, ih = im.height, base = W / Math.min(iw, ih), z = 1, cx = W / 2, cy = W / 2;
+        var ov = document.createElement("div"); ov.className = "cr"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "사진 자르기");
+        ov.innerHTML = '<div class="cr-b"><b>사진 자르기</b><p>사진을 움직이고 확대해서 정사각형 안에 맞춰주세요</p><canvas class="cr-c" width="' + W + '" height="' + W + '" style="width:' + W + 'px;height:' + W + 'px"></canvas><input type="range" class="cr-z" min="1" max="4" step="0.01" value="1" aria-label="확대"><div class="cr-a"><button type="button" class="cr-x">취소</button><button type="button" class="cr-ok">완료</button></div></div>';
+        document.body.appendChild(ov);
+        var cv = ov.querySelector(".cr-c"), g = cv.getContext("2d"), pts = {}, last = 0;
+        function clamp(){ var s = base * z, w = iw * s, h = ih * s; cx = Math.min(w / 2, Math.max(W - w / 2, cx)); cy = Math.min(h / 2, Math.max(W - h / 2, cy)); }
+        function paint(c, size){ var k = size / W, s = base * z * k, x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, size, size); x.drawImage(im, cx * k - iw * s / 2, cy * k - ih * s / 2, iw * s, ih * s); }
+        function draw(){ clamp(); paint(cv, W); ov.querySelector(".cr-z").value = z; }
+        function zoom(nz){ nz = Math.min(4, Math.max(1, nz)); var f = nz / z; cx = W / 2 + (cx - W / 2) * f; cy = W / 2 + (cy - W / 2) * f; z = nz; draw(); }
+        function close(){ document.removeEventListener("keydown", key); if(ov.parentNode) ov.parentNode.removeChild(ov); }
+        function key(e){ if(e.key === "Escape"){ close(); rej(new Error("")); } }
+        document.addEventListener("keydown", key);
+        cv.addEventListener("pointerdown", function(e){ cv.setPointerCapture(e.pointerId); pts[e.pointerId] = {x:e.clientX, y:e.clientY}; last = 0; });
+        cv.addEventListener("pointermove", function(e){
+          var p = pts[e.pointerId]; if(!p) return; var ids = Object.keys(pts);
+          if(ids.length === 1){ cx += e.clientX - p.x; cy += e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; draw(); }
+          else { p.x = e.clientX; p.y = e.clientY; var a = pts[ids[0]], b = pts[ids[1]], d = Math.hypot(a.x - b.x, a.y - b.y); if(last) zoom(z * d / last); last = d; }
+        });
+        function up(e){ delete pts[e.pointerId]; last = 0; }
+        cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+        cv.addEventListener("wheel", function(e){ e.preventDefault(); zoom(z * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, {passive:false});
+        ov.querySelector(".cr-z").addEventListener("input", function(e){ zoom(parseFloat(e.target.value)); });
+        ov.querySelector(".cr-x").onclick = function(){ close(); rej(new Error("")); };
+        ov.querySelector(".cr-ok").onclick = function(){
+          var o = document.createElement("canvas"); o.width = o.height = OUT; paint(o, OUT);
+          var q = .88, d = o.toDataURL("image/jpeg", q);
+          while(d.length * .75 > 600 * 1024 && q > .3){ q -= .1; d = o.toDataURL("image/jpeg", q); }
+          close(); if(d.length * .75 > 690 * 1024) rej(new Error("사진이 너무 커요")); else res(d);
+        };
+        draw();
       };
       im.src = fr.result;
     };
@@ -367,7 +390,7 @@ document.addEventListener("change", function(e){
   var w = f.parentNode, files = [].slice.call(f.files || []); f.value = "";
   w._ph = w._ph || [];
   var room = 3 - w._ph.length; if(files.length > room) toast("사진은 최대 3장까지 올릴 수 있어요");
-  files.slice(0, room).reduce(function(p, file){ return p.then(function(){ return shrink(file).then(function(d){ w._ph.push(d); drawPh(w); }); }); }, Promise.resolve()).catch(function(x){ toast(x.message || "사진을 올리지 못했어요"); });
+  files.slice(0, room).reduce(function(p, file){ return p.then(function(){ return cropSquare(file).then(function(d){ w._ph.push(d); drawPh(w); }); }); }, Promise.resolve()).catch(function(x){ if(x && x.message) toast(x.message); else if(!x || x.message !== "") toast("사진을 올리지 못했어요"); });
 });
 document.addEventListener("click", function(e){
   var t0 = e.target, pa = t0.closest && t0.closest("[data-phadd]"), pd = t0.closest && t0.closest("[data-phdel]"), zi = t0.closest && t0.closest(".rv-ph img");
@@ -442,14 +465,14 @@ function fdPost(r){
 function feed(focus){
   if(!user){ $app.innerHTML = '<div class="sec"><h1>후기</h1></div>' + (CFG.LOGIN ? loginBox("#/feed") : '<div class="sec"><div class="ntc">로그인 기능은 준비 중이에요.</div></div>'); return; }
   FD = {items:[], page:1, more:false, focus:focus || ""};
-  $app.innerHTML = '<div class="sec"><h1>후기</h1><p class="sub" style="margin:2px 0 0">스킨인사이드 회원들이 남긴 진짜 후기예요. 마음에 드는 후기에서 바로 구매할 수 있고, 구매가 확정되면 후기를 쓴 분께 포인트가 적립돼요.</p><a class="fd-write" href="#/orders">내 후기 쓰러 가기 &#8250;</a></div><div id="fdl"><div class="empty">불러오는 중</div></div>';
+  $app.innerHTML = '<div class="sec"><h1>후기</h1></div><div id="fdl"><div class="empty">불러오는 중</div></div>';
   fdLoad();
 }
 function fdLoad(){
-  fetch("/api/feed?page=" + FD.page + (FD.focus ? "&id=" + encodeURIComponent(FD.focus) : "")).then(function(r){ return r.status === 401 ? {error:1} : r.json(); }).then(function(j){
+  fetch("/api/feed?page=" + FD.page + "&recent=" + encodeURIComponent((ls("sk_recent") || []).join(",")) + (FD.focus ? "&id=" + encodeURIComponent(FD.focus) : "")).then(function(r){ return r.status === 401 ? {error:1} : r.json(); }).then(function(j){
     var box = document.getElementById("fdl"); if(!box) return;
     if(j.error){ user = null; box.innerHTML = loginBox("#/feed"); return; }
-    FD.items = FD.items.concat(j.items || []); FD.more = !!j.hasMore;
+    var have = {}; FD.items.forEach(function(x){ have[x.id] = 1; }); FD.items = FD.items.concat((j.items || []).filter(function(x){ return !have[x.id]; })); FD.more = !!j.hasMore;
     box.innerHTML = (FD.focus ? '<a class="fd-write" href="#/feed" style="margin:0 20px 10px;display:block">&#8249; 전체 후기 보기</a>' : '') + (FD.items.length ? FD.items.map(fdPost).join("") : '<div class="empty">아직 후기가 없어요.<br>주문한 제품에 후기를 남기면 여기에 올라와요.</div>') + (FD.more ? '<div style="padding:8px 20px 24px"><button type="button" class="btn sub2" id="fdmore" style="width:100%">후기 더 보기</button></div>' : '');
     var mb = document.getElementById("fdmore"); if(mb) mb.onclick = function(){ FD.page++; fdLoad(); };
   }).catch(function(){ var box = document.getElementById("fdl"); if(box) box.innerHTML = '<div class="empty">후기를 불러오지 못했어요.</div>'; });
@@ -461,7 +484,7 @@ document.addEventListener("click", function(e){
   if(!art) return;
   if((b = q("[data-fl]"))){ if(b.dataset.busy) return; b.dataset.busy = "1"; fdPost_("POST", "/api/feed/like", {id:rid}).then(function(j){ b.classList.toggle("on", j.liked); b.textContent = (j.liked ? "♥" : "♡") + " 좋아요"; art.querySelector("[data-flc]").textContent = "좋아요 " + j.likes; }).catch(function(x){ toast(x.message); }).then(function(){ delete b.dataset.busy; }); return; }
   if((b = q("[data-fs]"))){ var u = (DEMO ? "https://skinside.co.kr/store" : location.origin + "/store") + "#/feed/" + rid; if(navigator.share && !DEMO){ navigator.share({title:"스킨인사이드 후기", url:u}).catch(function(){}); } else { try{ navigator.clipboard.writeText(u).then(function(){ toast("후기 링크를 복사했어요"); }, function(){ toast(u); }); }catch(x){ toast(u); } } return; }
-  if((b = q("[data-fb]"))){ if(b.classList.contains("off")) return toast("품절된 제품이에요"); setRef(b.dataset.fp, rid); track(b.dataset.fp, "c"); setH("#/p/" + encodeURIComponent(b.dataset.fp)); return; }
+  if((b = q("[data-fb]"))){ if(b.classList.contains("off")) return toast("품절된 제품이에요"); setRef(b.dataset.fp, rid); track(b.dataset.fp, "c"); seeRecent(b.dataset.fp); fdPost_("POST", "/api/feed/buy", {id:rid}).catch(function(){}); setH("#/p/" + encodeURIComponent(b.dataset.fp)); return; }
   if((b = q("[data-fc]"))){
     var cm = art.querySelector("[data-fcm]"); if(!cm.hidden){ cm.hidden = true; return; } cm.hidden = false; cm.innerHTML = '<div class="s" style="padding:8px 0">불러오는 중</div>';
     fetch("/api/feed/comments?id=" + encodeURIComponent(rid)).then(function(r){ return r.json(); }).then(function(j){

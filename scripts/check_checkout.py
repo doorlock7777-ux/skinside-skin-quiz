@@ -84,6 +84,7 @@ with sync_playwright() as p:
         import base64
         png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
         pg2.set_input_files("[data-rvform='SK1|bonkorea-cl'] [data-phf]", [{"name": "a.png", "mimeType": "image/png", "buffer": png}, {"name": "b.png", "mimeType": "image/png", "buffer": png}]); pg2.wait_for_timeout(700)
+        for _ in range(2): pg2.click(".cr-ok"); pg2.wait_for_timeout(500)
         if pg2.locator("[data-rvform='SK1|bonkorea-cl'] .ph-th").count() != 2 or "2/3" not in pg2.inner_text("[data-rvform='SK1|bonkorea-cl'] [data-ph]"): err.append("리뷰 사진 첨부가 안 돼요")
         pg2.click("[data-rvform='SK1|bonkorea-cl'] [data-phdel='0']"); pg2.wait_for_timeout(150)
         if pg2.locator("[data-rvform='SK1|bonkorea-cl'] .ph-th").count() != 1: err.append("리뷰 사진 삭제가 안 돼요")
