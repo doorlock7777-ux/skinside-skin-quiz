@@ -101,6 +101,7 @@ export async function receiveAndRefund(t) {
   }
   o.refunds.push({ ticketId: t.id, brand: t.brand, amount, cash, ...(pointsPart ? { points: pointsPart } : {}), at: new Date().toISOString(), ...(tx ? { tx } : {}) });
   if (pointsPart) await returnPoints(o, pointsPart, "반품 환불", "ret-" + t.id).catch(() => {});
+  try { const { voidRefs } = await import("./_community.mjs"); await voidRefs(o, t.brand); } catch {}
   await st.setJSON(o.id, o);
   delete t.refundError; t.status = "refunded"; t.refundAmount = amount;
   t.messages.push({ from: "system", text: amount.toLocaleString("ko-KR") + "원이 환불됐어요.", at: new Date().toISOString() });

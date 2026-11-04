@@ -39,9 +39,12 @@ function saved(p){ var m = 0; (p.options || [0]).forEach(function(o, i){ var l =
 function cart(){ return ls("sk_cart") || []; }
 function setCart(c){ ls("sk_cart", c); drawTabs(); }
 function cartCount(){ return cart().reduce(function(a, x){ return a + x.q; }, 0); }
+/* 후기를 보고 구매하기: 후기 번호를 7일 동안 기억해서 장바구니·주문에 붙인다(후기 작성자 적립용) */
+function refFor(id){ var m = ls("sk_ref") || {}, r = m[id]; return r && r.rid && Date.now() - r.t < 7 * 864e5 ? r.rid : ""; }
+function setRef(id, rid){ var m = ls("sk_ref") || {}; m[id] = {rid:rid, t:Date.now()}; ls("sk_ref", m); }
 function addCart(id, opt, q){
-  var c = cart(), f = c.filter(function(x){ return x.id === id && x.opt === opt; })[0];
-  if(f) f.q = Math.min(20, f.q + q); else c.push({id:id, opt:opt, q:q});
+  var rf = refFor(id), c = cart(), f = c.filter(function(x){ return x.id === id && x.opt === opt && (x.ref || "") === rf; })[0];
+  if(f) f.q = Math.min(20, f.q + q); else { var l = {id:id, opt:opt, q:q}; if(rf) l.ref = rf; c.push(l); }
   setCart(c);
 }
 function lines(items){
@@ -71,7 +74,8 @@ function drawTabs(){
   var h = getH() || "#/", n = cartCount(), open = CFG.STORE_OPEN;
   function t(href, label, on, extra){ return '<a href="' + href + '"' + (/^http/.test(href) ? QT : '') + ' class="' + (on ? 'on' : '') + '"><i></i>' + label + (extra || '') + '</a>'; }
   document.querySelector(".tabs").hidden = open && /^#\/(p\/|checkout)/.test(h);
-  $nv.innerHTML = t(DEMO ? "#/" : "/store", "스토어", !/^#\/(cart|checkout|me|orders|points|done|admin)/.test(h)) + t(QZ, "피부 진단", false)
+  $nv.innerHTML = t(DEMO ? "#/" : "/store", "스토어", !/^#\/(cart|checkout|me|orders|points|done|admin|feed)/.test(h)) + t(QZ, "피부 진단", false)
+    + (open && CHECKOUT ? t("#/feed", "후기", /^#\/feed/.test(h)) : '')
     + (open && CHECKOUT ? t("#/cart", "장바구니", /^#\/(cart|checkout)/.test(h), n ? '<span class="bd">' + n + '</span>' : '') + t("#/me", "내 정보", /^#\/(me|orders|points|done)/.test(h)) : '');
 }
 function searchForm(q){ return '<form class="search" id="sf"><input id="q" value="' + esc(q || "") + '" placeholder="제품이나 브랜드 검색" enterkeyhint="search"></form>'; }
@@ -156,7 +160,7 @@ function detail(id){
     var ad = document.getElementById("ad"), by = document.getElementById("by");
     var gl = document.getElementById("go"); if(gl) gl.onclick = function(){ track(p.id, "c"); };
     if(ad) ad.onclick = function(){ track(p.id, "c"); addCart(p.id, oi, 1); toast("장바구니에 담았어요"); };
-    if(by) by.onclick = function(){ track(p.id, "c"); ls("sk_direct", [{id:p.id, opt:oi, q:1}]); setH("#/checkout/direct"); };
+    if(by) by.onclick = function(){ track(p.id, "c"); ls("sk_direct", [refFor(p.id) ? {id:p.id, opt:oi, q:1, ref:refFor(p.id)} : {id:p.id, opt:oi, q:1}]); setH("#/checkout/direct"); };
   }
   track(p.id, "v");
   draw();
@@ -292,6 +296,8 @@ function drawOrders(){
       if(p) acts += '<button class="ob" data-add="' + esc(l.id) + '" data-opt="' + (l.opt || 0) + '">장바구니 담기</button>';
       h += '<div class="obs">' + acts + '</div><div data-rvform="' + esc(key) + '"></div>';
     });
+    if(o.status === "shipped" && !o.confirmedAt) h += '<div class="obs"><button class="ob pri" data-oconf="' + esc(o.id) + '">구매확정</button></div><p class="s" style="margin:4px 0 0">받으셨다면 구매확정을 눌러주세요. 마지막 발송 10일 뒤에는 자동으로 확정돼요.</p>';
+    else if(o.confirmedAt) h += '<p class="s" style="margin:6px 0 0;color:var(--pri);font-weight:700">구매확정 완료 · ' + kdate(o.confirmedAt) + '</p>';
     if(canCancel) h += '<div class="obs" data-omenu="' + esc(o.id) + '" hidden><button class="ob" data-ocancel="' + esc(o.id) + '">취소요청</button></div><div data-cform="' + esc(o.id) + '" hidden></div>';
     else if(o.status === "partial" || o.status === "shipped") h += '<p class="s" style="margin:6px 0 0">발송이 시작돼서 직접 취소할 수 없어요. 판매자정보/문의에서 교환·반품을 신청해주세요.</p>';
     var pay = o.payAmount !== undefined ? o.payAmount : o.total;
@@ -311,6 +317,7 @@ document.addEventListener("click", function(e){
   if((b = q("[data-add]"))){ addCart(b.dataset.add, +b.dataset.opt || 0, 1); toast("장바구니에 담았어요"); return; }
   if((b = q("[data-ocancel]"))){ var f = document.querySelector('[data-cform="' + b.dataset.ocancel + '"]'); if(!f.hidden){ f.hidden = true; return; } f.hidden = false;
     f.innerHTML = '<div class="cf"><b>주문을 취소할까요?</b><p class="s">아직 발송 전이라 바로 취소돼요. 결제는 취소(환불)되고, 사용한 포인트는 바로 돌려드려요. 이 주문에 남긴 리뷰와 적립 포인트는 함께 사라져요.</p><select>' + ["단순 변심", "주문을 잘못 했어요", "배송지를 잘못 입력했어요", "다른 곳에서 구매했어요", "기타"].map(function(x){ return '<option>' + x + '</option>'; }).join("") + '</select><div class="row2"><button class="ob" data-ocn="x">닫기</button><button class="ob red" data-ocx="' + esc(b.dataset.ocancel) + '">주문 취소하기</button></div><span class="s" data-cerr></span></div>'; return; }
+  if((b = q("[data-oconf]"))){ if(b.disabled) return; b.disabled = true; fetch("/api/order/confirm", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({orderId:b.dataset.oconf})}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "구매확정에 실패했어요"); return j; }); }).then(function(){ toast("구매확정이 완료됐어요"); orders(); }).catch(function(x){ b.disabled = false; toast(x.message); }); return; }
   if((b = q("[data-ocn]"))){ var f2 = b.closest("[data-cform]"); f2.hidden = true; return; }
   if((b = q("[data-ocx]"))){ var box = b.closest(".cf"); b.disabled = true;
     fetch("/api/order/cancel", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({orderId:b.dataset.ocx, reason:box.querySelector("select").value})}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "취소하지 못했어요"); return j; }); })
@@ -394,26 +401,85 @@ function done(id){
   $app.innerHTML = '<div class="empty"><h2 style="color:var(--ink)">주문이 완료됐어요</h2><p>주문번호 ' + esc(id) + '<br>브랜드에서 곧 발송해드려요.</p><a class="btn" style="display:inline-block;padding:13px 24px" href="#/orders">주문 내역 보기</a></div>';
   ls("sk_cart", []); ls("sk_direct", []); drawTabs();
 }
+/* 포인트 내역(내 정보 팝업과 전체 화면이 함께 쓴다): 현재 포인트 / 리뷰로 쌓인 포인트 / 구매확정 예정 포인트 */
+var PT_T = {earn:"적립", ref:"구매 적립", use:"사용", "return":"반환", claw:"회수"};
+function pn(n){ return (n || 0).toLocaleString("ko-KR") + " P"; }
+function ptHtml(j, top){
+  var earned = (j.earnedReview || 0) + (j.earnedRef || 0), pend = j.pendingItems || [];
+  var h = '<div class="ptcard"' + (top ? ' style="margin-top:0"' : '') + '><span>현재 포인트</span><b>' + pn(j.balance) + '</b><p>현금처럼 결제할 때 쓸 수 있어요.</p></div>'
+    + '<div class="pt2"><div class="ptcard"><span>리뷰로 쌓인 포인트</span><b>' + pn(earned) + '</b><p>리뷰 작성 ' + pn(j.earnedReview) + '<br>후기 구매 적립 ' + pn(j.earnedRef) + '</p></div>'
+    + '<div class="ptcard wait"><span>구매확정 예정 포인트</span><b>' + pn(j.pending) + '</b><p>구매확정이 되면 들어와요</p></div></div>'
+    + (pend.length ? '<div class="ptnote"><b>확정을 기다리는 적립</b>' + pend.map(function(x){ return '<div><span>' + esc(x.productName) + ' <i>(' + x.rate + '%)</i></span><b>+' + (x.amount || 0).toLocaleString("ko-KR") + ' P</b></div>'; }).join("") + '</div>' : '')
+    + '<p class="ptnote2">리뷰를 쓰면 500P가 적립돼요. 내 후기를 보고 다른 회원이 구매하면, 그 주문이 구매확정될 때 구매금액의 3%(성실리뷰어는 5%)가 적립돼요. 취소·환불되면 적립도 취소돼요.</p>';
+  return h + (top ? '' : '<h2 style="font-size:16px;margin:20px 0 4px">포인트 내역</h2>') + ((j.log || []).length ? j.log.map(function(x){ return '<div class="row"><div class="t"><div class="nm">' + esc(x.note || PT_T[x.type]) + '</div><div class="s">' + kdate(x.at) + ' · ' + (PT_T[x.type] || "") + '</div></div><b style="color:' + (x.amount < 0 ? 'var(--red)' : 'var(--pri)') + '">' + (x.amount > 0 ? "+" : "") + x.amount.toLocaleString("ko-KR") + ' P</b></div>'; }).join("") : '<div class="empty" style="padding:30px 0">아직 포인트 내역이 없어요.</div>');
+}
 function points(){
   if(!user){ $app.innerHTML = loginBox("#/points"); return; }
   $app.innerHTML = '<div class="empty">불러오는 중</div>';
-  fetch("/api/points").then(function(r){ return r.json(); }).then(function(j){
-    var T = {earn:"적립", use:"사용", "return":"반환", claw:"회수"};
-    $app.innerHTML = '<div class="sec"><h1>내 포인트</h1><div class="ptcard"><span>보유 포인트</span><b>' + (j.balance || 0).toLocaleString("ko-KR") + ' P</b><p>현금처럼 결제할 때 쓸 수 있어요. 리뷰를 쓰면 500P가 적립돼요.</p></div><h2 style="font-size:16px;margin:20px 0 4px">포인트 내역</h2>'
-      + ((j.log || []).length ? j.log.map(function(x){ return '<div class="row"><div class="t"><div class="nm">' + esc(x.note || T[x.type]) + '</div><div class="s">' + kdate(x.at) + ' · ' + (T[x.type] || "") + '</div></div><b style="color:' + (x.amount < 0 ? 'var(--red)' : 'var(--pri)') + '">' + (x.amount > 0 ? "+" : "") + x.amount.toLocaleString("ko-KR") + ' P</b></div>'; }).join("") : '<div class="empty" style="padding:32px 0">아직 내역이 없어요.</div>') + '</div>';
-  }).catch(function(){ $app.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; });
+  fetch("/api/points").then(function(r){ return r.json(); }).then(function(j){ $app.innerHTML = '<div class="sec"><h1>내 포인트</h1>' + ptHtml(j, false) + '</div>'; }).catch(function(){ $app.innerHTML = '<div class="empty">불러오지 못했어요.</div>'; });
 }
 function showPoints(){
-  var T = {earn:"적립", use:"사용", "return":"반환", claw:"회수"}, m = document.createElement("div"); m.className = "mdl";
+  var m = document.createElement("div"); m.className = "mdl";
   m.innerHTML = '<div class="mdl-box" role="dialog" aria-label="포인트 내역"><div class="mdl-h"><b>포인트 내역</b><button type="button" aria-label="닫기">&times;</button></div><div class="mdl-b"><div class="empty">불러오는 중</div></div></div>';
   var close = function(){ m.remove(); document.body.style.overflow = ""; };
   m.onclick = function(e){ if(e.target === m || e.target.closest(".mdl-h button")) close(); };
   document.body.appendChild(m); document.body.style.overflow = "hidden";
-  fetch("/api/points").then(function(r){ return r.json(); }).then(function(j){
-    m.querySelector(".mdl-b").innerHTML = '<div class="ptcard" style="margin-top:0"><span>보유 포인트</span><b>' + (j.balance || 0).toLocaleString("ko-KR") + ' P</b><p>현금처럼 결제할 때 쓸 수 있어요. 리뷰를 쓰면 500P가 적립돼요.</p></div>'
-      + ((j.log || []).length ? j.log.map(function(x){ return '<div class="row"><div class="t"><div class="nm">' + esc(x.note || T[x.type]) + '</div><div class="s">' + kdate(x.at) + ' · ' + (T[x.type] || "") + '</div></div><b style="color:' + (x.amount < 0 ? 'var(--red)' : 'var(--pri)') + '">' + (x.amount > 0 ? "+" : "") + x.amount.toLocaleString("ko-KR") + ' P</b></div>'; }).join("") : '<div class="empty" style="padding:32px 0">아직 내역이 없어요.</div>');
-  }).catch(function(){ m.querySelector(".mdl-b").innerHTML = '<div class="empty">불러오지 못했어요.</div>'; });
+  fetch("/api/points").then(function(r){ return r.json(); }).then(function(j){ m.querySelector(".mdl-b").innerHTML = ptHtml(j, true); }).catch(function(){ m.querySelector(".mdl-b").innerHTML = '<div class="empty">불러오지 못했어요.</div>'; });
 }
+/* 후기 탭: 글이 먼저 보이는 피드. 좋아요 / 댓글 / 공유 / 구매하기(후기 작성자에게 적립) */
+var FD = {items:[], page:1, more:false, focus:""};
+function fdAgo(iso){ var m = Math.floor((Date.now() - new Date(iso).getTime()) / 6e4); if(m < 1) return "방금 전"; if(m < 60) return m + "분 전"; if(m < 1440) return Math.floor(m / 60) + "시간 전"; if(m < 43200) return Math.floor(m / 1440) + "일 전"; return kdate(iso); }
+function fdPost(r){
+  var ph = (r.photos || []).slice(0, 3);
+  return '<article class="fd" data-fid="' + esc(r.id) + '"><div class="fd-h"><div class="av">' + esc((r.userName || "?").charAt(0)) + '</div><div class="who"><b>' + esc(r.userName) + (r.badge ? ' <i class="bdg">성실리뷰어</i>' : '') + '</b><span>' + fdAgo(r.createdAt) + ' · ' + stars(r.rating) + (r.best ? ' · <em>베스트</em>' : '') + '</span></div>' + (r.mine ? '' : '<button type="button" class="fd-rp" data-frp="' + esc(r.id) + '">신고</button>') + '</div>'
+    + '<p class="fd-t">' + esc(r.text) + '</p>'
+    + (ph.length ? '<div class="fd-ph n' + ph.length + '">' + ph.map(function(u){ return '<img src="' + esc(u) + '" alt="후기 사진" loading="lazy">'; }).join("") + '</div>' : '')
+    + '<a class="fd-p" href="#/p/' + esc(r.productId) + '"><div class="im">' + (r.img ? '<img src="' + esc(r.img) + '" alt="">' : '') + '</div><div><span>' + esc(r.brandName) + '</span><b>' + esc(r.productName) + '</b><em>' + (r.price ? won(r.price) : '') + '</em></div></a>'
+    + '<div class="fd-c"><span data-flc>좋아요 ' + r.likes + '</span><span data-fcc>댓글 ' + r.comments + '</span></div>'
+    + '<div class="fd-a"><button type="button" data-fl="' + esc(r.id) + '" class="' + (r.liked ? 'on' : '') + '">' + (r.liked ? '♥' : '♡') + ' 좋아요</button><button type="button" data-fc="' + esc(r.id) + '">댓글</button><button type="button" data-fs="' + esc(r.id) + '">공유</button><button type="button" class="buy' + (r.soldOut ? ' off' : '') + '" data-fb="' + esc(r.id) + '" data-fp="' + esc(r.productId) + '">' + (r.soldOut ? '품절' : '구매하기') + '</button></div>'
+    + '<div class="fd-rpf" data-frpf="' + esc(r.id) + '" hidden></div><div class="fd-cm" data-fcm="' + esc(r.id) + '" hidden></div></article>';
+}
+function feed(focus){
+  if(!user){ $app.innerHTML = '<div class="sec"><h1>후기</h1></div>' + (CFG.LOGIN ? loginBox("#/feed") : '<div class="sec"><div class="ntc">로그인 기능은 준비 중이에요.</div></div>'); return; }
+  FD = {items:[], page:1, more:false, focus:focus || ""};
+  $app.innerHTML = '<div class="sec"><h1>후기</h1><p class="sub" style="margin:2px 0 0">스킨인사이드 회원들이 남긴 진짜 후기예요. 마음에 드는 후기에서 바로 구매할 수 있고, 구매가 확정되면 후기를 쓴 분께 포인트가 적립돼요.</p><a class="fd-write" href="#/orders">내 후기 쓰러 가기 &#8250;</a></div><div id="fdl"><div class="empty">불러오는 중</div></div>';
+  fdLoad();
+}
+function fdLoad(){
+  fetch("/api/feed?page=" + FD.page + (FD.focus ? "&id=" + encodeURIComponent(FD.focus) : "")).then(function(r){ return r.status === 401 ? {error:1} : r.json(); }).then(function(j){
+    var box = document.getElementById("fdl"); if(!box) return;
+    if(j.error){ user = null; box.innerHTML = loginBox("#/feed"); return; }
+    FD.items = FD.items.concat(j.items || []); FD.more = !!j.hasMore;
+    box.innerHTML = (FD.focus ? '<a class="fd-write" href="#/feed" style="margin:0 20px 10px;display:block">&#8249; 전체 후기 보기</a>' : '') + (FD.items.length ? FD.items.map(fdPost).join("") : '<div class="empty">아직 후기가 없어요.<br>주문한 제품에 후기를 남기면 여기에 올라와요.</div>') + (FD.more ? '<div style="padding:8px 20px 24px"><button type="button" class="btn sub2" id="fdmore" style="width:100%">후기 더 보기</button></div>' : '');
+    var mb = document.getElementById("fdmore"); if(mb) mb.onclick = function(){ FD.page++; fdLoad(); };
+  }).catch(function(){ var box = document.getElementById("fdl"); if(box) box.innerHTML = '<div class="empty">후기를 불러오지 못했어요.</div>'; });
+}
+function fdPost_(method, url, body){ return fetch(url, {method:method, headers:{"content-type":"application/json"}, body:body ? JSON.stringify(body) : undefined}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "처리하지 못했어요"); return j; }); }); }
+function fdCommentHtml(c){ return '<div class="cmt" data-cid="' + esc(c.id) + '"><b>' + esc(c.name) + (c.badge ? ' <i class="bdg">성실리뷰어</i>' : '') + '</b><span>' + fdAgo(c.at) + '</span><p>' + esc(c.text) + '</p>' + (c.mine ? '<button type="button" data-fcd="' + esc(c.id) + '">삭제</button>' : '<button type="button" data-fcr="' + esc(c.id) + '">신고</button>') + '</div>'; }
+document.addEventListener("click", function(e){
+  var t = e.target, q = function(sel){ return t.closest && t.closest(sel); }, b, art = q(".fd"), rid = art ? art.dataset.fid : "";
+  if(!art) return;
+  if((b = q("[data-fl]"))){ if(b.dataset.busy) return; b.dataset.busy = "1"; fdPost_("POST", "/api/feed/like", {id:rid}).then(function(j){ b.classList.toggle("on", j.liked); b.textContent = (j.liked ? "♥" : "♡") + " 좋아요"; art.querySelector("[data-flc]").textContent = "좋아요 " + j.likes; }).catch(function(x){ toast(x.message); }).then(function(){ delete b.dataset.busy; }); return; }
+  if((b = q("[data-fs]"))){ var u = (DEMO ? "https://skinside.co.kr/store" : location.origin + "/store") + "#/feed/" + rid; if(navigator.share && !DEMO){ navigator.share({title:"스킨인사이드 후기", url:u}).catch(function(){}); } else { try{ navigator.clipboard.writeText(u).then(function(){ toast("후기 링크를 복사했어요"); }, function(){ toast(u); }); }catch(x){ toast(u); } } return; }
+  if((b = q("[data-fb]"))){ if(b.classList.contains("off")) return toast("품절된 제품이에요"); setRef(b.dataset.fp, rid); track(b.dataset.fp, "c"); setH("#/p/" + encodeURIComponent(b.dataset.fp)); return; }
+  if((b = q("[data-fc]"))){
+    var cm = art.querySelector("[data-fcm]"); if(!cm.hidden){ cm.hidden = true; return; } cm.hidden = false; cm.innerHTML = '<div class="s" style="padding:8px 0">불러오는 중</div>';
+    fetch("/api/feed/comments?id=" + encodeURIComponent(rid)).then(function(r){ return r.json(); }).then(function(j){
+      cm.innerHTML = '<div data-fcl>' + ((j.comments || []).length ? j.comments.map(fdCommentHtml).join("") : '<div class="s" style="padding:6px 0">첫 댓글을 남겨보세요.</div>') + '</div><form class="cmf" data-fcf><input maxlength="200" placeholder="댓글을 입력하세요" aria-label="댓글"><button class="btn" type="submit">등록</button></form>';
+    }).catch(function(){ cm.innerHTML = '<div class="s">댓글을 불러오지 못했어요.</div>'; });
+    return;
+  }
+  if((b = q("[data-fcd]"))){ fdPost_("POST", "/api/feed/comment/delete", {id:rid, cid:b.dataset.fcd}).then(function(){ var c = b.closest(".cmt"); if(c) c.remove(); var n = art.querySelector("[data-fcc]"); n.textContent = "댓글 " + Math.max(0, (parseInt(n.textContent.replace(/\D/g, ""), 10) || 1) - 1); }).catch(function(x){ toast(x.message); }); return; }
+  if((b = q("[data-fcr]"))){ fdPost_("POST", "/api/feed/report", {id:rid, cid:b.dataset.fcr, reason:"부적절한 댓글"}).then(function(){ toast("신고가 접수됐어요"); }).catch(function(x){ toast(x.message); }); return; }
+  if((b = q("[data-frp]"))){ var f = art.querySelector("[data-frpf]"); f.hidden = !f.hidden; if(!f.hidden) f.innerHTML = '<select aria-label="신고 사유"><option>광고·도배</option><option>욕설·비방</option><option>개인정보 노출</option><option>사실과 다른 내용</option></select><button type="button" class="btn sub2" data-frs>신고 접수</button>'; return; }
+  if((b = q("[data-frs]"))){ var sel = art.querySelector("[data-frpf] select"); fdPost_("POST", "/api/feed/report", {id:rid, reason:sel.value}).then(function(){ toast("신고가 접수됐어요"); art.querySelector("[data-frpf]").hidden = true; }).catch(function(x){ toast(x.message); }); return; }
+});
+document.addEventListener("submit", function(e){
+  var f = e.target.closest && e.target.closest("[data-fcf]"); if(!f) return; e.preventDefault();
+  var art = f.closest(".fd"), inp = f.querySelector("input"), v = inp.value.trim(); if(!v) return;
+  var bt = f.querySelector("button"); if(bt.disabled) return; bt.disabled = true;
+  fdPost_("POST", "/api/feed/comment", {id:art.dataset.fid, text:v}).then(function(j){ var l = art.querySelector("[data-fcl]"); if(!l.querySelector(".cmt")) l.innerHTML = ""; l.insertAdjacentHTML("beforeend", fdCommentHtml({id:j.comment.id, name:j.comment.name, text:j.comment.text, at:j.comment.at, mine:true})); inp.value = ""; var n = art.querySelector("[data-fcc]"); n.textContent = "댓글 " + ((parseInt(n.textContent.replace(/\D/g, ""), 10) || 0) + 1); }).catch(function(x){ toast(x.message); }).then(function(){ bt.disabled = false; });
+});
 function me(){
   var h = '<div class="sec"><h1>' + (user ? esc(user.name || "회원") + '님' : '내 정보') + '</h1></div>';
   if(!user && CFG.LOGIN) h += loginBox("#/me");
@@ -430,8 +496,8 @@ function me(){
 /* 라우터 */
 function route(){
   var h = getH() || "#/", m;
-  $bk.hidden = !CFG.STORE_OPEN || !/^#\/(p|cart|checkout|orders|points|search|c\/)/.test(h);
-  drawTabs(); window.SkHidden && SkHidden.show(CFG.STORE_OPEN && !/^#\/(p\/|cart|checkout|orders|points|done|me|admin)/.test(h)); window.scrollTo(0, 0);
+  $bk.hidden = !CFG.STORE_OPEN || !/^#\/(p|cart|checkout|orders|points|search|c\/|feed\/)/.test(h);
+  drawTabs(); window.SkHidden && SkHidden.show(CFG.STORE_OPEN && !/^#\/(p\/|cart|checkout|orders|points|done|me|admin|feed)/.test(h)); window.scrollTo(0, 0);
   if(!CFG.STORE_OPEN) return soon();
   if((m = h.match(/^#\/p\/(.+)/))) return detail(decodeURIComponent(m[1]));
   if((m = h.match(/^#\/c\/(.+)/))){ var k = decodeURIComponent(m[1]); return list(D.categories[k] || "제품", D.products.filter(function(p){ return p.cat === k; }), k); }
@@ -442,6 +508,7 @@ function route(){
   if(CHECKOUT && h === "#/checkout/direct") return checkout(true);
   if(CHECKOUT && h === "#/orders") return orders();
   if(CHECKOUT && h === "#/points") return points();
+  if(CHECKOUT && (m = h.match(/^#\/feed(?:\/(.+))?$/))) return feed(m[1] ? decodeURIComponent(m[1]) : "");
   if((m = h.match(/^#\/done\/(.+)/))) return done(decodeURIComponent(m[1]));
   if(DEMO && h === "#/admin" && window.DEMO_ADMIN) return window.DEMO_ADMIN($app, toast);
   if(h === "#/me") return me();

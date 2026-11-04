@@ -740,4 +740,98 @@ for (let i = 0; i < 5; i++) await call(brand, "/api/partner/login", "POST", { co
   ok(nd >= 3 && v.series.every((x) => !x.n), "오래된 접속 기록이 정리되지 않아요 " + nd);
   [sx, v] = await call(adminApi, "/api/admin/live", "GET", null, A); ok(sx === 200 && typeof v.now === "number" && v.series.length === 30, "관리자 실시간 접속 API가 달라요");
   [sx] = await call(adminApi, "/api/admin/live", "GET", null, {}); ok(sx === 401, "로그인 없이 실시간 접속을 볼 수 있어요"); }
+
+/* 후기 커뮤니티: 피드, 좋아요, 댓글, 신고, 후기 보고 구매 -> 구매확정 시 포인트, 성실리뷰어 뱃지(5%) */
+{
+  const feedApi = (await import(pathToFileURL(path.join(T, "functions/community.mjs")))).default;
+  const pay = await import(pathToFileURL(path.join(T, "functions/_pay.mjs")));
+  const pointsApi = (await import(pathToFileURL(path.join(T, "functions/points.mjs")))).default;
+  const com = await import(pathToFileURL(path.join(T, "functions/_community.mjs")));
+  const UA = cu("ua", "작가님"), UB = cu("ub", "구매자"), UC = cu("uc", "구매자둘");
+  const LV = (q) => ({ id: "livna-calm", brand: "livna", name: "챕터3 율무 진정 앰플", optName: "", q, unit: 26900 });
+  await lib.orders().setJSON("CA1", mk("CA1", [LV(1)], "shipped", 30, { userId: "ua", userName: "작가님", shipments: { livna: { carrier: "cj", tracking: "5550001", at: ago(300) } } }));
+  [s, j] = await rvNew(UA, "CA1", "livna-calm", 5, "진정 앰플 정말 좋아요 추천합니다");
+  const myRv = (await call(reviewsApi, "/api/review?product=livna-calm")).slice(1)[0]; const rid = myRv.reviews[0].id;
+  [s, j] = await call(feedApi, "/api/feed"); ok(s === 401, "로그인 없이 피드가 열려요");
+  [s, j] = await call(feedApi, "/api/feed", "GET", null, UB);
+  const it = (j.items || []).find((x) => x.id === rid);
+  ok(s === 200 && it && it.likes === 0 && !it.liked && it.comments === 0 && it.badge === false && it.userName.includes("*") && it.productName && !JSON.stringify(j).includes("ua\""), "피드 항목이 달라요 " + JSON.stringify(j).slice(0, 300));
+  [s, j] = await call(feedApi, "/api/feed/like", "POST", { id: rid }, UB); ok(j.liked === true && j.likes === 1, "좋아요 실패");
+  [s, j] = await call(feedApi, "/api/feed/like", "POST", { id: rid }, UC); ok(j.likes === 2, "다른 사람 좋아요가 합쳐지지 않아요");
+  [s, j] = await call(feedApi, "/api/feed/like", "POST", { id: rid }, UB); ok(j.liked === false && j.likes === 1, "좋아요 취소 실패");
+  [s, j] = await call(feedApi, "/api/feed?id=" + rid, "GET", null, UC); ok(j.items[0].liked === true && j.items[0].likes === 1, "내 좋아요 표시가 달라요");
+  [s, j] = await call(feedApi, "/api/feed/like", "POST", { id: "nope" }, UB); ok(s === 400, "없는 후기에 좋아요가 돼요");
+  /* 댓글 */
+  [s, j] = await call(feedApi, "/api/feed/comment", "POST", { id: rid, text: "" }, UB); ok(s === 400, "빈 댓글이 통과해요");
+  [s, j] = await call(feedApi, "/api/feed/comment", "POST", { id: rid, text: "저도 써보고 싶어요" }, UB); ok(s === 200 && j.comment.name.includes("*"), "댓글 실패 " + JSON.stringify(j));
+  const cid = j.comment.id;
+  [s, j] = await call(feedApi, "/api/feed/comment", "POST", { id: rid, text: "저도 써보고 싶어요" }, UB); ok(s === 400 && /같은 댓글/.test(j.error), "같은 댓글 도배가 통과해요");
+  for (let i = 0; i < 2; i++) await call(feedApi, "/api/feed/comment", "POST", { id: rid, text: "다른 댓글 " + i }, UB);
+  [s, j] = await call(feedApi, "/api/feed/comment", "POST", { id: rid, text: "네 번째 빠른 댓글" }, UB); ok(s === 400 && /빠르게/.test(j.error), "댓글 연속 제한이 없어요");
+  [s, j] = await call(feedApi, "/api/feed/comments?id=" + rid, "GET", null, UC); ok(j.comments.length === 3 && j.comments.every((c) => !c.mine) && !JSON.stringify(j).includes("ub"), "댓글 목록이 달라요 " + JSON.stringify(j));
+  [s, j] = await call(feedApi, "/api/feed/comment/delete", "POST", { id: rid, cid }, UC); ok(s === 400, "남의 댓글을 지울 수 있어요");
+  [s, j] = await call(feedApi, "/api/feed/comment/delete", "POST", { id: rid, cid }, UB); ok(s === 200, "내 댓글 삭제 실패");
+  /* 신고 -> 관리자 처리 */
+  [s, j] = await call(feedApi, "/api/feed/report", "POST", { id: rid, reason: "광고 같아요" }, UC); ok(s === 200, "신고 실패");
+  [s, j] = await call(feedApi, "/api/feed/report", "POST", { id: rid, reason: "광고 같아요" }, UC); ok(s === 400, "같은 신고가 또 접수돼요");
+  [s, j] = await call(site, "/api/manage/community"); ok(s === 401, "로그인 없이 커뮤니티 관리가 열려요");
+  [s, j] = await call(site, "/api/manage/community", "GET", null, A); ok(s === 200 && j.reports.length === 1 && j.cfg.base === 3 && j.cfg.badge === 5 && j.reviewers.some((x) => x.uid === "ua"), "관리자 커뮤니티 화면 데이터가 달라요 " + JSON.stringify(j).slice(0, 300));
+  [s, j] = await call(site, "/api/manage/community", "POST", { action: "report", id: j.reports[0].id, do: "dismiss" }, A); ok(s === 200, "신고 기각 실패");
+  [s, j] = await call(site, "/api/manage/community", "GET", null, A); ok(j.reports.length === 0, "처리한 신고가 남아요");
+  /* 후기를 보고 구매: 후기 번호가 주문 줄에 기록된다. 본인 후기·다른 제품 후기는 무시 */
+  const place = async (U, items) => { const r = await call(orderApi, "/api/order", "POST", { items, ship: shipBody }, U); return r; };
+  const payIt = async (id) => { const o = await lib.orders().get(id, { type: "json" }); o.status = "paid"; o.paidAt = new Date().toISOString(); o.paymentKey = "pk_" + id; await lib.orders().setJSON(id, o); await pay.finalizePaid(o); return o; };
+  [s, j] = await place(UA, [{ id: "livna-calm", q: 1, ref: rid }]); ok(s === 200, "본인 주문 실패 " + JSON.stringify(j)); const selfO = await lib.orders().get(j.orderId, { type: "json" }); ok(!selfO.items[0].ref, "본인 후기로 구매하면 적립 대상이 돼요");
+  [s, j] = await place(UB, [{ id: "grafen-patch", q: 1, ref: rid }]); const otherO = await lib.orders().get(j.orderId, { type: "json" }); ok(!otherO.items[0].ref, "다른 제품 후기가 연결돼요");
+  [s, j] = await place(UB, [{ id: "livna-calm", q: 1, ref: rid }]); ok(s === 200, "후기 보고 주문 실패 " + JSON.stringify(j));
+  const ob1 = j.orderId; let o1 = await lib.orders().get(ob1, { type: "json" });
+  ok(o1.items[0].ref === rid && o1.items[0].refUser === "ua" && o1.items[0].refRate === 3, "주문 줄에 후기·적립률이 기록돼야 해요 " + JSON.stringify(o1.items[0]));
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(j.pending === 0, "결제 전에는 예정 포인트가 없어야 해요");
+  o1 = await payIt(ob1);
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); const bal0 = j.balance;
+  ok(j.pending === Math.floor(26900 * 3 / 100) && j.pendingItems.length === 1, "결제 후 구매확정 예정 포인트가 달라요 " + JSON.stringify(j));
+  /* 구매확정 전에는 지급되지 않는다 / 아직 발송 전이면 확정 불가 */
+  [s, j] = await call(orderApi, "/api/order/confirm", "POST", { orderId: ob1 }, UB); ok(s === 400 && /배송/.test(j.error), "발송 전 주문이 구매확정돼요");
+  o1 = await lib.orders().get(ob1, { type: "json" }); lib.setShipment(o1, "livna", "cj", "9990001"); await lib.orders().setJSON(ob1, o1);
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(j.balance === bal0 && j.pending === 807, "발송만으로는 포인트가 지급되면 안 돼요");
+  [s, j] = await call(orderApi, "/api/order/confirm", "POST", { orderId: ob1 }, UC); ok(s === 404, "남의 주문을 구매확정할 수 있어요");
+  [s, j] = await call(orderApi, "/api/order/confirm", "POST", { orderId: ob1 }, UB); ok(s === 200 && j.confirmedAt, "구매확정 실패 " + JSON.stringify(j));
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(j.balance === bal0 + 807 && j.pending === 0 && j.earnedRef === 807 && j.log.some((x) => x.type === "ref"), "구매확정 후 지급이 달라요 " + JSON.stringify(j));
+  [s, j] = await call(orderApi, "/api/order/confirm", "POST", { orderId: ob1 }, UB); ok(s === 200, "구매확정을 두 번 눌러도 오류가 없어야 해요");
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(j.balance === bal0 + 807, "구매확정을 두 번 누르면 포인트가 두 번 지급돼요");
+  /* 같은 구매자가 같은 후기로 또 사면 적립 없음 */
+  [s, j] = await place(UB, [{ id: "livna-calm", q: 1, ref: rid }]); await payIt(j.orderId);
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(j.pending === 0, "같은 구매자의 반복 구매가 또 적립돼요");
+  /* 성실리뷰어 뱃지: 관리자 승인 -> 적립률 5% (이미 한 주문은 그대로) */
+  [s, j] = await call(site, "/api/manage/community", "POST", { action: "badge", uid: "ua", on: true, name: "작가님" }, A); ok(s === 200, "뱃지 부여 실패");
+  [s, j] = await call(feedApi, "/api/feed?id=" + rid, "GET", null, UC); ok(j.items[0].badge === true, "피드에 뱃지가 안 보여요");
+  [s, j] = await place(UC, [{ id: "livna-calm", q: 2, ref: rid }]); const oc = j.orderId; let oc1 = await lib.orders().get(oc, { type: "json" });
+  ok(oc1.items[0].refRate === 5, "뱃지 작성자의 적립률이 5%가 아니에요 " + oc1.items[0].refRate);
+  await payIt(oc);
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(j.pending === Math.floor(26900 * 2 * 5 / 100), "뱃지 적립 예정 금액이 달라요 " + j.pending);
+  [s, j] = await call(site, "/api/manage/community", "POST", { action: "badge", uid: "ua", on: false }, A); ok(s === 200, "뱃지 회수 실패");
+  oc1 = await lib.orders().get(oc, { type: "json" }); ok(oc1.items[0].refRate === 5, "뱃지를 회수해도 이미 한 주문의 적립률은 그대로여야 해요");
+  /* 구매자가 결제 후 취소하면 예정 포인트가 사라진다 */
+  const cancel = await import(pathToFileURL(path.join(T, "functions/_cancel.mjs")));
+  oc1 = await lib.orders().get(oc, { type: "json" }); const rc = await cancel.cancelOrder(oc1, { by: "admin", reason: "시험" });
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(!rc.error && j.pending === 0, "취소했는데 예정 포인트가 남아요 " + JSON.stringify(rc) + JSON.stringify(j));
+  /* 이미 지급된 뒤 환불되면 회수 */
+  const bal1 = (await call(pointsApi, "/api/points", "GET", null, UA))[1].balance;
+  o1 = await lib.orders().get(ob1, { type: "json" }); await com.voidRefs(o1, "livna");
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(j.balance === bal1 - 807 && j.earnedRef === 0, "환불된 주문의 적립이 회수되지 않아요 " + JSON.stringify(j));
+  /* 월 한도 */
+  [s, j] = await call(site, "/api/manage/community", "POST", { action: "cfg", base: 3, badge: 2, cap: 30000, autoDays: 10, needReviews: 10, needPhotos: 5 }, A); ok(s === 400, "뱃지 적립률이 기본보다 낮게 저장돼요");
+  [s, j] = await call(site, "/api/manage/community", "POST", { action: "cfg", base: 3, badge: 5, cap: 1000, autoDays: 10, needReviews: 10, needPhotos: 5 }, A); ok(s === 200 && j.cfg.cap === 1000, "설정 저장 실패");
+  const UD = cu("ud", "구매자셋"); [s, j] = await place(UD, [{ id: "livna-calm", q: 3, ref: rid }]); await payIt(j.orderId);
+  [s, j] = await call(pointsApi, "/api/points", "GET", null, UA); ok(j.pending <= 1000, "월 한도를 넘어 적립 예정이 잡혀요 " + j.pending);
+  await call(site, "/api/manage/community", "POST", { action: "cfg", base: 3, badge: 5, cap: 30000, autoDays: 10, needReviews: 10, needPhotos: 5 }, A);
+  /* 자동 구매확정: 마지막 발송 후 10일이 지나면 주문 목록을 볼 때 확정 */
+  const UE = cu("ue", "구매자넷"); [s, j] = await place(UE, [{ id: "livna-calm", q: 1, ref: rid }]); const oe = j.orderId; let oe1 = await payIt(oe);
+  oe1 = await lib.orders().get(oe, { type: "json" }); lib.setShipment(oe1, "livna", "cj", "8880001"); oe1.shipments.livna.at = ago(24 * 5); await lib.orders().setJSON(oe, oe1);
+  [s, j] = await call(orderApi, "/api/order", "GET", null, UE); ok(!j.orders.find((x) => x.id === oe).confirmedAt, "5일 만에 자동 구매확정돼요");
+  oe1.shipments.livna.at = ago(24 * 11); await lib.orders().setJSON(oe, oe1);
+  [s, j] = await call(orderApi, "/api/order", "GET", null, UE); ok(j.orders.find((x) => x.id === oe).confirmedAt, "10일이 지나도 자동 구매확정이 안 돼요");
+  /* 후기 삭제 시 피드에서 사라진다 */
+  [s, j] = await call(site, "/api/manage/community", "POST", { action: "badge", uid: "", on: true }, A); ok(s === 400, "회원 없이 뱃지가 부여돼요");
+}
 console.log(errs.length ? "FAIL\n" + errs.join("\n") : "OK: 관리자 API 시험 통과"); process.exit(errs.length ? 1 : 0);

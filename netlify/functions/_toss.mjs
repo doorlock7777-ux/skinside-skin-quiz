@@ -68,6 +68,7 @@ export async function syncOrder(id) {
   if (r.recovered && o.pointsReleased && !(await rehold(o))) { o.mismatch = { toss: Number(t.p.totalAmount), ours: payOf(o), note: "포인트 재차감 실패" }; r.mismatch = true; }
   if (o.status === "canceled" && o.pointsUsed && (o.pointsReturned || 0) < o.pointsUsed) { await returnPoints(o, o.pointsUsed - (o.pointsReturned || 0), "주문 취소", "ret-all-" + o.id).catch(() => {}); r.changed = true; }
   if (r.changed) await st.setJSON(o.id, o);
+  if (o.status === "canceled") { try { const { voidRefs } = await import("./_community.mjs"); await voidRefs(o); } catch {} } /* 외부(토스)에서 전체 취소된 주문도 후기 구매 적립 소멸 */
   if (r.recovered) await finalizePaid(o);
   return r;
 }

@@ -8,7 +8,7 @@ export const reviewStore = () => getStore({ name: "reviews", consistency: "stron
 export const LOW = 2; /* 이 점수 이하가 낮은 평점 */
 export const BEST_MAX = 3; /* 제품당 베스트 리뷰 수 */
 const clip = (s, n) => String(s ?? "").replace(/\s+$/g, "").slice(0, n);
-const mask = (n) => { const s = String(n || "고객").trim(); return s.length <= 1 ? s + "*" : s.length === 2 ? s[0] + "*" : s[0] + "*".repeat(s.length - 2) + s[s.length - 1]; };
+export const mask = (n) => { const s = String(n || "고객").trim(); return s.length <= 1 ? s + "*" : s.length === 2 ? s[0] + "*" : s[0] + "*".repeat(s.length - 2) + s[s.length - 1]; };
 
 export async function allReviews() {
   const st = reviewStore(), { blobs } = await st.list();

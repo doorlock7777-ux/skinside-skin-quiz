@@ -12,6 +12,7 @@ function pAdd(n, type, note){ var q = pts(); q.balance += n; q.log.unshift({type
 function save(){ try{ localStorage.setItem("skd", JSON.stringify(state)); }catch(e){} }
 function res(o, st){ return Promise.resolve(new Response(JSON.stringify(o), {status: st || 200, headers:{"content-type":"application/json"}})); }
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function pr0(p){ return p && p.options && p.options[0] ? p.options[0].price : (p && p.price) || 0; }
 function won(n){ return Number(n).toLocaleString("ko-KR") + "원"; }
 var realFetch = window.fetch ? window.fetch.bind(window) : null;
 
@@ -55,7 +56,26 @@ window.fetch = function(u, o){
     if(u === "/api/cs/escalate") t3.escalated = true;
     save(); return res({ticket:t3});
   }
-  if(u === "/api/points") return res({balance:pts().balance, log:pts().log.slice(0, 50)});
+  /* 후기 피드 (미리보기 예시 데이터) */
+  if(/^\/api\/feed/.test(u)){
+    if(!state.user) return res({error:"로그인이 필요해요"}, 401);
+    state.feed = state.feed || [
+      {id:"F1", productId:"minic-allinone", userName:"김*수", badge:true, rating:5, best:true, text:"세안하고 이거 하나만 바르는데 다른 걸 쓸 필요가 없어졌어요. 끈적임 없고 아침에 얼굴 붉어짐도 많이 줄었어요. 2주째 쓰는 중인데 올인원 하나 + 장벽크림 조합이 진짜 편합니다.", photos:[], likes:12, comments:[{id:"c1", name:"박*호", text:"저도 이 조합 쓰고 있어요", at:new Date(Date.now() - 36e5).toISOString()}], createdAt:new Date(Date.now() - 3 * 36e5).toISOString()},
+      {id:"F2", productId:"livna-calm", userName:"이*진", badge:false, rating:4, best:false, text:"여드름 올라올 때 꺼내 바르는 앰플이에요. 다음 날 확실히 가라앉아요. 가격이 조금 있지만 마켓가에 사면 부담 없어요.", photos:[], likes:5, comments:[], createdAt:new Date(Date.now() - 26 * 36e5).toISOString()},
+      {id:"F3", productId:"bonkorea-vit", userName:"최*민", badge:true, rating:5, best:false, text:"여름에 탄 얼굴이 이거 바르고 한 달 만에 돌아왔어요. 아침에 바르고 선크림 꼭 바르세요.", photos:[], likes:21, comments:[], createdAt:new Date(Date.now() - 5 * 864e5).toISOString()}];
+    state.liked = state.liked || {};
+    if(u.indexOf("/api/feed/comments") === 0){ var f1 = state.feed.filter(function(x){ return x.id === decodeURIComponent(u.split("id=")[1] || ""); })[0]; return res({comments:(f1 ? f1.comments : []).map(function(c){ return {id:c.id, name:c.name, text:c.text, at:c.at, mine:!!c.mine}; })}); }
+    if(u === "/api/feed/like"){ var f2 = state.feed.filter(function(x){ return x.id === b.id; })[0]; if(!f2) return res({error:"삭제된 후기예요"}, 400); if(state.liked[b.id]){ delete state.liked[b.id]; f2.likes--; } else { state.liked[b.id] = 1; f2.likes++; } save(); return res({liked:!!state.liked[b.id], likes:f2.likes}); }
+    if(u === "/api/feed/comment"){ var f3 = state.feed.filter(function(x){ return x.id === b.id; })[0]; if(!f3 || !String(b.text || "").trim()) return res({error:"댓글을 입력해주세요"}, 400); var c3 = {id:"c" + Date.now(), name:"홍*동", text:String(b.text).slice(0, 200), at:new Date().toISOString(), mine:true}; f3.comments.push(c3); save(); return res({comment:c3}); }
+    if(u === "/api/feed/comment/delete"){ var f4 = state.feed.filter(function(x){ return x.id === b.id; })[0]; if(f4) f4.comments = f4.comments.filter(function(c){ return c.id !== b.cid; }); save(); return res({ok:true}); }
+    if(u === "/api/feed/report") return res({ok:true});
+    var one = u.indexOf("id=") >= 0 ? decodeURIComponent(u.split("id=")[1].split("&")[0]) : "";
+    var mine = (state.reviews || []).filter(function(r){ return r.mine; }).map(function(r){ return {id:r.id, productId:r.productId, userName:"홍*동", badge:false, rating:r.rating, best:false, text:r.text, photos:r.photos || [], likes:0, comments:[], createdAt:r.createdAt, mine:true}; });
+    var all = mine.concat(state.feed).filter(function(x){ return !one || x.id === one; });
+    return res({total:all.length, page:1, hasMore:false, items:all.map(function(x){ var p = MAP[x.productId] || {}; return {id:x.id, productId:x.productId, productName:p.name || "", brandName:p.brandName || "", img:p.img || "", price:pr0(p), soldOut:!!p.soldOut, rating:x.rating, text:x.text, photos:x.photos || [], userName:x.userName, badge:!!x.badge, best:!!x.best, createdAt:x.createdAt, likes:x.likes, liked:!!state.liked[x.id], comments:x.comments.length, mine:!!x.mine}; })});
+  }
+  if(u === "/api/order/confirm" && m === "POST"){ var oq = state.orders.filter(function(x){ return x.id === b.orderId; })[0]; if(!oq) return res({error:"주문을 찾을 수 없어요"}, 404); if(oq.status !== "shipped") return res({error:"배송이 모두 시작된 주문만 구매확정할 수 있어요"}, 400); oq.confirmedAt = new Date().toISOString(); save(); return res({ok:true, confirmedAt:oq.confirmedAt}); }
+  if(u === "/api/points"){ var lg = pts().log.slice(0, 50), er = pts().log.reduce(function(a, x){ return a + (x.type === "earn" ? x.amount : x.type === "claw" ? x.amount : 0); }, 0); return res({balance:pts().balance, earnedReview:Math.max(0, er), earnedRef:807, pending:2690, pendingItems:[{productName:"챕터3 율무 진정 앰플", amount:2690, rate:5, at:new Date().toISOString()}], log:lg}); }
   if(u === "/api/order/cancel" && m === "POST"){
     var oc = state.orders.filter(function(x){ return x.id === b.orderId; })[0];
     if(!oc) return res({error:"주문을 찾을 수 없어요"}, 404);

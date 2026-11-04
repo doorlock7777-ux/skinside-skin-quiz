@@ -1,5 +1,6 @@
 import { orders, mail, esc, addStat, adjustStock } from "./_lib.mjs";
 import { notifyNewOrder } from "./_batch.mjs";
+import { registerRefs } from "./_community.mjs";
 
 /* 주문이 결제되면 운영자와 해당 브랜드에 바로 알린다 */
 async function notify(o) {
@@ -17,6 +18,7 @@ export async function finalizePaid(o) {
   await st.setJSON(o.id, o);
   try { await addStat(o.items.map((l) => [l.id, "b", l.q])); } catch {}
   try { await adjustStock(o.items.map((l) => [l.id, -l.q])); } catch {}
+  try { await registerRefs(o); } catch {}
   try { await notifyNewOrder(o); await st.setJSON(o.id, o); } catch {}
   try { o.notified = await notify(o); await st.setJSON(o.id, o); } catch {}
   return true;

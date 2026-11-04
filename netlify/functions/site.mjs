@@ -1,6 +1,8 @@
 import { runBrandBatch } from "./_batch.mjs";
 import { isAdmin } from "./_auth.mjs";
 import { beat } from "./_live.mjs";
+import { loadCfg, saveCfg, setBadge, reviewerStats, reportList, resolveReport } from "./_community.mjs";
+import { allReviews } from "./_reviews.mjs";
 import { loadBrands, BRANDS, json, loadStock, isSoldOut, loadProducts, loadExtra, extraStore, extraImg, settings, events, stats, kday, addEvent } from "./_lib.mjs";
 
 /* 히든 버튼 타이머: 시각은 모두 한국 시간(KST, UTC+9)으로 해석한다 */
@@ -125,6 +127,14 @@ export default async (req) => { await loadBrands();
     const n = { on: !!b.on, text, link, linkText: String(b.linkText || "").replace(/\s+/g, " ").trim().slice(0, 20), until, updatedAt: new Date().toISOString() };
     await settings().setJSON("notice", n);
     return json({ ok: true, notice: n, live: !!noticeView(n) });
+  }
+  /* 후기 커뮤니티: 적립률·한도 설정, 성실리뷰어 뱃지 승인, 신고 처리 */
+  if (p === "/api/manage/community" && req.method === "GET") return json({ cfg: await loadCfg(), reviewers: await reviewerStats(await allReviews()), reports: await reportList() });
+  if (p === "/api/manage/community" && req.method === "POST") {
+    if (b.action === "cfg") { const r = await saveCfg(b); return r.error ? json(r, 400) : json({ ok: true, cfg: r.cfg }); }
+    if (b.action === "badge") { const r = await setBadge(b.uid, !!b.on, b.name); return r.error ? json(r, 400) : json({ ok: true }); }
+    if (b.action === "report") { const r = await resolveReport(String(b.id || ""), String(b.do || "")); return r.error ? json(r, 400) : json({ ok: true }); }
+    return json({ error: "not found" }, 404);
   }
   if (p === "/api/manage/kakao" && req.method === "POST") {
     const friends = Math.max(0, Math.min(100000000, parseInt(b.friends, 10) || 0));

@@ -8,11 +8,11 @@ export const REVIEW_POINTS = 500;
 export const MIN_PAY = 100; /* 토스는 0원 결제를 받지 않아서 최소 이만큼은 결제해야 한다 */
 export const HOLD_MIN = 30; /* 결제를 끝내지 않은 주문이 포인트를 잡아두는 최대 시간(분) */
 const st = () => getStore({ name: "points", consistency: "strong" });
-const blank = () => ({ balance: 0, log: [] });
+const blank = () => ({ balance: 0, log: [], tot: { review: 0, ref: 0 } });
 const get = async (uid) => (await st().get("u-" + uid, { type: "json" })) || blank();
 
 export async function balance(uid) { return (await get(uid)).balance; }
-export async function history(uid) { const a = await get(uid); return { balance: a.balance, log: a.log.slice(-50).reverse() }; }
+export async function history(uid) { const a = await get(uid); return { balance: a.balance, tot: a.tot || { review: 0, ref: 0 }, log: a.log.slice(-50).reverse() }; }
 
 /* 같은 key 는 한 번만. 잔액은 0 밑으로 내려가지 않는다(회수할 포인트가 모자라면 있는 만큼만 회수) */
 export async function apply(uid, delta, type, note, key, extra = {}) {
@@ -20,6 +20,9 @@ export async function apply(uid, delta, type, note, key, extra = {}) {
   if (key && a.log.some((x) => x.key === key)) return { done: false, applied: 0, balance: a.balance };
   const applied = delta < 0 ? -Math.min(-delta, a.balance) : delta;
   a.balance += applied;
+  a.tot = a.tot || { review: 0, ref: 0 };
+  if (type === "earn" || (type === "claw" && !/^refc-/.test(key || ""))) a.tot.review = Math.max(0, a.tot.review + applied);
+  if (type === "ref" || (type === "claw" && /^refc-/.test(key || ""))) a.tot.ref = Math.max(0, a.tot.ref + applied);
   a.log.push({ id: "P" + randomBytes(4).toString("hex"), key: key || "", type, amount: applied, asked: delta, note: String(note || "").slice(0, 60), at: new Date().toISOString(), ...extra });
   a.log = a.log.slice(-200);
   await st().setJSON("u-" + uid, a);

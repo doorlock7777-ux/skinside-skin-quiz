@@ -3,6 +3,7 @@ import { bookCancel, payOf, refundsOf } from "./_money.mjs";
 import { returnPoints } from "./_points.mjs";
 import { notifyCancel } from "./_batch.mjs";
 import { voidOrderReviews } from "./_reviews.mjs";
+import { voidRefs } from "./_community.mjs";
 
 /* 지금까지 카드·계좌로 돌려준 금액 (포인트로 낸 몫은 제외) */
 export const cashRefunded = (o) => refundsOf(o).reduce((a, r) => a + (r.cash !== undefined ? r.cash : r.amount), 0);
@@ -37,5 +38,6 @@ export async function cancelOrder(o, { by = "admin", reason = "" } = {}) {
   try { await notifyCancel(o); } catch {}
   await orders().setJSON(o.id, o);
   try { await voidOrderReviews(o.id); } catch {}
+  try { await voidRefs(o); } catch {}
   return { ok: true, refundedCash: cashLeft, pointsBack: back };
 }

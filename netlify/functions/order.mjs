@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { json, getUser, orders, userIdx, loadProducts, shipFee } from "./_lib.mjs";
 import { balance, holdForOrder, apply, releaseStale, MIN_PAY } from "./_points.mjs";
 import { cancelOrder } from "./_cancel.mjs";
+import { validateRef, rateFor, loadCfg, confirmOrder, autoConfirmIfDue } from "./_community.mjs";
 
 export default async (req) => { await loadBrands();
   const user = getUser(req);
@@ -11,6 +12,8 @@ export default async (req) => { await loadBrands();
   if (req.method === "GET") {
     const ids = (await userIdx().get(user.id, { type: "json" })) || [];
     const os = (await Promise.all(ids.slice(-30).map((i) => orders().get(i, { type: "json" })))).filter(Boolean);
+    const cfg = await loadCfg();
+    for (const o of os) { try { await autoConfirmIfDue(o, cfg); } catch {} }
     os.forEach((o) => { delete o.paymentKey; delete o.tossTx; delete o.reqKey; });
     return json({ orders: os.reverse() });
   }
@@ -25,6 +28,13 @@ export default async (req) => { await loadBrands();
     const r = await cancelOrder(o, { by: "customer", reason: String(b.reason || "").slice(0, 60) });
     return r.error ? json({ error: r.error }, 400) : json({ ok: true, refundedCash: r.refundedCash, pointsBack: r.pointsBack });
   }
+  /* 구매확정: 배송이 모두 시작된 내 주문. 후기를 보고 구매한 주문이면 이때 작성자에게 포인트가 지급된다 */
+  if (new URL(req.url).pathname.replace(/\/$/, "") === "/api/order/confirm") {
+    const o = await orders().get(String(b.orderId || ""), { type: "json" });
+    if (!o || o.userId !== user.id) return json({ error: "주문을 찾을 수 없어요" }, 404);
+    const r = await confirmOrder(o, "customer");
+    return r.error ? json({ error: r.error }, 400) : json({ ok: true, confirmedAt: o.confirmedAt });
+  }
   const { data, map } = await loadProducts(req);
   const items = [];
   for (const x of (b.items || []).slice(0, 30)) {
@@ -34,7 +44,11 @@ export default async (req) => { await loadBrands();
     if (p.stockQty !== null && p.stockQty !== undefined && q > p.stockQty) return json({ error: `${p.name}의 재고가 ${p.stockQty}개만 남았어요` }, 400);
     const oi = p.options ? Math.floor(Number(x.opt) || 0) : 0;
     if (p.options && !p.options[oi]) return json({ error: "옵션을 확인해주세요" }, 400);
-    items.push({ id: p.id, brand: p.brand, name: p.name, optName: p.options ? p.options[oi].n : p.option || "", opt: oi, q, unit: p.options ? p.options[oi].price : p.price });
+    const line = { id: p.id, brand: p.brand, name: p.name, optName: p.options ? p.options[oi].n : p.option || "", opt: oi, q, unit: p.options ? p.options[oi].price : p.price };
+    /* 후기를 보고 구매한 줄: 후기 번호가 올바를 때만 기록하고, 그 시점의 작성자 적립률(기본 3%, 성실리뷰어 5%)을 잠근다 */
+    const rv = x.ref ? await validateRef(x.ref, p.id, user.id) : null;
+    if (rv) { line.ref = rv.id; line.refUser = rv.userId; line.refRate = await rateFor(rv.userId); }
+    items.push(line);
   }
   if (!items.length) return json({ error: "주문 제품이 없어요" }, 400);
   const s = b.ship || {};
@@ -47,7 +61,7 @@ export default async (req) => { await loadBrands();
   /* 포인트는 현금처럼 쓴다. 주문을 만들 때 미리 잡아두고, 결제하지 않으면 돌려준다. 토스는 0원 결제를 받지 않아 최소 금액은 결제해야 한다 */
   const want = Math.max(0, Math.floor(Number(b.usePoints) || 0));
   /* 결제창을 닫았다 다시 누르거나 연타해도 같은 내용의 미결제 주문이 계속 쌓이지 않게, 10분 안의 똑같은 주문은 그대로 쓴다 */
-  const reqKey = JSON.stringify([items.map((l) => [l.id, l.opt, l.q]), ship, want]);
+  const reqKey = JSON.stringify([items.map((l) => [l.id, l.opt, l.q, l.ref || ""]), ship, want]);
   for (const oid of ((await userIdx().get(user.id, { type: "json" })) || []).slice(-5).reverse()) {
     const e = await orders().get(oid, { type: "json" });
     if (e && e.status === "pending" && !e.pointsReleased && e.reqKey === reqKey && e.sub === sub && e.shipFee === fee && Date.now() - new Date(e.createdAt).getTime() < 10 * 6e4)
@@ -74,4 +88,4 @@ export default async (req) => { await loadBrands();
   return json({ orderId: id, amount: order.payAmount, pointsUsed: pts, orderName: name.slice(0, 100) });
 };
 
-export const config = { path: ["/api/order", "/api/order/cancel"] };
+export const config = { path: ["/api/order", "/api/order/cancel", "/api/order/confirm"] };
