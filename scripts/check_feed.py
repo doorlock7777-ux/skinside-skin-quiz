@@ -13,10 +13,10 @@ with sync_playwright() as p:
     if [t.strip() for t in tabs] != ["스토어", "피부 진단", "후기", "장바구니", "내 정보"]: err.append("하단 메뉴가 달라요: %s" % tabs)
     # 로그인 전: 후기 탭은 로그인 안내
     pg.click(".tabs a:has-text('후기')"); pg.wait_for_timeout(400)
-    if pg.locator(".fd").count(): err.append("로그인 전인데 후기가 보여요")
+    if pg.locator(".fdp").count(): err.append("로그인 전인데 후기가 보여요")
     pg.click("text=네이버로 시작하기 (데모)"); pg.wait_for_timeout(900)
-    if pg.locator(".fd").count() != 3: err.append("후기 3개가 안 보여요: %d" % pg.locator(".fd").count())
-    first = pg.locator(".fd").first
+    if pg.locator(".fdp").count() != 3: err.append("후기 3개가 안 보여요: %d" % pg.locator(".fdp").count())
+    first = pg.locator(".fdp").first
     if "성실리뷰어" not in first.inner_text(): err.append("성실리뷰어 뱃지가 안 보여요")
     if first.locator(".fd-a button").all_inner_texts()[-1].strip() != "구매하기": err.append("구매하기 버튼이 없어요")
     # 글이 먼저: 본문이 제품 카드보다 위

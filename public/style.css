@@ -177,10 +177,10 @@ label.f{display:block;font-size:13px;color:var(--mute);font-weight:600;margin:14
 
 /* 후기 피드 */
 .fd-write{display:inline-block;margin-top:10px;font-weight:700;font-size:14px;color:var(--pri)}
-.fd{background:#fff;margin:0 0 10px;padding:16px 20px 8px}
+.fdp{background:#fff;margin:0 0 10px;padding:16px 20px 8px}
 .fd-h{display:flex;gap:10px;align-items:center}
-.fd .av{width:38px;height:38px;border-radius:50%;background:var(--pri-soft);color:var(--pri);font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
-.fd .who{flex:1;min-width:0}.fd .who b{font-size:15px;display:block}.fd .who span{font-size:12.5px;color:var(--mute)}.fd .who em{font-style:normal;color:var(--pri);font-weight:800}
+.fdp .av{width:38px;height:38px;border-radius:50%;background:var(--pri-soft);color:var(--pri);font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+.fdp .who{flex:1;min-width:0}.fdp .who b{font-size:15px;display:block}.fdp .who span{font-size:12.5px;color:var(--mute)}.fdp .who em{font-style:normal;color:var(--pri);font-weight:800}
 .bdg{display:inline-block;font-style:normal;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,#4E57A2,#7b6fd0);border-radius:999px;padding:2px 8px;margin-left:4px;vertical-align:1px}
 .fd-rp{border:0;background:none;color:var(--mute);font:inherit;font-size:12.5px;padding:6px}
 .fd-t{margin:12px 0 10px;font-size:16px;line-height:1.6;white-space:pre-wrap;word-break:break-word}

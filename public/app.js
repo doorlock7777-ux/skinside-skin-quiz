@@ -431,7 +431,7 @@ var FD = {items:[], page:1, more:false, focus:""};
 function fdAgo(iso){ var m = Math.floor((Date.now() - new Date(iso).getTime()) / 6e4); if(m < 1) return "방금 전"; if(m < 60) return m + "분 전"; if(m < 1440) return Math.floor(m / 60) + "시간 전"; if(m < 43200) return Math.floor(m / 1440) + "일 전"; return kdate(iso); }
 function fdPost(r){
   var ph = (r.photos || []).slice(0, 3);
-  return '<article class="fd" data-fid="' + esc(r.id) + '"><div class="fd-h"><div class="av">' + esc((r.userName || "?").charAt(0)) + '</div><div class="who"><b>' + esc(r.userName) + (r.badge ? ' <i class="bdg">성실리뷰어</i>' : '') + '</b><span>' + fdAgo(r.createdAt) + ' · ' + stars(r.rating) + (r.best ? ' · <em>베스트</em>' : '') + '</span></div>' + (r.mine ? '' : '<button type="button" class="fd-rp" data-frp="' + esc(r.id) + '">신고</button>') + '</div>'
+  return '<article class="fdp" data-fid="' + esc(r.id) + '"><div class="fd-h"><div class="av">' + esc((r.userName || "?").charAt(0)) + '</div><div class="who"><b>' + esc(r.userName) + (r.badge ? ' <i class="bdg">성실리뷰어</i>' : '') + '</b><span>' + fdAgo(r.createdAt) + ' · ' + stars(r.rating) + (r.best ? ' · <em>베스트</em>' : '') + '</span></div>' + (r.mine ? '' : '<button type="button" class="fd-rp" data-frp="' + esc(r.id) + '">신고</button>') + '</div>'
     + '<p class="fd-t">' + esc(r.text) + '</p>'
     + (ph.length ? '<div class="fd-ph n' + ph.length + '">' + ph.map(function(u){ return '<img src="' + esc(u) + '" alt="후기 사진" loading="lazy">'; }).join("") + '</div>' : '')
     + '<a class="fd-p" href="#/p/' + esc(r.productId) + '"><div class="im">' + (r.img ? '<img src="' + esc(r.img) + '" alt="">' : '') + '</div><div><span>' + esc(r.brandName) + '</span><b>' + esc(r.productName) + '</b><em>' + (r.price ? won(r.price) : '') + '</em></div></a>'
@@ -457,7 +457,7 @@ function fdLoad(){
 function fdPost_(method, url, body){ return fetch(url, {method:method, headers:{"content-type":"application/json"}, body:body ? JSON.stringify(body) : undefined}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || "처리하지 못했어요"); return j; }); }); }
 function fdCommentHtml(c){ return '<div class="cmt" data-cid="' + esc(c.id) + '"><b>' + esc(c.name) + (c.badge ? ' <i class="bdg">성실리뷰어</i>' : '') + '</b><span>' + fdAgo(c.at) + '</span><p>' + esc(c.text) + '</p>' + (c.mine ? '<button type="button" data-fcd="' + esc(c.id) + '">삭제</button>' : '<button type="button" data-fcr="' + esc(c.id) + '">신고</button>') + '</div>'; }
 document.addEventListener("click", function(e){
-  var t = e.target, q = function(sel){ return t.closest && t.closest(sel); }, b, art = q(".fd"), rid = art ? art.dataset.fid : "";
+  var t = e.target, q = function(sel){ return t.closest && t.closest(sel); }, b, art = q(".fdp"), rid = art ? art.dataset.fid : "";
   if(!art) return;
   if((b = q("[data-fl]"))){ if(b.dataset.busy) return; b.dataset.busy = "1"; fdPost_("POST", "/api/feed/like", {id:rid}).then(function(j){ b.classList.toggle("on", j.liked); b.textContent = (j.liked ? "♥" : "♡") + " 좋아요"; art.querySelector("[data-flc]").textContent = "좋아요 " + j.likes; }).catch(function(x){ toast(x.message); }).then(function(){ delete b.dataset.busy; }); return; }
   if((b = q("[data-fs]"))){ var u = (DEMO ? "https://skinside.co.kr/store" : location.origin + "/store") + "#/feed/" + rid; if(navigator.share && !DEMO){ navigator.share({title:"스킨인사이드 후기", url:u}).catch(function(){}); } else { try{ navigator.clipboard.writeText(u).then(function(){ toast("후기 링크를 복사했어요"); }, function(){ toast(u); }); }catch(x){ toast(u); } } return; }
@@ -476,7 +476,7 @@ document.addEventListener("click", function(e){
 });
 document.addEventListener("submit", function(e){
   var f = e.target.closest && e.target.closest("[data-fcf]"); if(!f) return; e.preventDefault();
-  var art = f.closest(".fd"), inp = f.querySelector("input"), v = inp.value.trim(); if(!v) return;
+  var art = f.closest(".fdp"), inp = f.querySelector("input"), v = inp.value.trim(); if(!v) return;
   var bt = f.querySelector("button"); if(bt.disabled) return; bt.disabled = true;
   fdPost_("POST", "/api/feed/comment", {id:art.dataset.fid, text:v}).then(function(j){ var l = art.querySelector("[data-fcl]"); if(!l.querySelector(".cmt")) l.innerHTML = ""; l.insertAdjacentHTML("beforeend", fdCommentHtml({id:j.comment.id, name:j.comment.name, text:j.comment.text, at:j.comment.at, mine:true})); inp.value = ""; var n = art.querySelector("[data-fcc]"); n.textContent = "댓글 " + ((parseInt(n.textContent.replace(/\D/g, ""), 10) || 0) + 1); }).catch(function(x){ toast(x.message); }).then(function(){ bt.disabled = false; });
 });
